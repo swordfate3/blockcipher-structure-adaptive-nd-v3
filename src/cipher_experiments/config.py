@@ -22,6 +22,10 @@ class ExperimentConfig:
     rounds: int = 3
     target_bit: int = 0
     hidden_width: int = 32
+    model_features: str = "full"
+    prediction_mode: str = "direct"
+    label_mode: str = "cipher"
+    null_seed: int = 191302
     batch_size: int = 16
     epochs: int = 2
     learning_rate: float = 0.001
@@ -47,12 +51,30 @@ class ExperimentConfig:
             raise ValueError("dataset must be synthetic, simon or differential")
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
+        if self.model_features not in ("full", "support"):
+            raise ValueError("model_features must be full or support")
+        if self.prediction_mode not in ("direct", "public-residual"):
+            raise ValueError("prediction_mode must be direct or public-residual")
+        if self.label_mode not in ("cipher", "null"):
+            raise ValueError("label_mode must be cipher or null")
+        if self.experiment == "innovation1" and (
+                self.model_features != "full" or self.prediction_mode != "direct"
+                or self.label_mode != "cipher"):
+            raise ValueError("prediction controls do not apply to innovation1")
+        if (self.prediction_mode == "public-residual"
+                and (self.dataset != "simon" or type(self.rounds) is not int
+                     or not 1 <= self.rounds <= 4)):
+            raise ValueError("public-residual requires simon rounds 1..4")
+        if self.model_features == "support" and self.dataset != "simon":
+            raise ValueError("support features require simon")
+        if self.label_mode == "null" and self.dataset != "simon":
+            raise ValueError("null labels require simon")
         bounds = {"train_rows": (1, 1_000_000), "dev_rows": (1, 1_000_000),
                   "test_rows": (1, 1_000_000), "rounds": (1, 44), "target_bit": (0, 63),
                   "hidden_width": (1, 4096), "batch_size": (1, 65536),
                   "epochs": (1, 10000), "max_seconds": (1, 86400),
                   "data_seed": (0, 2**32 - 1), "key_seed": (0, 2**32 - 1),
-                  "init_seed": (0, 2**32 - 1)}
+                  "init_seed": (0, 2**32 - 1), "null_seed": (0, 2**32 - 1)}
         for name, (low, high) in bounds.items():
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:

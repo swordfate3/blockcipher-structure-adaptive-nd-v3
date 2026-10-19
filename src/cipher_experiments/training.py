@@ -14,7 +14,7 @@ from torch import Tensor, nn
 from .artifacts import append_progress, file_sha256, git_identity, source_identity, write_json
 from .config import ExperimentConfig
 from .evaluation import CHECKPOINT_SCHEMA, evaluate_model, load_checkpoint
-from .models.mlp import BitMLP
+from .models.prediction import PlaintextPredictor, public_reference
 
 
 def device_for(name: str) -> torch.device:
@@ -28,14 +28,34 @@ def device_for(name: str) -> torch.device:
 
 
 def datasets(config: ExperimentConfig) -> dict[str, tuple[Tensor, Tensor]]:
-    if config.dataset == "synthetic":
-        from .data.synthetic import make_synthetic
-        return make_synthetic(config.train_rows, config.dev_rows, config.test_rows,
-                              seed=config.data_seed)
-    from .data.simon import make_simon
-    return make_simon(config.train_rows, config.dev_rows, config.test_rows,
-                      seed=config.data_seed, key_seed=config.key_seed,
-                      rounds=config.rounds, target_bit=config.target_bit)
+    # Explicit evaluate capability: this helper materializes all labels on request.
+    inputs = input_panels(config)
+    return {split: (x, labels_for(config, x, split)) for split, x in inputs.items()}
+
+
+def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
+    from .data.prediction import make_inputs
+    return make_inputs(config.train_rows, config.dev_rows, config.test_rows, seed=config.data_seed)
+
+
+def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
+    from .data.prediction import make_labels
+    return make_labels(x, dataset=config.dataset, rounds=config.rounds,
+                       target_bit=config.target_bit,
+                       key_seed=config.key_seed, label_mode=config.label_mode,
+                       null_seed=config.null_seed, split=split)
+
+
+def reference_panels(config: ExperimentConfig, inputs: dict[str, Tensor]) -> dict[str, Tensor]:
+    if config.dataset == "simon" and config.rounds <= 4:
+        return {s: public_reference(x, config.rounds, config.target_bit) for s, x in inputs.items()}
+    return {}
+
+
+def baseline_parameters(labels: Tensor, reference: Tensor | None) -> tuple[int, float]:
+    residual = labels if reference is None else (labels != reference).float()
+    ones = int(residual.sum())
+    return int(2 * ones > len(labels)), (ones + .5) / (len(labels) + 1)
 
 
 def _save_checkpoint(path: Path, model: nn.Module, config: ExperimentConfig,
@@ -51,6 +71,8 @@ def _save_checkpoint(path: Path, model: nn.Module, config: ExperimentConfig,
 
 
 def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
+    if config.experiment != "prediction":
+        raise ValueError("prediction train requires experiment=prediction")
     # Validate environment before claiming a new run directory.
     device = device_for(config.device)
     output.mkdir(parents=True, exist_ok=False)
@@ -67,7 +89,9 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "environment": {"python": platform.python_version(), "torch": str(torch.__version__),
                         "device": str(device), "cuda": torch.version.cuda},
         "timeout_policy": "cooperative between batches; not a hard process/GPU deadline",
-        "test_policy": "prebuilt split; evaluated only after DEV selection, not sealed confirm",
+        "test_policy": "TEST labels after selected load; no access-enforced sealed confirm",
+        "label_mode": config.label_mode, "model_features": config.model_features,
+        "prediction_mode": config.prediction_mode,
         "experiment_kind": "synthetic-engineering" if config.dataset == "synthetic"
                            else "simon-output-bit-baseline"})
 
@@ -80,20 +104,32 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         if device.type == "cuda":
             torch.cuda.manual_seed_all(config.init_seed)
         torch.set_num_threads(1)
-        panels = datasets(config)
+        inputs = input_panels(config)
+        panels = {split: (inputs[split], labels_for(config, inputs[split], split))
+                  for split in ("train", "dev")}
+        references = reference_panels(config, inputs)
         deadline()
         panel_sha: dict[str, Any] = {}
-        for split, (x, y) in panels.items():
-            import hashlib
-            panel_sha[split] = {"rows": len(y), "x_sha256": hashlib.sha256(
-                x.contiguous().numpy().tobytes()).hexdigest(), "y_sha256": hashlib.sha256(
-                y.contiguous().numpy().tobytes()).hexdigest()}
+        import hashlib
+        for split, x in inputs.items():
+            panel_sha[split] = {"rows": len(x), "x_sha256": hashlib.sha256(
+                x.contiguous().numpy().tobytes()).hexdigest()}
         write_json(output / "data.json", panel_sha)
         x_train, y_train = panels["train"]
         ones = int(y_train.sum())
         majority = int(2 * ones > len(y_train))
         probability = (ones + .5) / (len(y_train) + 1)
-        model = BitMLP(config.hidden_width).to(device)
+        residual_majority, residual_probability = baseline_parameters(
+            y_train, references.get("train"))
+        model = PlaintextPredictor(config.hidden_width, rounds=config.rounds,
+                                   target_bit=config.target_bit, feature_mode=config.model_features,
+                                   prediction_mode=config.prediction_mode).to(device)
+        initial_sha = hashlib.sha256(b"".join(
+            name.encode() + value.detach().cpu().contiguous().numpy().tobytes()
+            for name, value in model.state_dict().items())).hexdigest()
+        write_json(output / "initialization.json", {
+            "state_sha256": initial_sha, "features": list(model.indices.cpu().tolist()),
+            "parameters": sum(p.numel() for p in model.parameters())})
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
         shuffle = torch.Generator(device="cpu").manual_seed(config.data_seed + 1)
         best = math.inf
@@ -120,7 +156,9 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
             deadline()
             dev = evaluate_model(model, *panels["dev"], device=device,
                                  batch_size=config.batch_size, majority=majority,
-                                 probability=probability)
+                                 probability=probability, reference=references.get("dev"),
+                                 residual_majority=residual_majority,
+                                 residual_probability=residual_probability)
             if dev["bce"] < best:
                 best, selected_epoch = dev["bce"], epoch
                 _save_checkpoint(output / "best.pt", model, config, epoch, updates,
@@ -139,14 +177,28 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                          majority, probability)
         best_path = output / "best.pt"
         selected, _, _, _ = load_checkpoint(best_path, file_sha256(best_path), device=device)
+        write_json(output / "selection.json", {
+            "epoch": selected_epoch, "checkpoint_sha256": file_sha256(best_path),
+            "test_labels_generated": False})
+        # No TEST labels have been requested by this training path before this point.
+        panels["test"] = (inputs["test"], labels_for(config, inputs["test"], "test"))
+        for split, (_, y) in panels.items():
+            panel_sha[split]["y_sha256"] = hashlib.sha256(
+                y.contiguous().numpy().tobytes()).hexdigest()
+        write_json(output / "data.json", panel_sha)
         metrics = {split: evaluate_model(selected, *panels[split], device=device,
                                         batch_size=config.batch_size, majority=majority,
-                                        probability=probability)
+                                        probability=probability, reference=references.get(split),
+                                        residual_majority=residual_majority,
+                                        residual_probability=residual_probability)
                    for split in ("train", "dev", "test")}
         deadline()
         result = {"schema": "cipher-experiments-result-v1", "status": "completed",
                   "name": config.name, "dataset": config.dataset,
                   "config_sha256": config.sha256(), "updates": updates,
+                  "model_features": config.model_features,
+                  "prediction_mode": config.prediction_mode,
+                  "label_mode": config.label_mode, "initial_state_sha256": initial_sha,
                   "presentations": presentations, "selected_epoch": selected_epoch,
                   "metrics": metrics, "best_checkpoint": "best.pt",
                   "best_checkpoint_sha256": file_sha256(best_path),

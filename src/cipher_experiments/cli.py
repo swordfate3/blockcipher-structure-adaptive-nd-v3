@@ -54,11 +54,18 @@ def main(argv: list[str] | None = None) -> int:
             model, config, majority, probability = load_checkpoint(
                 args.checkpoint, args.sha256, device=device)
             args.output.mkdir(parents=True, exist_ok=False)
-            metrics = evaluate_model(model, *datasets(config)["test"], device=device,
-                                     batch_size=config.batch_size,
-                                     majority=majority, probability=probability)
+            from .training import baseline_parameters, reference_panels
+            panels = datasets(config)
+            refs = reference_panels(config, {s: x for s, (x, _) in panels.items()})
+            residual_bit, residual_p = baseline_parameters(panels["train"][1], refs.get("train"))
+            metrics = evaluate_model(model, *panels["test"], device=device,
+                                     batch_size=config.batch_size, majority=majority,
+                                     probability=probability, reference=refs.get("test"),
+                                     residual_majority=residual_bit,
+                                     residual_probability=residual_p)
             result = {"checkpoint_sha256": args.sha256, "split": "test",
-                      "config_sha256": config.sha256(), "metrics": metrics,
+                      "config_sha256": model.checkpoint_config_sha256,
+                      "resolved_config_sha256": config.sha256(), "metrics": metrics,
                       "note": "explicit evaluation regenerates configured test data"}
             write_json(args.output / "evaluation.json", result)
             print(json.dumps(result, indent=2))

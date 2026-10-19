@@ -15,7 +15,9 @@ artifacts → Python标准库
 - `evaluation.py`：绝对位ACC/BCE、TRAIN多数/概率基线、SHA绑定严格checkpoint加载；不导入training。
 - `artifacts.py`：JSON/进度/字节SHA/源码身份；Git查询只用于可选身份记录，不同步/提交代码。
 - `data/`：无重复明文划分；synthetic用于工程，simon是真实密码单bit标签。key不进入模型。
-- `models/`：明文64位MLP，不依赖cipher/data/config/runner。
+- `models/`：明文MLP及`prediction.py`公开依赖位/零主密钥参考；不依赖cipher/data/config/runner。
+- `data/prediction.py`：无标签唯一明文与按split请求的真实/null标签分离；训练严格加载选中模型后才请求TEST标签。
+  基线仅用TRAIN拟合；显式evaluate独立重建数据。
 - `ciphers/`：纯标量SIMON算法与KAT，不依赖Torch或实验代码。
 
 `innovation1.py`组装独立四任务分类训练，与位预测`training.py`平行；共享配置、保存工具和统一CLI，
@@ -25,4 +27,5 @@ artifacts → Python标准库
 范围：一个同步本机实验入口。不包含SSH启动、通用工作流、插件注册、HTTP后端、数据库、自动调度或旧审批流程。
 不迁移旧runner、旧环境配置和批次产物。算法提取记录在`docs/provenance.json`。
 
-限制：协作超时不等于硬截止；全部split数据预建但TEST仅选模后评分；没有sealedconfirm、resume、跨key统计或GPU现场验收声明。扩展从实际需求出发，不预建多层空目录。
+限制：协作超时不等于硬截止；创新2预建明文、选模后生成TEST标签，创新1仍预建split标签；
+没有访问强制的sealedconfirm、resume、跨key统计或GPU现场验收声明。扩展从实际需求出发，不预建多层空目录。

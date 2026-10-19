@@ -11,15 +11,20 @@ from torch import Tensor, nn
 class BitMLP(nn.Module):
     """Map binary 64-bit observations to one logit per row."""
 
-    def __init__(self, hidden_width: int = 64) -> None:
+    def __init__(self, hidden_width: int = 64, *, input_width: int = 64) -> None:
         super().__init__()
         if type(hidden_width) is not int:
             raise TypeError("hidden_width must be a built-in int")
         if not 1 <= hidden_width <= 4096:
             raise ValueError("hidden_width must be between 1 and 4096")
+        if type(input_width) is not int:
+            raise TypeError("input_width must be a built-in int")
+        if not 1 <= input_width <= 64:
+            raise ValueError("input_width must be between 1 and 64")
         self.hidden_width = hidden_width
+        self.input_width = input_width
         self.layers = nn.Sequential(
-            nn.Linear(64, hidden_width),
+            nn.Linear(input_width, hidden_width),
             nn.ReLU(),
             nn.Linear(hidden_width, hidden_width),
             nn.ReLU(),
@@ -29,8 +34,9 @@ class BitMLP(nn.Module):
     def forward(self, inputs: Tensor) -> Tensor:
         if not isinstance(inputs, Tensor):
             raise TypeError("inputs must be a torch.Tensor")
-        if inputs.ndim != 2 or inputs.shape[0] < 1 or inputs.shape[1] != 64:
-            raise ValueError("inputs must have nonempty shape [N,64]")
+        if (inputs.layout != torch.strided or inputs.ndim != 2
+                or inputs.shape[0] < 1 or inputs.shape[1] != self.input_width):
+            raise ValueError(f"inputs must have nonempty shape [N,{self.input_width}]")
         if inputs.dtype != torch.float32:
             raise TypeError("inputs must have dtype torch.float32")
         if inputs.device != next(self.parameters()).device:

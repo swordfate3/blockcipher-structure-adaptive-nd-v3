@@ -16,6 +16,8 @@ description: 开发、测试或解释本项目密码实验后端时使用，包�
 - 创新1：每decision恰4pair/组内同key，负类独立随机明文的真实加密；router只读public13。
   四任务SIMECK64r16Δ40/PRESENT80r7ΔD00000/SIMON64r13Δ40/SKINNY64r8Δ2000。
 - 创新2：输入明文、输出单bit，不能把创新1分类准确率混作位预测。两分支来源/指标分开报告。
+  支持full/support输入、direct/public-residual（SIMON1..4轮）与null对照；support是保守依赖集合。
+  `configs/innovation2/`五份是未执行GPU候选，不是smoke或训练授权；合同见`docs/INNOVATION2-PREDICTION.md`。
 - 模型与密码算法不依赖训练或CLI；禁止import backup/旧运行包。必要算法提取记录commit/原路径/SHA/修改。
 
 ## 开发闭环
@@ -35,6 +37,7 @@ description: 开发、测试或解释本项目密码实验后端时使用，包�
 ## 保存结果
 
 报告实际更新、分任务样本/ACC/BCE、选模epoch、退出、SHA及路径，区分失败/未知与成功。
-TEST当前预建、最后评分，不称sealedconfirm。新初始化无教师，不称旧M_reinit复现或SOTA。
+创新2预建明文、严格加载DEV选中checkpoint后才生成TEST标签；创新1仍预建标签，均不称sealedconfirm。
+新初始化无教师，不称旧M_reinit复现或SOTA。
 取回远端结果只核文件SHA/源码配置身份/计数/退出；不自动本地重算指标、标签或模型前向。
 显式evaluate是单独用户动作，不要加到默认取回验收链。

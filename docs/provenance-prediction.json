@@ -1,0 +1,21 @@
+{
+  "plaintext_prediction_model": {
+    "origin": "new standalone plaintext predictor with optional conservative structural support features and public zero-master residual logits",
+    "reference_basis": {
+      "original_path": "src/cipher_output_prediction/bit_public_residual.py",
+      "source_commit": "002181d71c9e774c4620d338fe00ba6a0039be4c",
+      "sha256": "d0e1a298ccb7ba5a38bce9fd0068cd46207a16c14dbc3989d7def21c8cb6df6d",
+      "access": "read-only backup review; no runtime import or wholesale code copy",
+      "algorithm": "SIMON64 state recurrence x_next = y XOR (ROL1(x) AND ROL8(x)) XOR ROL2(x); zero-master-key first four round keys are zero; absolute residual logit = (1-2g)*z"
+    },
+    "support_features": {
+      "algorithm": "backward set propagation through the public plaintext recurrence, unioning dependencies of XOR and AND inputs; conservative overapproximation because algebraic cancellations are not removed; no labels, key, or data access",
+      "round_range": "1..44",
+      "bit_order": "64-bit MSB-first; x positions 0..31 and y positions 32..63"
+    },
+    "implementation": "src/cipher_experiments/models/prediction.py; independent Torch bitwise/Boolean-float recurrence and predictor subclassing BitMLP",
+    "validation_oracle": "synthetic unit tests compare public rounds 1..4 with this repository's scalar SIMON64/128 encryption at zero key and exercise support invariance using synthetic random keys",
+    "dependencies": "torch and the local BitMLP only; no cipher/data/config/training/key dependency in production model module",
+    "scientific_training_or_formal_label_runs": 0
+  }
+}

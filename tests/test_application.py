@@ -62,7 +62,7 @@ def test_failure_writes_exit_and_traceback(
     import cipher_experiments.training as training
     def fail(_: ExperimentConfig) -> None:
         raise RuntimeError("synthetic data fixture failure")
-    monkeypatch.setattr(training, "datasets", fail)
+    monkeypatch.setattr(training, "input_panels", fail)
     output = tmp_path / "failed"
     with pytest.raises(RuntimeError, match="fixture"):
         train(tiny_config(), output)

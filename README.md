@@ -122,6 +122,13 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 仓库：https://github.com/swordfate3/blockcipher-structure-adaptive-nd-v3 。
 没有自动push、Webhook、CI runner或常驻服务。
 
+## 创新2：单密文位预测
+
+除原64位MLP外，已支持SIMON公开依赖位输入与1..4轮零主密钥参考残差预测；
+附带独立随机标签null对照和TRAIN-only公开参考常量基线。
+`configs/innovation2/`的五份GPU候选配方**尚未执行或现场验收**，不属于合成smoke，不能默认启动。
+数据/模型合同、TEST标签时序、示例命令与限制见[创新2说明](docs/INNOVATION2-PREDICTION.md)。
+
 ## 本项目skills
 
 `.pi/skills/cipher-experiment-development/`规范开发、创新1/2合同与验证；

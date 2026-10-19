@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import platform
 import time
@@ -209,7 +210,9 @@ def evaluate_checkpoint(path: Path, sha256: str, device_name: str, output: Path)
     if payload.get("schema") != SCHEMA:
         raise ValueError("not an innovation1 checkpoint")
     config = ExperimentConfig(**payload["config"])
-    if config.sha256() != payload["config_sha256"] or config.experiment != "innovation1":
+    raw_sha = hashlib.sha256(json.dumps(payload["config"], sort_keys=True,
+                                        allow_nan=False).encode()).hexdigest()
+    if raw_sha != payload["config_sha256"] or config.experiment != "innovation1":
         raise ValueError("checkpoint config mismatch")
     device = device_for(device_name)
     model = SharedDistinguisher(ModelConfig()).to(device)

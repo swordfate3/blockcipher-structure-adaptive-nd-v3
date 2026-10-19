@@ -1,6 +1,7 @@
 """Bounded real shared-M plumbing, not formal experimental quality."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -27,6 +28,15 @@ def test_shared_m_four_task_training_checkpoint_and_evaluation(tmp_path: Path) -
     assert manifest["parameters"] == 1087509
     checkpoint = tmp_path / "run/best.pt"
     evaluate_checkpoint(checkpoint, file_sha256(checkpoint), "cpu", tmp_path / "eval")
+    # Additive prediction defaults must not invalidate old shared-M identities.
+    old = torch.load(checkpoint, weights_only=True, map_location="cpu")
+    for field in ("model_features", "prediction_mode", "label_mode", "null_seed"):
+        old["config"].pop(field)
+    old["config_sha256"] = hashlib.sha256(json.dumps(
+        old["config"], sort_keys=True).encode()).hexdigest()
+    old_path = tmp_path / "old.pt"
+    torch.save(old, old_path)
+    evaluate_checkpoint(old_path, file_sha256(old_path), "cpu", tmp_path / "old-eval")
     # Invalid but SHA-bound states must fail before data generation/forward.
     for mutation in ("dtype", "nan"):
         saved = torch.load(checkpoint, weights_only=True, map_location="cpu")
