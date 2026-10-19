@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     item.add_argument("--sha256", required=True)
     item.add_argument("--device", default="cpu", choices=("cpu", "cuda:0", "cuda:1"))
     item.add_argument("--output", type=Path, required=True)
+    item.add_argument("--experiment", default="prediction", choices=("prediction", "innovation1"))
     args = parser.parse_args(argv)
     try:
         from .artifacts import write_json
@@ -36,9 +37,18 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 if args.output.exists():
                     raise FileExistsError(f"output already exists: {args.output}")
-                result = train(config, args.output)
+                if config.experiment == "innovation1":
+                    from .innovation1 import train as train_shared_m
+                    result = train_shared_m(config, args.output)
+                else:
+                    result = train(config, args.output)
                 print(json.dumps(result, indent=2))
         else:
+            if args.experiment == "innovation1":
+                from .innovation1 import evaluate_checkpoint
+                result = evaluate_checkpoint(args.checkpoint, args.sha256, args.device, args.output)
+                print(json.dumps(result, indent=2))
+                return 0
             from .evaluation import evaluate_model, load_checkpoint
             device = device_for(args.device)
             model, config, majority, probability = load_checkpoint(

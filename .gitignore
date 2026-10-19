@@ -3,6 +3,9 @@
 /.pi-attachments/
 /.venv/
 /runs/
+/outputs/
+/results/
+/downloads/
 /validation/
 __pycache__/
 *.py[cod]

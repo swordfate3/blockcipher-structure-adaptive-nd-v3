@@ -2,7 +2,8 @@
 
 一个在**当前机器直接运行**的 Python 密码实验后端。Git负责代码版本，训练程序不调用SSH、Git同步或远程调度；本地和Windows训练机使用相同入口。
 
-首版提供合成启动检查与 SIMON64/128 单输出位 MLP 基线。**不是旧实验复现，也不承诺任何准确率。**
+提供创新2合成启动检查与SIMON64/128单输出位MLP基线，以及创新1四任务shared-M小训练入口。
+**不是旧实验复现，也不承诺任何准确率。**
 
 ## 1. 安装
 
@@ -63,6 +64,30 @@ uv run cipher-experiments train --config configs/simon-baseline.json --output ru
 - TEST数据当前预先生成，不是封存confirm协议。不要据此宣称已复现旧实验验收或独立确认。
 - 不读取旧`outputs/`、聊天记录、审批卡、历史权重或机器专属路径。
 
+## 创新1：四任务shared-M训练
+
+```bash
+uv run cipher-experiments check --config configs/innovation1-smoke.json
+uv run cipher-experiments train --config configs/innovation1-smoke.json --output runs/innovation1-001
+```
+
+当前机器已有环境可加`uv run --no-sync`；未重新安装的开发源码也可用
+`PYTHONPATH=src .venv/bin/python -m cipher_experiments.cli ...`（Windows使用安装后的CLI）。
+
+- 一个共享模型，1,087,509参数，public13/top-2路由；路由不读密文、标签、key或专家预测。
+- SIMECK64r16/Δ0x40、PRESENT80r7/Δ0xD00000、SIMON64r13/Δ0x40、SKINNY64r8/Δ0x2000。
+- 每decision严格4pair、组内同key；负类为独立随机明文真实加密，不生成随机密文负类。
+- `train_rows/dev_rows/test_rows`在此表示**每任务group数**，不是单明文数。
+  小配置每任务2/2/2、batch2、1epoch；总4次更新，每任务1次，8个group训练呈现。
+- `rounds/target_bit/key_seed/hidden_width`是位预测配置字段；创新1任务、模型宽度和组内key生成
+  由固定四任务卡与`data_seed`决定，这些位预测字段不用于改变创新1模型/任务。
+- 每epoch四任务平均DEV BCE选一个joint bestcheckpoint，最后逐任务报告TEST ACC/BCE。
+  不加载历史权重，不称M_reinit或历史大实验复现；这份小配置只验证功能，不用于科研质量判断。
+- 显式评估增加`--experiment innovation1`，同样需要实际checkpoint SHA：
+  `cipher-experiments evaluate --experiment innovation1 --checkpoint <best.pt> --sha256 <SHA> --output runs/i1-eval`。
+
+执行记录见[创新1小训练验证](docs/INNOVATION1-TRAINING.md)。
+
 ## 4. 显式checkpoint评估
 
 从`results.json`读取`best_checkpoint_sha256`：
@@ -75,12 +100,34 @@ uv run cipher-experiments evaluate --checkpoint runs/first-smoke/best.pt --sha25
 
 ## 5. Git与训练机
 
-1. 本地开发、测试，人工提交并推送确定commit。
-2. 训练机人工fetch并检出该commit，确认工作区状态；不要在训练中pull修改源码。
-3. 在训练机本机终端执行上述`train`命令。关闭终端可能终止训练；没有断线存活承诺。
-4. 完成后通过SSH/SCP等文件传输工具取回对应run目录；训练入口本身不使用SSH。
+1. **本地开发机**修改代码、测试、commit并push到GitHub。
+2. **远端Windows训练机**只fetch并检出指定commit，确认工作区状态；不要在训练中pull修改源码。
+3. 在训练机本机终端执行上述`train`命令，统一将结果写入仓库内的`runs/<run-id>/`。
+   关闭终端可能终止训练；没有断线存活承诺。
+4. **本地主动通过SSH/SCP取回**对应run目录，保存到本地`runs/received/<run-id>/`；
+   读取远端已保存的`results.json`和`exit.json`，不自动重新训练、再生标签或重算指标。
 
-Git不存数据、权重、runs、环境或凭据。没有自动push、Webhook、CI runner或服务。新项目未配置远程地址，Git初始化不等于已有发布版本。
+**远端Windows不负责commit或push到GitHub，也不通过Git回传结果。**
+代码同步和结果传输是两条独立通道：
+
+```text
+本地代码 → GitHub → Windows检出指定commit
+Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
+```
+
+`runs/`及备用产物目录`outputs/`、`results/`、`downloads/`均在`.gitignore`内；
+备份、环境、权重和凭据也不纳入Git。CLI的`--output`可以指定其他路径，但发布流程统一使用`runs/`；
+若另选仓库内目录，必须先补充忽略规则，不要执行无差别`git add .`。
+
+仓库：https://github.com/swordfate3/blockcipher-structure-adaptive-nd-v3 。
+没有自动push、Webhook、CI runner或常驻服务。
+
+## 本项目skills
+
+`.pi/skills/cipher-experiment-development/`规范开发、创新1/2合同与验证；
+`.pi/skills/cipher-git-result-workflow/`规范本地发布、Windows只拉取/运行、SSH/SCP只取回结果。
+项目skills按标准目录发现；修改后在Pi执行`/reload`，旧backup skills不再加载。
+skill本身不授予训练/GPU/安装/发布权限，不包含旧审批卡或远端启动器。
 
 ## 开发与验收
 

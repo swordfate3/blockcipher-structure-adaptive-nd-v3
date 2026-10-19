@@ -1,0 +1,79 @@
+{
+  "schema": "cipher-experiments-data-extraction-v1",
+  "origin": {
+    "source_commit": "002181d71c9e774c4620d338fe00ba6a0039be4c",
+    "readonly_source_root": "backups/v3-before-rebuild-20261019/src/shared_m_nd",
+    "policy": "Exact source bytes were hashed before extraction; the backup was read only. No old runtime imports are retained."
+  },
+  "files": {
+    "src/cipher_experiments/ciphers/common.py": {
+      "source": "src/shared_m_nd/ciphers/common.py",
+      "source_sha256": "932698b7aaf395f13e2b54e8b5aad4333e102e963ddaa6d9752e9222416ed401",
+      "modifications": "Copied reviewed rotations; no runtime dependency changes."
+    },
+    "src/cipher_experiments/ciphers/simeck64.py": {
+      "source": "src/shared_m_nd/ciphers/simeck64.py",
+      "source_sha256": "47a677704f84cd6438bd4d3e290ca39c0ac5ef345f97909170002783cefba249",
+      "modifications": "Copied reviewed scalar SIMECK implementation and original provenance headers."
+    },
+    "src/cipher_experiments/ciphers/present80.py": {
+      "source": "src/shared_m_nd/ciphers/present80.py",
+      "source_sha256": "e7e76d5627ec2e819d9f190571442eafa0146c21d84326b82982d4edfbe14b66",
+      "modifications": "Copied reviewed scalar PRESENT implementation and original provenance headers."
+    },
+    "src/cipher_experiments/ciphers/simon64.py": {
+      "source": "src/shared_m_nd/ciphers/simon64.py",
+      "source_sha256": "0c5ef55d61a94f5427b96a00ff739a1d1aa9797ce61cf47ef7cdc6a3993fd3f6",
+      "modifications": "Copied reviewed scalar SIMON64/128 implementation and original provenance headers; independent of existing ciphers/simon.py."
+    },
+    "src/cipher_experiments/ciphers/skinny64.py": {
+      "source": "src/shared_m_nd/ciphers/skinny64.py",
+      "source_sha256": "06ff9f11e276b6fcb5a22ea19792cef2de4ce436f83eb7cc9ef83090e39dd768",
+      "modifications": "Copied reviewed scalar SKINNY implementation and original provenance headers."
+    },
+    "src/cipher_experiments/ciphers/skinny_adapter.py": {
+      "source": "src/shared_m_nd/ciphers/skinny_adapter.py",
+      "source_sha256": "5cb4a29822d6e5197926f0943659ae627ea249417bdca8f6bc24326aa16517d2",
+      "modifications": "Copied the public-only SKINNY transform; it imports Torch, not data keys or model/training code."
+    },
+    "src/cipher_experiments/ciphers/expanded.py": {
+      "source": "src/shared_m_nd/ciphers/expanded.py",
+      "source_sha256": "10bb928637bff3e5473b2db1083850ea9f7b66071d0d0c3efc4111dc27aa18e8",
+      "modifications": "Copied reviewed chunked NumPy encryption for the four supported ciphers."
+    },
+    "src/cipher_experiments/ciphers/tasks.py": {
+      "source": "src/shared_m_nd/tasks.py",
+      "source_sha256": "725a075f6892e5e90bacd80cceebc0f9a458e7ca4275839643cb9ae88049ba33",
+      "modifications": "Copied TaskSpec, public_features, and validate_public; added ordered DEFAULT_TASKS tuple and retained TASKS name lookup for direct task access. Cipher public-feature inputs contain no sample/key data."
+    },
+    "src/cipher_experiments/data/differential.py": {
+      "sources": [
+        {
+          "path": "src/shared_m_nd/data/material.py",
+          "sha256": "ae3d6c745f5721430b18a2476077c0bd9c9b10562ae1c3f1be4a14ef63acb1c5"
+        },
+        {
+          "path": "src/shared_m_nd/data/batch.py",
+          "sha256": "41d7620d92ad8c01c5d6e84c53d6964f6f91558328df7605cc285852d754aba5"
+        },
+        {
+          "path": "src/shared_m_nd/ciphers/expanded.py",
+          "sha256": "10bb928637bff3e5473b2db1083850ea9f7b66071d0d0c3efc4111dc27aa18e8"
+        }
+      ],
+      "modifications": "Composes bounded balanced material generation and four-pair encryption in one independent module; no cipher registry, old package imports, model, or training dependency. Groups are even and capped at 65536; seeds are built-in uint32 values."
+    },
+    "tests/test_differential_data.py": {
+      "source": "backups/v3-before-rebuild-20261019/tests/test_ciphers.py",
+      "source_sha256": "db93bd1626bfd1b7d3bbc45659f43c1e39c6d71937f2c8780b74b2181a600955",
+      "modifications": "Uses a minimal set of reviewed KAT vectors and adds small synthetic differential-data, task API, determinism, shape, balance, and bounds checks; no backup tests are collected or imported."
+    }
+  },
+  "validation_scope": {
+    "formal_cipher_fits": 0,
+    "gpu_usage": 0,
+    "ssh_or_remote_calls": 0,
+    "dependency_installation": 0,
+    "git_commit_or_push": 0
+  }
+}

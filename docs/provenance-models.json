@@ -1,0 +1,37 @@
+{
+  "source_commit": "002181d71c9e774c4620d338fe00ba6a0039be4c",
+  "extraction": "Shared-M pure model components and representations, extracted from the read-only v3-before-rebuild backup. Runtime, runner, data and training modules were not imported or copied.",
+  "files": {
+    "models/config.py": {
+      "original_path": "src/shared_m_nd/models/config.py",
+      "sha256": "465fe7388332d83030f68a65b89d64214ba0124136354bf71d0f4f59cdc18d52",
+      "modifications": "Preserved architecture controls and validation; self-contained model configuration."
+    },
+    "models/components.py": {
+      "original_path": "src/shared_m_nd/models/components.py",
+      "sha256": "099115c6cfef9adabbb1c87f08b86ad622f244b64ceb51eedbf1d49cd3711453",
+      "modifications": "Rebound imports to cipher_experiments model config and neighborhood representation."
+    },
+    "models/router.py": {
+      "original_path": "src/shared_m_nd/models/router.py",
+      "sha256": "61af65be80e06bc2d88173b59f06f010f094423b1a464de71345b8a9c467f22c",
+      "modifications": "Rebound imports to cipher_experiments model config and ciphers.tasks public-card validator."
+    },
+    "models/system.py": {
+      "original_path": "src/shared_m_nd/models/system.py",
+      "sha256": "180516cf61559ffceabb696534bdcf28047e99a2d723b3550bdd6089d10c49d9",
+      "modifications": "Rebound internal imports; removed legacy_state_map and forward_flat compatibility entry points; preserved SharedDistinguisher computation/defaults."
+    },
+    "representations/input.py": {
+      "original_path": "src/shared_m_nd/representations/input.py",
+      "sha256": "7d4ba833dd83c9ce0c226066e149bfe662356fc4a14721e607ab3f87bac20be7",
+      "modifications": "Rebound imports to cipher_experiments.ciphers.skinny_adapter and ciphers.tasks."
+    },
+    "representations/neighborhoods.py": {
+      "original_path": "src/shared_m_nd/representations/neighborhoods.py",
+      "sha256": "d649ed698f773f506264c059a2294145ade6b35ab55e4aedc7d1833657de3370",
+      "modifications": "No algorithm changes; namespaced under cipher_experiments."
+    }
+  },
+  "headers": "Original per-file source headers were retained."
+}

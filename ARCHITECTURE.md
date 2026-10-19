@@ -18,6 +18,10 @@ artifacts → Python标准库
 - `models/`：明文64位MLP，不依赖cipher/data/config/runner。
 - `ciphers/`：纯标量SIMON算法与KAT，不依赖Torch或实验代码。
 
+`innovation1.py`组装独立四任务分类训练，与位预测`training.py`平行；共享配置、保存工具和统一CLI，
+不建立实验继承链。`models/shared_m`及`representations`不依赖数据/训练；
+公共任务结构在`ciphers/tasks.py`，公开卡路由不读密文/key。算法来源分别在provenance子记录。
+
 范围：一个同步本机实验入口。不包含SSH启动、通用工作流、插件注册、HTTP后端、数据库、自动调度或旧审批流程。
 不迁移旧runner、旧环境配置和批次产物。算法提取记录在`docs/provenance.json`。
 

@@ -1,4 +1,11 @@
 {
+  "innovation1_extraction": {
+    "model_records": "docs/provenance-models.json",
+    "data_cipher_records": "docs/provenance-data.json",
+    "source": "backups/v3-before-rebuild-20261019/src/shared_m_nd (read-only source extraction, never runtime import)",
+    "scope": "four-task shared-M algorithms only; no old runner, approvals, weights, optimizer or results",
+    "training": "new local CLI functional training, not historical recipe reproduction"
+  },
   "simon_scalar": {
     "source_commit": "002181d71c9e774c4620d338fe00ba6a0039be4c",
     "original_path": "src/cipher_output_prediction/ciphers/simon64.py",

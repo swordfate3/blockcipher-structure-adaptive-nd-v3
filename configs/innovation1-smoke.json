@@ -1,0 +1,15 @@
+{
+  "name": "innovation1-shared-m-functional-test",
+  "experiment": "innovation1",
+  "dataset": "differential",
+  "train_rows": 2,
+  "dev_rows": 2,
+  "test_rows": 2,
+  "data_seed": 20261019,
+  "init_seed": 17,
+  "batch_size": 2,
+  "epochs": 1,
+  "learning_rate": 0.001,
+  "device": "cpu",
+  "max_seconds": 120
+}

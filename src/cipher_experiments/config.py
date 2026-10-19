@@ -12,6 +12,7 @@ from typing import Any
 class ExperimentConfig:
     name: str
     dataset: str = "synthetic"
+    experiment: str = "prediction"
     train_rows: int = 64
     dev_rows: int = 32
     test_rows: int = 32
@@ -30,8 +31,22 @@ class ExperimentConfig:
     def __post_init__(self) -> None:
         if type(self.name) is not str or not self.name.strip() or len(self.name) > 100:
             raise ValueError("name must be a nonempty string of at most 100 characters")
-        if self.dataset not in ("synthetic", "simon"):
-            raise ValueError("dataset must be synthetic or simon")
+        if self.experiment not in ("prediction", "innovation1"):
+            raise ValueError("experiment must be prediction or innovation1")
+        if self.experiment == "innovation1":
+            if self.dataset != "differential":
+                raise ValueError("innovation1 requires dataset=differential")
+            if any(type(n) is not int or n < 2 or n % 2 for n in (
+                    self.train_rows, self.dev_rows, self.test_rows, self.batch_size)):
+                raise ValueError("innovation1 split groups and batch_size must be positive even")
+            if self.batch_size > self.train_rows or self.train_rows % self.batch_size:
+                raise ValueError("innovation1 batch_size must divide train_rows")
+            if max(self.train_rows, self.dev_rows, self.test_rows) > 65536:
+                raise ValueError("innovation1 groups per task must not exceed 65536")
+        if self.dataset not in ("synthetic", "simon", "differential"):
+            raise ValueError("dataset must be synthetic, simon or differential")
+        if self.experiment == "prediction" and self.dataset == "differential":
+            raise ValueError("differential requires experiment=innovation1")
         bounds = {"train_rows": (1, 1_000_000), "dev_rows": (1, 1_000_000),
                   "test_rows": (1, 1_000_000), "rounds": (1, 44), "target_bit": (0, 63),
                   "hidden_width": (1, 4096), "batch_size": (1, 65536),
