@@ -1,0 +1,18 @@
+{
+  "name": "simon-r3-bit0-mlp-baseline",
+  "dataset": "simon",
+  "rounds": 3,
+  "target_bit": 0,
+  "data_seed": 191301,
+  "key_seed": 190502,
+  "init_seed": 17,
+  "train_rows": 65536,
+  "dev_rows": 8192,
+  "test_rows": 65536,
+  "hidden_width": 114,
+  "batch_size": 256,
+  "epochs": 50,
+  "learning_rate": 0.001,
+  "device": "cuda:0",
+  "max_seconds": 1800
+}

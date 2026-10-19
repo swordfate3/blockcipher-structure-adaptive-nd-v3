@@ -1,0 +1,13 @@
+{
+  "simon_scalar": {
+    "source_commit": "002181d71c9e774c4620d338fe00ba6a0039be4c",
+    "original_path": "src/cipher_output_prediction/ciphers/simon64.py",
+    "sha256": "53fd8f76752ac574a1d0ba37b949512d49db7b856b6238293fddbe698873ba7d",
+    "modifications": "Locally reimplemented scalar SIMON64/128 block encryption and round-key prefix; omitted RoundTrace, trace_simon64, and simulator APIs; no old runtime imports."
+  },
+  "dataset_panel_limitation": {
+    "implementation": "src/cipher_experiments/data/synthetic.py and src/cipher_experiments/data/simon.py",
+    "policy": "The requested make_* API materializes train, dev, and test panels together before the caller trains or selects a model.",
+    "limitation": "The test split is not an audit-equivalent sealed confirm set: generation exposes all panels to the caller at once, and no access-control or evaluation-freeze boundary is implemented."
+  }
+}
