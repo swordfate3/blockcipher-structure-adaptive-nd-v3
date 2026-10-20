@@ -11,7 +11,11 @@
 | 新后端公开残差对照 | 五项GPU实训完成；r3 81.94%，r4 direct50.18%/residual50.02%，null约50% | 旧残差假设终于得到实际测试，本设置不支持其带来突破 |
 | 新后端logic16 | 2026-10-20 r3完整50epochs，TEST49.72%，exit0 | 正控未通过，按门槛停止，后三项r4未启动 |
 | 结构接线人工诊断 | 相同可训练初态/300更新，aligned TEST100%，random48.44% | 仅人工布尔目标，尚非SIMON拟合或轮数推进 |
-| 公开结构＋未知常量学习 | 已实现simon-structure、计算见证/梯度/硬化与null CLI检查 | 未新增真实密码拟合，3/4轮学习能力待验证 |
+| 公开结构＋软未知常量学习 | GPU r1软/硬100%；r3软50.51%/硬49.83%，800更新 | 软梯度r3正控失败，r4未启动 |
+| 公开结构＋硬参数辨识 | CPU r3/r4均TRAIN512、DEV1024、TEST16384全对；r4-null全域无一致模型 | 新后端4轮单bit正结果，仅单key/seed，不是神经成绩或完整key恢复 |
+| 更高轮硬结构SAT | 新面板r5，512TRAIN、Glucose4单次CNF求解UNKNOWN，约132.18秒返回 | 无预测器/无TEST标签/无ACC，r6/null未启动，批次关闭 |
+| 神经STE硬前向首批 | CPU Adam真实800更新/项，r3 TEST100%、r4 TEST74.90%、同面板null49.68% | 单面板正结果，后续未稳定复现 |
+| STE四轮确认 | 新面板原init50.44%、init18 49.77%、init19 50.22%、新key61.91%，BCE均不如常量 | 原门槛未过，5轮真实/null未启动，不能称稳定4轮能力 |
 
 历史事实仅来自只读档案：
 `backups/v3-before-rebuild-20261019/docs/innovation2/`下
@@ -22,8 +26,17 @@
 
 最新推进见[结构接线诊断](INNOVATION2-STRUCTURE-DIAGNOSTIC.md)：先确认接线干预可影响人工目标学习，
 并编译公开SIMON目标位依赖DAG；未新增GPU或密码拟合。
-用户随后明确允许公开结构与未知参数学习，已接入[结构化SIMON候选](INNOVATION2-STRUCTURED-SIMON.md)。
+用户随后明确允许公开结构与未知参数学习，已接入[结构化SIMON候选](INNOVATION2-STRUCTURED-SIMON.md)，
+并完成[首次GPU试训练](INNOVATION2-STRUCTURED-GPU-RESULTS.md)：r1正控通过、r3失败、r4未启动。
 参数类似密钥不等于泄露；禁止的是实际秘密注入，而不是从TRAIN中学习未知效应。
+最新[硬结构参数学习](INNOVATION2-HARD-RESULTS.md)已在新数据上取得r3/r4目标bit0未见TEST100%，
+说明软梯度失败不代表公开结构中找不到有效预测器。r4-null对照无一致模型，原批关闭。
+用户后续授权[5轮硬结构SAT](INNOVATION2-SAT-RESULTS.md)，新批单次返回UNKNOWN，无模型，停止r6/null。
+历史5轮代数正结果与本次CNF未知分开记录。
+用户纠正主线后，差分暂缓，实际[STE梯度学习](INNOVATION2-STE-RESULTS.md)r3 TEST100%、r4 74.90%、null49.68%。
+但[四轮确认](INNOVATION2-STE-CONFIRM-RESULTS.md)未复现该优势：原init新面板50.44%，额外init接近50%，
+新key61.91%但BCE不如常量。5轮探针按门槛未启动；神经STE74.90%只是特定面板结果，
+不能称稳定4轮能力，且与枚举100%不能混报。
 
 ## 已完成候选：真正的16真值表软门
 

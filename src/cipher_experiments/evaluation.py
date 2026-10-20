@@ -14,7 +14,7 @@ from .config import ExperimentConfig
 from .models.circuit import CircuitPredictor
 from .models.logic import LogicPredictor
 from .models.prediction import PlaintextPredictor, build_predictor
-from .models.structured_simon import StructuredSimonPredictor
+from .models.structured_simon import HardSimonPredictor, StructuredSimonPredictor
 
 CHECKPOINT_SCHEMA = "cipher-experiments-checkpoint-v1"
 
@@ -56,11 +56,16 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
             p = torch.where(ref.bool(), 1 - residual_probability, residual_probability).double()
             public_loss += float(torch.nn.functional.binary_cross_entropy(
                 p, targets.double(), reduction="sum"))
+    model_bce = loss / count
     result = {"rows": count, "correct": correct, "accuracy": correct / count,
-              "bce": loss / count,
+              "bce": model_bce,
               "train_constant": {"bit": majority, "probability": probability,
                                  "accuracy": constant_correct / count,
                                  "bce": constant_loss / count}}
+    # Fixed-logit models cannot reach a calibrated BCE floor near zero, so the
+    # gain over each baseline is reported explicitly instead of relying on a raw
+    # BCE comparison between differently scaled predictors.
+    result["bce_gain_vs_train_constant"] = constant_loss / count - model_bce
     if isinstance(model, StructuredSimonPredictor):
         result["hard_constants"] = {"rows": count, "correct": hard_correct,
                                     "accuracy": hard_correct / count, "bce": hard_loss / count}
@@ -68,6 +73,7 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
         result["public_reference_constant"] = {
             "residual_bit": residual_majority, "residual_probability": residual_probability,
             "accuracy": public_correct / count, "bce": public_loss / count}
+        result["bce_gain_vs_public_reference"] = public_loss / count - model_bce
     return result
 
 
@@ -116,6 +122,8 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                 or not bool(torch.isfinite(value).all())):
             raise ValueError(f"checkpoint state mismatch: {key}")
     model.load_state_dict(state, strict=True)
+    if isinstance(model, HardSimonPredictor):
+        model.validate_assignment()
     if isinstance(model, (LogicPredictor, CircuitPredictor)):
         model.validate_wiring()
     model.checkpoint_config_sha256 = raw_sha

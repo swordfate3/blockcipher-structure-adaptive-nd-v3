@@ -1,0 +1,13 @@
+{
+  "hard_simon_fitting": {
+    "implementation": "src/cipher_experiments/fitting/hard_simon.py",
+    "origin": "new stdlib integer-bitparallel TRAIN consistency search over the existing clean public SIMON cone; no archived solver, runner or checkpoint imported",
+    "inputs": "plaintext integers, TRAIN target bits, public rounds/target_bit, cooperative budget",
+    "key_access": "no actual key, key_seed, round-key values or intermediate-state supervision; learned hard constants are permitted unknown parameters",
+    "model": "HardSimonPredictor in models/structured_simon.py, frozen +/-1 state with exact hard Boolean forward",
+    "selection": "first ascending integer assignment with zero TRAIN errors, not best TEST or DEV; TEST generated only after strict reload",
+    "scope": "single output bit and single fixed key; prediction does not establish actual or unique key recovery",
+    "parameterization": "independent symbolic round effects, current CPU enumeration limited to <=24 coordinates and configured rounds1..4",
+    "counts": "zero gradient updates; candidate block coverage and bitparallel row evaluations recorded separately"
+  }
+}

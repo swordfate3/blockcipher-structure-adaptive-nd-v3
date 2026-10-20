@@ -1,0 +1,14 @@
+{
+  "sat_simon_fit": {
+    "implementation": "src/cipher_experiments/fitting/sat_simon.py",
+    "origin": "new local CNF encoding of the clean public output-bit cone, no archived solver, task package, checkpoint or runner imported",
+    "solver": "existing python-sat1.8.dev24 Glucose4; optional dependency extra sat, no installation during this task",
+    "unknowns": "shared symbolic round-effect bits across TRAIN samples only, independent at rounds5+ without full key-schedule constraint",
+    "permitted_inputs": "TRAIN plaintext integers and target bits plus public rounds/target_bit and budget",
+    "secret_boundary": "no actual key, key_seed, roundkey values or trace passed to fitting/model; legitimate sample-based parameter learning allowed",
+    "gates": "AND and XOR exact equivalence CNF, plaintext bits fixed, output fixed to TRAIN target",
+    "single_call": "one interruptible solve_limited; UNKNOWN is no model/no metric, not UNSAT",
+    "freeze": "fitted hard +/-1 checkpoint strictly loaded and TRAIN independently checked before TEST labels",
+    "claims": "single-bit prediction under fixed unknown key, not actual key recovery or neural training"
+  }
+}

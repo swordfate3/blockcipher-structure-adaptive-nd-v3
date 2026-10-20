@@ -12,6 +12,18 @@
     "sha256": "53fd8f76752ac574a1d0ba37b949512d49db7b856b6238293fddbe698873ba7d",
     "modifications": "Locally reimplemented scalar SIMON64/128 block encryption and round-key prefix; omitted RoundTrace, trace_simon64, and simulator APIs; no old runtime imports."
   },
+  "innovation2_ste_simon": {
+    "record": "docs/provenance-ste-simon.json",
+    "scope": "hard Boolean forward with TRAIN-only sigmoid surrogate gradients and Adam; no solver/enumeration/actual key initialization"
+  },
+  "innovation2_sat_simon": {
+    "record": "docs/provenance-sat-simon.json",
+    "scope": "new public DAG CNF, one TRAIN-only Glucose4 fit with cooperative interrupt; no archived solver or actual key injection"
+  },
+  "innovation2_hard_simon": {
+    "record": "docs/provenance-hard-simon.json",
+    "scope": "new TRAIN-only integer-bitparallel unknown-effect fitting; no archived solver/runner or actual secret injection"
+  },
   "innovation2_structured_simon": {
     "record": "docs/provenance-structured-simon.json",
     "scope": "public output-cone model learning unknown constants; allowed structure prior without actual key input, not yet scientifically fitted"

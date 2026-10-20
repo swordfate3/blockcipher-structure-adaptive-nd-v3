@@ -81,7 +81,11 @@ PYTHONPATH=src .venv/bin/python -m cipher_experiments.cli train --config configs
 说明本初态下随深度松弛趋近平坦，**不是梯度为零的普遍定理，也不证明任一轮可/不可学**。
 不因为参数量小就跳过优化正控直接冲6轮。
 
-## 下一批建议（仅准备，未执行/未授权）
+## 首次GPU探针方案（已执行闭环）
+
+下述为执行前制定的方案，现已按用户“推进”实际运行r1/r3；r3失败后r4未启动，批次关闭。
+实际结果及证据见[首次GPU试训练](INNOVATION2-STRUCTURED-GPU-RESULTS.md)。
+以下原始准备记录不代表仍有待执行预算。
 
 `configs/innovation2-structured-proposal/`三份候选：
 
@@ -90,7 +94,7 @@ PYTHONPATH=src .venv/bin/python -m cipher_experiments.cli train --config configs
 3. r4结构模型，仅r3达门槛后推进。
 
 三项均TRAIN4096 / DEV1024 / TEST8192，新data_seed191701、key190502、init17、batch256，
-50epochs、800更新、Adam.01、clip1，cuda:0、各1800秒协作上限，不重试；不是已运行成绩。
+50epochs、800更新、Adam.01、clip1，cuda:0、各1800秒协作上限，不重试；原始固定预算。
 r1门槛建议soft/hard TEST均≥99%且软BCE<0.05；r1公开参考加TRAIN残差常量本就可精确恢复目标，
 因此不把“超过r1公开基线”设为推进条件，也不将r1成功声称为优于基线。
 r3建议soft TEST≥70%且BCE优于两类基线。
@@ -98,4 +102,5 @@ r3建议soft TEST≥70%且BCE优于两类基线。
 这只是单key机制探针，不是多key确认；当前没有相同新面板MLP或null的完整统计矩阵，
 不能凭这三项声称方法优越或普遍有效。若进入后续确认需同期基线和新数据。
 
-本轮无SSH、GPU、正式密码拟合、安装、commit/push；未来执行范围须明确，不继承已关闭批次。
+上文功能开发阶段无SSH/GPU/正式拟合；随后用户授权的执行阶段已发布111adab、远端同步并运行r1/r3，
+无安装，r4未启动。该批现已关闭，不将剩余配置或预算视为继续执行授权。

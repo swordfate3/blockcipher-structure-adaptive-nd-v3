@@ -137,7 +137,18 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 只验证接线干预与局部门训练，不是密码预测轮数突破。
 `model_kind=simon-structure`进一步使用公开SIMON目标位图学习未知常量效应，支持单独报告软/硬化指标；
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
-当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
+[首次GPU试训练](docs/INNOVATION2-STRUCTURED-GPU-RESULTS.md)r1软/硬100%、r3软50.51%/硬49.83%，
+未通过软梯度r3正控，那个GPU批次r4未启动。
+随后[CPU硬结构辨识](docs/INNOVATION2-HARD-RESULTS.md)取得新面板r3/r4目标bit0 TEST16384/16384，
+固定key、512TRAIN标签，仅目标位预测，不是神经训练成绩或全key恢复。
+`model_kind=simon-hard-search`通过同一CLI执行，配置见`configs/innovation2-hard/`，不进行Adam更新。
+回到[STE神经梯度学习](docs/INNOVATION2-STE-RESULTS.md)，硬前向＋Adam训练取得r3 TEST100%、r4 74.90%，
+同输入同初态null49.68%；`model_kind=simon-ste`，配置`configs/innovation2-ste/`。
+[新面板确认](docs/INNOVATION2-STE-CONFIRM-RESULTS.md)原init仅50.44%、额外init接近50%，
+新key61.91%但BCE不如常量，故不能称稳定4轮能力，5轮梯度探针未启动。差分预测暂缓。
+另行记录的[5轮SAT推进](docs/INNOVATION2-SAT-RESULTS.md)单次求解UNKNOWN，无预测器/TEST成绩，r6未启动。
+`model_kind=simon-hard-sat`依赖可选`.[sat]`（新环境可用`uv sync --extra sat --group dev`显式安装）；
+本轮复用已安装python-sat/Glucose4，没有执行安装。缺后端明确失败，不自动下载或切换。
 
 ## 本项目skills
 

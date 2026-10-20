@@ -124,8 +124,13 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor):
     """Explicit small model choices, without experiment config or a registry."""
-    if model_kind == "simon-structure":
-        from .structured_simon import StructuredSimonPredictor
+    if model_kind == "simon-ste":
+        from .ste_simon import STESimonPredictor
+        return STESimonPredictor(rounds=rounds, target_bit=target_bit)
+    if model_kind in ("simon-structure", "simon-hard-search", "simon-hard-sat"):
+        from .structured_simon import HardSimonPredictor, StructuredSimonPredictor
+        if model_kind in ("simon-hard-search", "simon-hard-sat"):
+            return HardSimonPredictor(rounds=rounds, target_bit=target_bit)
         return StructuredSimonPredictor(rounds=rounds, target_bit=target_bit)
     if model_kind in ("circuit-aligned", "circuit-random"):
         from .circuit import CircuitPredictor

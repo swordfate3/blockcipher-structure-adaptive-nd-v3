@@ -31,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in ("check", "train"):
             config = load_config(args.config)
             device_for(config.device)
+            if config.model_kind == "simon-hard-sat":
+                from .fitting.sat_simon import check_sat_backend
+                check_sat_backend()
             if args.command == "check":
                 print(json.dumps({"status": "valid", "config": config.to_dict(),
                                   "config_sha256": config.sha256()}, indent=2))
@@ -40,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
                 if config.experiment == "innovation1":
                     from .innovation1 import train as train_shared_m
                     result = train_shared_m(config, args.output)
+                elif config.model_kind in ("simon-hard-search", "simon-hard-sat"):
+                    from .hard_training import train as train_hard
+                    result = train_hard(config, args.output)
                 else:
                     result = train(config, args.output)
                 print(json.dumps(result, indent=2))

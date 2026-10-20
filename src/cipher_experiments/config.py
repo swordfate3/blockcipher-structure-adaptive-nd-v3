@@ -17,6 +17,7 @@ class ExperimentConfig:
     dev_rows: int = 32
     test_rows: int = 32
     data_seed: int = 1
+    shuffle_seed: int | None = None
     key_seed: int = 2
     init_seed: int = 3
     rounds: int = 3
@@ -53,9 +54,19 @@ class ExperimentConfig:
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
-                                   "simon-structure"):
+                                   "simon-structure", "simon-ste", "simon-hard-search",
+                                   "simon-hard-sat"):
             raise ValueError("unknown prediction model_kind")
-        if self.model_kind == "simon-structure" and (
+        if self.model_kind == "simon-hard-sat" and (
+                self.device != "cpu" or self.epochs != 1 or self.train_rows > 512
+                or type(self.rounds) is not int or not 1 <= self.rounds <= 6):
+            raise ValueError("simon-hard-sat requires cpu, epochs=1, rounds1..6, TRAIN<=512")
+        if self.model_kind == "simon-hard-search" and (
+                self.device != "cpu" or self.epochs != 1
+                or type(self.rounds) is not int or not 1 <= self.rounds <= 4):
+            raise ValueError("simon-hard-search requires cpu, epochs=1, rounds1..4")
+        if self.model_kind in (
+                "simon-structure", "simon-ste", "simon-hard-search", "simon-hard-sat") and (
                 self.dataset != "simon" or self.hidden_width != 64
                 or self.model_features != "full" or self.prediction_mode != "direct"
                 or type(self.rounds) is not int or not 1 <= self.rounds <= 6
@@ -99,6 +110,13 @@ class ExperimentConfig:
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+        # Optional explicit batch-order seed. ``None`` keeps the historical
+        # ``data_seed + 1`` behaviour, so adding this field does not change any
+        # previously recorded configuration SHA.
+        if self.shuffle_seed is not None and (
+                type(self.shuffle_seed) is not int
+                or not 0 <= self.shuffle_seed <= 2**32 - 1):
+            raise ValueError("shuffle_seed must be null or an integer in [0, 2**32-1]")
         if self.model_kind == "logic16" and self.hidden_width < 64:
             raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
         if self.dataset == "circuit-synthetic" and (
@@ -113,7 +131,10 @@ class ExperimentConfig:
             raise ValueError("device must be cpu, cuda:0 or cuda:1; no automatic fallback")
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        values = asdict(self)
+        if values.get("shuffle_seed") is None:
+            values.pop("shuffle_seed")
+        return values
 
     def sha256(self) -> str:
         return hashlib.sha256(json.dumps(self.to_dict(), sort_keys=True,

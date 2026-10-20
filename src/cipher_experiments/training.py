@@ -81,6 +81,8 @@ def _save_checkpoint(path: Path, model: nn.Module, config: ExperimentConfig,
 def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
     if config.experiment != "prediction":
         raise ValueError("prediction train requires experiment=prediction")
+    if config.model_kind in ("simon-hard-search", "simon-hard-sat"):
+        raise ValueError("hard search uses hard_training.train, not Adam training")
     # Validate environment before claiming a new run directory.
     device = device_for(config.device)
     output.mkdir(parents=True, exist_ok=False)
@@ -103,6 +105,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "prediction_mode": config.prediction_mode,
         "experiment_kind": "synthetic-engineering" if config.dataset in (
             "synthetic", "circuit-synthetic")
+                           else "simon-ste-gradient-hard-forward" if (
+                               config.model_kind == "simon-ste")
                            else "simon-structure-unknown-constants" if (
                                config.model_kind == "simon-structure")
                            else "simon-output-bit-baseline"})
@@ -133,6 +137,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         probability = (ones + .5) / (len(y_train) + 1)
         residual_majority, residual_probability = baseline_parameters(
             y_train, references.get("train"))
+        order_seed = (config.data_seed + 1 if config.shuffle_seed is None
+                      else config.shuffle_seed)
         model = build_predictor(config.hidden_width, model_kind=config.model_kind,
                                 rounds=config.rounds,
                                    target_bit=config.target_bit, feature_mode=config.model_features,
@@ -149,16 +155,27 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
             "parameters": sum(p.numel() for p in model.parameters())})
         if isinstance(model, StructuredSimonPredictor):
             write_json(output / "model_metadata.json", {
-                "kind": "simon-structure", "rounds": config.rounds,
+                "kind": config.model_kind, "rounds": config.rounds,
                 "target_bit": config.target_bit,
                 "unknowns": "independent learned round-constant effects; not true key input",
                 "initialization": "random signs and noise from init_seed, no data/key access",
+                "forward": "hard Boolean; logits +/-2" if config.model_kind == "simon-ste"
+                           else "sigmoid soft constants and polynomial AND/XOR relaxation",
+                "backward": "biased sigmoid straight-through at key leaves" if (
+                    config.model_kind == "simon-ste") else "ordinary autograd",
+                "parameter_search": False,
+                "order_seed": order_seed,
+                "order_seed_source": "shuffle_seed or data_seed+1",
+                "score_floor_bce": (math.log1p(math.exp(-2.0))
+                                    if config.model_kind == "simon-ste" else 0.0),
+                "initial_key_logit_scale": 0.05 if config.model_kind == "simon-ste" else 1.0,
                 "key_schedule_constraint": False,
-                "selection": "soft absolute DEV BCE; hard constants report-only",
+                "selection": "hard-forward absolute DEV BCE" if config.model_kind == "simon-ste"
+                             else "soft absolute DEV BCE; hard constants report-only",
                 "gate_counts": model.cone.gate_counts,
                 "symbolic_coordinates": list(model.cone.round_key_coordinates)})
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-        shuffle = torch.Generator(device="cpu").manual_seed(config.data_seed + 1)
+        shuffle = torch.Generator(device="cpu").manual_seed(order_seed)
         best = math.inf
         selected_epoch = 0
         for epoch in range(1, config.epochs + 1):

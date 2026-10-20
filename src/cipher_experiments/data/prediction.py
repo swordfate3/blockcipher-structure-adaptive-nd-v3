@@ -79,6 +79,17 @@ def _null_rng(null_seed: int, split: str) -> random.Random:
     return random.Random(stream_seed)
 
 
+def key_for_seed(key_seed: int) -> int:
+    """Derive the 128-bit data-generation key for one seed.
+
+    Audit tooling may call this to compare learned constants with the true round
+    keys **after** fitting. It must not be used to initialise or constrain a
+    model, and it stays outside the model and fitting packages.
+    """
+    _seed(key_seed, "key_seed")
+    return random.Random(key_seed).getrandbits(128)
+
+
 def make_labels(
     inputs: Tensor,
     *,
@@ -124,7 +135,7 @@ def make_labels(
     if dataset == "synthetic":
         return inputs[:, :1].clone().contiguous()
 
-    key = random.Random(key_seed).getrandbits(128)
+    key = key_for_seed(key_seed)
     mask = 1 << (63 - target_bit)
     labels = torch.empty((rows, 1), dtype=torch.float32)
     for start in range(0, rows, 8192):

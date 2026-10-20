@@ -44,6 +44,15 @@ def _round_keys(key: int, rounds: int) -> tuple[int, ...]:
     return tuple(words[:rounds])
 
 
+def round_keys(key: int, rounds: int) -> tuple[int, ...]:
+    """Public read-only view of the SIMON64/128 round-key prefix.
+
+    Exposed for post-hoc audits that compare a learned constant assignment with
+    the true schedule. It never feeds model construction or training.
+    """
+    return _round_keys(key, rounds)
+
+
 def encrypt(plaintext: int, key: int, rounds: int) -> int:
     """Encrypt one unsigned 64-bit block with a 128-bit key and 1..44 rounds.
 

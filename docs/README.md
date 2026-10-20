@@ -10,5 +10,15 @@
 - [创新2当前进度与下一步](INNOVATION2-CURRENT-STATE.md)：旧神经/代数边界、新残差阴性和logic16候选。
 - [logic16 GPU试验](INNOVATION2-LOGIC-GPU-RESULTS.md)：r3正控49.72%，停止后三项，执行与文件核验闭环。
 - [结构接线诊断](INNOVATION2-STRUCTURE-DIAGNOSTIC.md)：人工任务aligned100%/random48.44%，不是密码结果。
-- [公开结构＋未知参数学习](INNOVATION2-STRUCTURED-SIMON.md)：simon-structure候选、软/硬指标与未执行探针。
+- [公开结构＋未知参数学习](INNOVATION2-STRUCTURED-SIMON.md)：simon-structure候选与软/硬指标。
+- [结构模型GPU试训练](INNOVATION2-STRUCTURED-GPU-RESULTS.md)：r1通过、r3近随机，r4未启动。
+- [硬布尔拟合合同](INNOVATION2-HARD-SEARCH.md)：TRAIN-only搜索、冻结参数后生成TEST。
+- [硬结构实测结果](INNOVATION2-HARD-RESULTS.md)：r3/r4单bit TEST16384/16384，r4-null无一致模型。
+- [更高轮SAT方案](INNOVATION2-SAT-PLAN.md)：单次硬布尔约束、TRAIN-only、120秒协作预算。
+- [5轮SAT结果](INNOVATION2-SAT-RESULTS.md)：UNKNOWN无模型，r6/null未启动，不是50%预测。
+- [STE梯度学习方案](INNOVATION2-STE-PLAN.md)：硬布尔前向＋有偏替代梯度，非SAT/枚举。
+- [STE神经实测](INNOVATION2-STE-RESULTS.md)：r3 TEST100%、r4 74.90%、匹配null49.68%，差分暂缓。
+- [STE四轮确认方案](INNOVATION2-STE-CONFIRM-PLAN.md)：冻结超参数、四项确认及条件五轮探针。
+- [STE确认结果](INNOVATION2-STE-CONFIRM-RESULTS.md)：新面板未复现74.90%，五轮真实/null未启动。
+- [审查后修订](REVIEW-FIXES-20261020.md)：顺序种子分离、BCE可比性、参数可识别性审计（分支未入 main）。
 - [重建与实际验收](REBUILD.md)：旧项目归档、真实检查、没有执行的项目。

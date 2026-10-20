@@ -1,0 +1,12 @@
+{
+  "ste_simon": {
+    "implementation": "src/cipher_experiments/models/ste_simon.py",
+    "origin": "new pure-Torch hard-forward sigmoid-leaf STE over the current public SIMON cone; no archived model, solver or historical learned assignment used",
+    "base": "models/structured_simon.py public wiring and independent random parameter initialization, scaled0.05",
+    "learning": "ordinary TRAIN BCE backward and Adam updates; biased straight-through surrogate, not a true discrete derivative",
+    "forward": "Boolean unknown constant thresholds, exact public AND/XOR, fixed +/-2 logits in train and eval",
+    "forbidden_sources_absent": "no actual key, key_seed, true round keys, real traces, TEST fitting, SAT or enumeration results",
+    "claims": "structured neural/gradient parameter learning, not generic MLP, symbolic search or full key recovery",
+    "task": "absolute ciphertext single-bit prediction, differential prediction explicitly deferred"
+  }
+}

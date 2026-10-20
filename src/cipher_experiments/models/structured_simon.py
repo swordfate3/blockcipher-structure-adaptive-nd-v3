@@ -106,3 +106,28 @@ class StructuredSimonPredictor(nn.Module):
         if not bool(torch.isfinite(logits).all()):
             raise RuntimeError("model produced non-finite hard logits")
         return logits
+
+
+class HardSimonPredictor(StructuredSimonPredictor):
+    """Frozen Boolean circuit selected solely by TRAIN consistency search."""
+
+    def __init__(self, *, rounds: int = 3, target_bit: int = 0) -> None:
+        super().__init__(rounds=rounds, target_bit=target_bit)
+        with torch.no_grad():
+            self.key_logits.fill_(-1.)
+        self.key_logits.requires_grad_(False)
+
+    def set_assignment(self, assignment: int) -> None:
+        if type(assignment) is not int or not 0 <= assignment < 2 ** len(self.key_coordinates):
+            raise ValueError("assignment is outside the symbolic constant domain")
+        with torch.no_grad():
+            self.key_logits.copy_(torch.tensor(
+                [1. if (assignment >> i) & 1 else -1. for i in range(len(self.key_coordinates))],
+                device=self.key_logits.device))
+
+    def validate_assignment(self) -> None:
+        if not bool(((self.key_logits == -1.) | (self.key_logits == 1.)).all()):
+            raise ValueError("hard assignment state must contain only -1/+1")
+
+    def forward(self, inputs: Tensor) -> Tensor:
+        return self.hard_logits(inputs)

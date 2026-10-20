@@ -9,6 +9,9 @@ description = "Standalone, configuration-driven cipher prediction experiments"
 requires-python = ">=3.12,<3.13"
 dependencies = ["torch>=2.4,<3", "numpy>=2,<3"]
 
+[project.optional-dependencies]
+sat = ["python-sat>=1.8.dev24,<2"]
+
 [project.scripts]
 cipher-experiments = "cipher_experiments.cli:main"
 
