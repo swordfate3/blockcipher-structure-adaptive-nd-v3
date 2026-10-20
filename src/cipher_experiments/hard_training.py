@@ -52,7 +52,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "selection": criterion + "; no DEV candidate selection",
         "search_order": config.search_order or "ascending",
         "test_policy": "TEST labels only after strict selected-checkpoint loading",
-        "timeout_policy": "cooperative; not a hard process limit",
+        "timeout_policy": ("advisory; the native Glucose4 search may exceed max_seconds, "
+                           "so fit.json and exit.json elapsed values are authoritative"),
         "key_schedule_constraint": False, "gradient_updates": 0})
     panel_sha: dict[str, Any] = {}
 

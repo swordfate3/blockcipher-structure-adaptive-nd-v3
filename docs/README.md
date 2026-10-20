@@ -16,6 +16,7 @@
 - [硬结构实测结果](INNOVATION2-HARD-RESULTS.md)：r3/r4单bit TEST16384/16384，r4-null无一致模型。
 - [更高轮SAT方案](INNOVATION2-SAT-PLAN.md)：单次硬布尔约束、TRAIN-only、120秒协作预算。
 - [5轮SAT结果](INNOVATION2-SAT-RESULTS.md)：UNKNOWN无模型，r6/null未启动，不是50%预测。
+- [r5小样本SAT扫描](INNOVATION2-R5-SAT-SWEEP.md)：r4正控0.2秒100%；r5可行时是假解、真解时算不动，且预算未被守住。
 - [STE梯度学习方案](INNOVATION2-STE-PLAN.md)：硬布尔前向＋有偏替代梯度，非SAT/枚举。
 - [STE神经实测](INNOVATION2-STE-RESULTS.md)：r3 TEST100%、r4 74.90%、匹配null49.68%，差分暂缓。
 - [GPU规模STE](INNOVATION2-GPU-SCALE-RESULTS.md)：262144TRAIN/5120更新，r4 59.58%对null50.10%，r5无信号。

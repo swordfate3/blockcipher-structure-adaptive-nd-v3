@@ -16,6 +16,7 @@ from ..representations.simon_cone import SimonCone, simon_cone
 
 _MAX_ROWS = 512
 _MAX_UNKNOWN = 70
+_INTERRUPT_INTERVAL = 0.5
 
 
 class _LimitedSolver(Protocol):
@@ -156,6 +157,11 @@ def _solve_limited(solver: _LimitedSolver, deadline: float) -> bool | None:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 solver.interrupt()
+                # Measured overruns show this call can be swallowed by the native
+                # search, so keep re-asserting it until the solve returns.
+                while not cancelled.is_set():
+                    solver.interrupt()
+                    cancelled.wait(_INTERRUPT_INTERVAL)
                 return
             cancelled.wait(min(remaining, TIMEOUT_MAX))
 
