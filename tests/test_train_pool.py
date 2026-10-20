@@ -49,7 +49,7 @@ def test_train_pool_bounds(patch: dict[str, Any]) -> None:
 def test_sweep_configs_share_one_panel() -> None:
     hard = sorted((ROOT / "configs/innovation2-sample-efficiency-hard").glob("*.json"))
     ste = sorted((ROOT / "configs/innovation2-sample-efficiency-ste").glob("*.json"))
-    assert len(hard) == 7 and len(ste) == 5
+    assert len(hard) == 13 and len(ste) == 7
     configs = [load_config(p) for p in hard + ste]
     assert {c.train_pool for c in configs} == {262144}
     assert {c.data_seed for c in configs} == {192301}
