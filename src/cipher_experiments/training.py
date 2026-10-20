@@ -39,6 +39,10 @@ def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
         from .data.circuit import make_circuit_inputs
         return make_circuit_inputs(config.train_rows, config.dev_rows, config.test_rows,
                                    seed=config.data_seed)
+    if config.dataset == "simon-diff":
+        from .data.diffbit import make_diff_inputs
+        return make_diff_inputs(config.train_rows, config.dev_rows, config.test_rows,
+                                seed=config.data_seed)
     from .data.prediction import make_inputs
     capacity = config.train_rows if config.train_pool is None else config.train_pool
     panels = make_inputs(capacity, config.dev_rows, config.test_rows, seed=config.data_seed)
@@ -52,6 +56,16 @@ def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
     if config.dataset == "circuit-synthetic":
         from .data.circuit import circuit_labels
         return circuit_labels(x)
+    if config.dataset == "simon-diff":
+        from .data.diffbit import make_diff_labels, make_null_labels
+        if config.label_mode == "null":
+            return make_null_labels(x, null_seed=config.null_seed, split=split)
+        assert config.input_difference is not None
+        assert config.train_key_count is not None
+        return make_diff_labels(x, delta=config.input_difference, rounds=config.rounds,
+                                target_bit=config.target_bit, key_seed=config.key_seed,
+                                key_count=config.key_count,
+                                train_key_count=config.train_key_count, split=split)
     from .data.prediction import make_labels
     return make_labels(x, dataset=config.dataset, rounds=config.rounds,
                        target_bit=config.target_bit,
@@ -60,6 +74,13 @@ def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
 
 
 def reference_panels(config: ExperimentConfig, inputs: dict[str, Tensor]) -> dict[str, Tensor]:
+    if config.dataset == "simon-diff":
+        from .data.diffbit import round_one_reference
+        if config.rounds != 1 or config.input_difference is None:
+            return {}
+        return {s: round_one_reference(x, delta=config.input_difference,
+                                       target_bit=config.target_bit)
+                for s, x in inputs.items()}
     if config.dataset == "simon" and config.rounds <= 4:
         return {s: public_reference(x, config.rounds, config.target_bit) for s, x in inputs.items()}
     return {}

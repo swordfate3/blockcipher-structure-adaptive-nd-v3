@@ -16,6 +16,9 @@ class ExperimentConfig:
     train_rows: int = 64
     train_pool: int | None = None
     search_order: str | None = None
+    input_difference: int | None = None
+    key_count: int = 1
+    train_key_count: int | None = None
     dev_rows: int = 32
     test_rows: int = 32
     data_seed: int = 1
@@ -51,10 +54,26 @@ class ExperimentConfig:
                 raise ValueError("innovation1 batch_size must divide train_rows")
             if max(self.train_rows, self.dev_rows, self.test_rows) > 65536:
                 raise ValueError("innovation1 groups per task must not exceed 65536")
-        if self.dataset not in ("synthetic", "circuit-synthetic", "simon", "differential"):
-            raise ValueError("dataset must be synthetic, circuit-synthetic, simon or differential")
+        if self.dataset not in ("synthetic", "circuit-synthetic", "simon", "simon-diff",
+                                "differential"):
+            raise ValueError("dataset must be synthetic, circuit-synthetic, simon, "
+                             "simon-diff or differential")
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
+        if self.dataset == "simon-diff":
+            # Cross-key generalisation only means something with unseen keys, so the
+            # TRAIN key block is required to be a strict subset of the key pool.
+            if type(self.input_difference) is not int or not 0 < self.input_difference < (1 << 64):
+                raise ValueError("simon-diff requires a nonzero input_difference")
+            if type(self.key_count) is not int or not 2 <= self.key_count <= 4096:
+                raise ValueError("simon-diff requires key_count between 2 and 4096")
+            if (type(self.train_key_count) is not int
+                    or not 1 <= self.train_key_count < self.key_count):
+                raise ValueError("simon-diff requires train_key_count in [1, key_count-1]")
+            if not 1 <= self.rounds <= 6:
+                raise ValueError("simon-diff supports rounds 1..6")
+        elif self.input_difference is not None or self.train_key_count is not None:
+            raise ValueError("input_difference/train_key_count apply only to simon-diff")
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
                                    "simon-structure", "simon-ste", "simon-hard-search",
                                    "simon-hard-sat"):
@@ -100,8 +119,8 @@ class ExperimentConfig:
             raise ValueError("public-residual requires simon rounds 1..4")
         if self.model_features == "support" and self.dataset != "simon":
             raise ValueError("support features require simon")
-        if self.label_mode == "null" and self.dataset != "simon":
-            raise ValueError("null labels require simon")
+        if self.label_mode == "null" and self.dataset not in ("simon", "simon-diff"):
+            raise ValueError("null labels require simon or simon-diff")
         bounds = {"train_rows": (1, 1_000_000), "dev_rows": (1, 1_000_000),
                   "test_rows": (1, 1_000_000), "rounds": (1, 44), "target_bit": (0, 63),
                   "hidden_width": (1, 4096), "batch_size": (1, 65536),
@@ -150,7 +169,10 @@ class ExperimentConfig:
 
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
-        for optional in ("shuffle_seed", "train_pool", "search_order"):
+        if values.get("key_count") == 1:
+            values.pop("key_count")
+        for optional in ("shuffle_seed", "train_pool", "search_order",
+                         "input_difference", "train_key_count"):
             if values.get(optional) is None:
                 values.pop(optional)
         return values
