@@ -12,6 +12,14 @@
     "sha256": "53fd8f76752ac574a1d0ba37b949512d49db7b856b6238293fddbe698873ba7d",
     "modifications": "Locally reimplemented scalar SIMON64/128 block encryption and round-key prefix; omitted RoundTrace, trace_simon64, and simulator APIs; no old runtime imports."
   },
+  "innovation2_structured_simon": {
+    "record": "docs/provenance-structured-simon.json",
+    "scope": "public output-cone model learning unknown constants; allowed structure prior without actual key input, not yet scientifically fitted"
+  },
+  "innovation2_structure_diagnostic": {
+    "record": "docs/provenance-structure.json",
+    "scope": "artificial CPU structure-vs-random comparison and public symbolic SIMON cone compiler; no new cipher fitting"
+  },
   "innovation2_logic_candidate": {
     "record": "docs/provenance-logic.json",
     "scope": "new pure-Torch soft truth-table candidate and synthetic controls, no new scientific cipher fitting"

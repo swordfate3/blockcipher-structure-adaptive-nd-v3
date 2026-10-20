@@ -48,12 +48,27 @@ class ExperimentConfig:
                 raise ValueError("innovation1 batch_size must divide train_rows")
             if max(self.train_rows, self.dev_rows, self.test_rows) > 65536:
                 raise ValueError("innovation1 groups per task must not exceed 65536")
-        if self.dataset not in ("synthetic", "simon", "differential"):
-            raise ValueError("dataset must be synthetic, simon or differential")
+        if self.dataset not in ("synthetic", "circuit-synthetic", "simon", "differential"):
+            raise ValueError("dataset must be synthetic, circuit-synthetic, simon or differential")
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
-        if self.model_kind not in ("mlp", "logic16"):
-            raise ValueError("model_kind must be mlp or logic16")
+        if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
+                                   "simon-structure"):
+            raise ValueError("unknown prediction model_kind")
+        if self.model_kind == "simon-structure" and (
+                self.dataset != "simon" or self.hidden_width != 64
+                or self.model_features != "full" or self.prediction_mode != "direct"
+                or type(self.rounds) is not int or not 1 <= self.rounds <= 6
+                or (self.rounds == 1 and type(self.target_bit) is int and self.target_bit >= 32)):
+            raise ValueError("simon-structure needs simon/full/direct/hidden_width=64, "
+                             "rounds1..6 and a target depending on unknown round constants")
+        if self.model_kind.startswith("circuit-") and (
+                self.dataset != "circuit-synthetic" or self.hidden_width != 64
+                or self.model_features != "full" or self.prediction_mode != "direct"):
+            raise ValueError("circuit models need circuit-synthetic, hidden_width=64, full/direct")
+        if self.dataset == "circuit-synthetic" and (
+                self.experiment != "prediction" or self.label_mode != "cipher"):
+            raise ValueError("circuit-synthetic requires prediction and deterministic toy labels")
         if self.experiment == "innovation1" and self.model_kind != "mlp":
             raise ValueError("model_kind applies only to prediction")
         if self.model_features not in ("full", "support"):
@@ -86,6 +101,9 @@ class ExperimentConfig:
                 raise ValueError(f"{name} must be an integer in [{low}, {high}]")
         if self.model_kind == "logic16" and self.hidden_width < 64:
             raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
+        if self.dataset == "circuit-synthetic" and (
+                self.train_rows + self.dev_rows + self.test_rows > 256):
+            raise ValueError("circuit-synthetic has only 256 distinct relevant input assignments")
         if self.train_rows + self.dev_rows + self.test_rows > 2_000_000:
             raise ValueError("total rows exceed 2,000,000")
         if (type(self.learning_rate) not in (int, float)

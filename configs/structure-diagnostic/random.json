@@ -1,0 +1,23 @@
+{
+  "name": "structure-toy-random",
+  "experiment": "prediction",
+  "dataset": "circuit-synthetic",
+  "train_rows": 128,
+  "dev_rows": 64,
+  "test_rows": 64,
+  "data_seed": 191601,
+  "init_seed": 17,
+  "key_seed": 2,
+  "rounds": 3,
+  "target_bit": 0,
+  "model_features": "full",
+  "prediction_mode": "direct",
+  "label_mode": "cipher",
+  "hidden_width": 64,
+  "batch_size": 128,
+  "epochs": 300,
+  "learning_rate": 0.05,
+  "device": "cpu",
+  "max_seconds": 60,
+  "model_kind": "circuit-random"
+}

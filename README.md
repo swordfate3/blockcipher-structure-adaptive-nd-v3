@@ -130,8 +130,14 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 `configs/innovation2/`五份配置的首批GPU实验已完成：r3 TEST81.94%，r4各项约50%。
 见[首批结果与范围](docs/INNOVATION2-FIRST-GPU-RESULTS.md)；仅单key/seed，不代表普遍有效，也不授权默认重跑。
 数据/模型合同、TEST标签时序、示例命令与限制见[创新2说明](docs/INNOVATION2-PREDICTION.md)。
-当前还新增`model_kind=logic16`三层软布尔门候选，仅完成合成验证，尚无密码拟合成绩；
+`model_kind=logic16`三层软布尔门候选已完成一次GPU r3试验，TEST49.72%，正控失败，后续r4按规则未启动；
+见[logic16实测](docs/INNOVATION2-LOGIC-GPU-RESULTS.md)，不自动重试。
 进度对齐与下一步见[当前研究状态](docs/INNOVATION2-CURRENT-STATE.md)。
+[结构接线人工诊断](docs/INNOVATION2-STRUCTURE-DIAGNOSTIC.md)提供两个CPU完整配置，
+只验证接线干预与局部门训练，不是密码预测轮数突破。
+`model_kind=simon-structure`进一步使用公开SIMON目标位图学习未知常量效应，支持单独报告软/硬化指标；
+[合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
+当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
 ## 本项目skills
 

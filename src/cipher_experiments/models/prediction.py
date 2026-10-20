@@ -8,7 +8,9 @@ import torch
 from torch import Tensor
 
 if TYPE_CHECKING:
+    from .circuit import CircuitPredictor
     from .logic import LogicPredictor
+    from .structured_simon import StructuredSimonPredictor
 
 from .mlp import BitMLP
 
@@ -117,8 +119,17 @@ def public_reference(inputs: Tensor, rounds: int, target_bit: int) -> Tensor:
 
 def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                     rounds: int = 3, target_bit: int = 0, feature_mode: str = "full",
-                    prediction_mode: str = "direct") -> PlaintextPredictor | LogicPredictor:
-    """Two explicit model choices, without importing experiment config or a registry."""
+                    prediction_mode: str = "direct"
+                    ) -> (
+                        PlaintextPredictor | LogicPredictor | CircuitPredictor
+                        | StructuredSimonPredictor):
+    """Explicit small model choices, without experiment config or a registry."""
+    if model_kind == "simon-structure":
+        from .structured_simon import StructuredSimonPredictor
+        return StructuredSimonPredictor(rounds=rounds, target_bit=target_bit)
+    if model_kind in ("circuit-aligned", "circuit-random"):
+        from .circuit import CircuitPredictor
+        return CircuitPredictor(wiring=model_kind.removeprefix("circuit-"))
     if model_kind == "mlp":
         return PlaintextPredictor(hidden_width, rounds=rounds, target_bit=target_bit,
                                   feature_mode=feature_mode, prediction_mode=prediction_mode)
@@ -126,7 +137,7 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
         from .logic import LogicPredictor
         return LogicPredictor(hidden_width, rounds=rounds, target_bit=target_bit,
                               feature_mode=feature_mode, prediction_mode=prediction_mode)
-    raise ValueError("model_kind must be mlp or logic16")
+    raise ValueError("unknown prediction model_kind")
 
 
 class PlaintextPredictor(BitMLP):

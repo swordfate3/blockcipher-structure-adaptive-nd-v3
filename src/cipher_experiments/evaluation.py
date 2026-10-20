@@ -11,8 +11,10 @@ from torch import Tensor, nn
 
 from .artifacts import file_sha256
 from .config import ExperimentConfig
+from .models.circuit import CircuitPredictor
 from .models.logic import LogicPredictor
 from .models.prediction import PlaintextPredictor, build_predictor
+from .models.structured_simon import StructuredSimonPredictor
 
 CHECKPOINT_SCHEMA = "cipher-experiments-checkpoint-v1"
 
@@ -26,6 +28,7 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
     constant_correct = 0
     public_correct = 0
     public_loss = 0.0
+    hard_correct, hard_loss = 0, 0.0
     probability = min(max(probability, 1e-12), 1 - 1e-12)
     import math
     constant_loss = 0.0
@@ -38,6 +41,11 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
         loss += float(nn.functional.binary_cross_entropy_with_logits(logits, targets,
                                                                     reduction="sum"))
         correct += int(((logits > 0) == targets.bool()).sum())
+        if isinstance(model, StructuredSimonPredictor):
+            hard_logits = model.hard_logits(x[start:start + batch_size].to(device))
+            hard_correct += int(((hard_logits > 0) == targets.bool()).sum())
+            hard_loss += float(nn.functional.binary_cross_entropy_with_logits(
+                hard_logits, targets, reduction="sum"))
         ones = float(targets.sum())
         constant_correct += int((targets == majority).sum())
         constant_loss -= ones * math.log(probability) + (len(targets) - ones) * math.log1p(
@@ -53,6 +61,9 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
               "train_constant": {"bit": majority, "probability": probability,
                                  "accuracy": constant_correct / count,
                                  "bce": constant_loss / count}}
+    if isinstance(model, StructuredSimonPredictor):
+        result["hard_constants"] = {"rows": count, "correct": hard_correct,
+                                    "accuracy": hard_correct / count, "bce": hard_loss / count}
     if reference is not None:
         result["public_reference_constant"] = {
             "residual_bit": residual_majority, "residual_probability": residual_probability,
@@ -61,7 +72,10 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
 
 
 def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
-                    ) -> tuple[PlaintextPredictor | LogicPredictor, ExperimentConfig, int, float]:
+                    ) -> tuple[
+                        PlaintextPredictor | LogicPredictor | CircuitPredictor
+                        | StructuredSimonPredictor,
+                        ExperimentConfig, int, float]:
     if len(expected_sha256) != 64 or file_sha256(path) != expected_sha256:
         raise ValueError("checkpoint SHA256 mismatch")
     if path.stat().st_size > 256 * 1024 * 1024:
@@ -102,7 +116,7 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                 or not bool(torch.isfinite(value).all())):
             raise ValueError(f"checkpoint state mismatch: {key}")
     model.load_state_dict(state, strict=True)
-    if isinstance(model, LogicPredictor):
+    if isinstance(model, (LogicPredictor, CircuitPredictor)):
         model.validate_wiring()
     model.checkpoint_config_sha256 = raw_sha
     model.to(device)

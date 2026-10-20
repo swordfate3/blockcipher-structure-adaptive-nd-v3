@@ -15,6 +15,7 @@ from .artifacts import append_progress, file_sha256, git_identity, source_identi
 from .config import ExperimentConfig
 from .evaluation import CHECKPOINT_SCHEMA, evaluate_model, load_checkpoint
 from .models.prediction import build_predictor, public_reference
+from .models.structured_simon import StructuredSimonPredictor
 
 
 def device_for(name: str) -> torch.device:
@@ -34,11 +35,18 @@ def datasets(config: ExperimentConfig) -> dict[str, tuple[Tensor, Tensor]]:
 
 
 def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
+    if config.dataset == "circuit-synthetic":
+        from .data.circuit import make_circuit_inputs
+        return make_circuit_inputs(config.train_rows, config.dev_rows, config.test_rows,
+                                   seed=config.data_seed)
     from .data.prediction import make_inputs
     return make_inputs(config.train_rows, config.dev_rows, config.test_rows, seed=config.data_seed)
 
 
 def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
+    if config.dataset == "circuit-synthetic":
+        from .data.circuit import circuit_labels
+        return circuit_labels(x)
     from .data.prediction import make_labels
     return make_labels(x, dataset=config.dataset, rounds=config.rounds,
                        target_bit=config.target_bit,
@@ -93,7 +101,10 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "label_mode": config.label_mode, "model_features": config.model_features,
         "model_kind": config.model_kind,
         "prediction_mode": config.prediction_mode,
-        "experiment_kind": "synthetic-engineering" if config.dataset == "synthetic"
+        "experiment_kind": "synthetic-engineering" if config.dataset in (
+            "synthetic", "circuit-synthetic")
+                           else "simon-structure-unknown-constants" if (
+                               config.model_kind == "simon-structure")
                            else "simon-output-bit-baseline"})
 
     def deadline() -> None:
@@ -130,8 +141,22 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
             name.encode() + value.detach().cpu().contiguous().numpy().tobytes()
             for name, value in model.state_dict().items())).hexdigest()
         write_json(output / "initialization.json", {
-            "state_sha256": initial_sha, "features": list(model.indices.cpu().tolist()),
+            "state_sha256": initial_sha,
+            "trainable_sha256": hashlib.sha256(b"".join(
+                name.encode() + value.detach().cpu().contiguous().numpy().tobytes()
+                for name, value in model.named_parameters())).hexdigest(),
+            "features": list(model.indices.cpu().tolist()),
             "parameters": sum(p.numel() for p in model.parameters())})
+        if isinstance(model, StructuredSimonPredictor):
+            write_json(output / "model_metadata.json", {
+                "kind": "simon-structure", "rounds": config.rounds,
+                "target_bit": config.target_bit,
+                "unknowns": "independent learned round-constant effects; not true key input",
+                "initialization": "random signs and noise from init_seed, no data/key access",
+                "key_schedule_constraint": False,
+                "selection": "soft absolute DEV BCE; hard constants report-only",
+                "gate_counts": model.cone.gate_counts,
+                "symbolic_coordinates": list(model.cone.round_key_coordinates)})
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
         shuffle = torch.Generator(device="cpu").manual_seed(config.data_seed + 1)
         best = math.inf

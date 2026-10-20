@@ -1,0 +1,28 @@
+{
+  "synthetic_structure_diagnostic": {
+    "implementation": [
+      "src/cipher_experiments/models/circuit.py",
+      "src/cipher_experiments/data/circuit.py"
+    ],
+    "origin": "new artificial XOR-of-four-adjacent-ANDs task; aligned/random perfect-matching topology comparison using existing local SoftGateLayer",
+    "scope": "CPU synthetic controls only; no cipher-label fitting, actual secret input, novel method or SIMON success claim",
+    "model_initialization": "same pass-A biased gate logits and scalar readout in both arms; target AND/XOR gate parameters are not supplied during training",
+    "treatment": "aligned topology is given by the constructed target; this is oracle structural prior, not unknown cipher structure discovery"
+  },
+  "simon_public_cone": {
+    "implementation": "src/cipher_experiments/representations/simon_cone.py",
+    "origin": "new stdlib-only symbolic DAG compiler for the public SIMON64 state recurrence already implemented and KAT-tested in this clean repository",
+    "algorithm_reference": {
+      "path": "src/cipher_experiments/ciphers/simon.py",
+      "repository_commit": "2a969f7491193a4124fcac16be4f9835baa6c67e",
+      "original_scalar_provenance": "docs/provenance.json:simon_scalar"
+    },
+    "scope": "rounds1..6, MSB-indexed output cone with shared state-bit subexpressions; plaintext terminals and symbolic round-key coordinates only",
+    "not_implemented": [
+      "no key sampling, actual key input or schedule expansion in production graph module",
+      "no trainable SIMON circuit candidate or password/secret recovery",
+      "no learned graph topology discovery or new cipher fitting"
+    ],
+    "validation": "test-only independent graph interpreter under synthetic small keys compared with local scalar cipher; graph dependencies checked for every bit in rounds1..6; no scientific fitting"
+  }
+}

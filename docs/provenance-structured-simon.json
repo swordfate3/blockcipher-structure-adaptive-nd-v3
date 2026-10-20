@@ -1,0 +1,15 @@
+{
+  "structured_simon_predictor": {
+    "implementation": "src/cipher_experiments/models/structured_simon.py",
+    "origin": "new PyTorch parameter learner over the clean public symbolic SIMON cone; no archived runner, recovered key, old checkpoint or old solver import",
+    "structure": "src/cipher_experiments/representations/simon_cone.py",
+    "structure_provenance": "docs/provenance-structure.json:simon_public_cone",
+    "learned_parameters": "one initially random real logit per symbolic round-key effect coordinate; learned from TRAIN output-bit examples, not provided actual key material",
+    "permitted_prior": "public round wiring and Boolean functions; parameter-identification interpretation is compatible with the prediction goal",
+    "no_secret_injection": "model constructor accepts only rounds/target_bit; forward accepts only binary plaintext tensors; no cipher/data import or key_seed access",
+    "soft_model": "deterministic sigmoid-leaf AND/XOR relaxation; not exact marginalization of correlated secret bits",
+    "hard_model": "explicit thresholded parameter evaluation, separately reported; soft DEV BCE still selects checkpoint",
+    "key_schedule": "independent effect coordinates, not constrained master-key recovery at rounds5+",
+    "validation_scope": "small synthetic-key witnesses in tests only, one artificial unknown-XOR learning fixture, null-label CLI smoke; no new scientific cipher fitting or GPU results"
+  }
+}
