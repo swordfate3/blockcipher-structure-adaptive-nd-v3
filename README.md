@@ -146,6 +146,8 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 同输入同初态null49.68%；`model_kind=simon-ste`，配置`configs/innovation2-ste/`。
 [新面板确认](docs/INNOVATION2-STE-CONFIRM-RESULTS.md)原init仅50.44%、额外init接近50%，
 新key61.91%但BCE不如常量，故不能称稳定4轮能力，5轮梯度探针未启动。差分预测暂缓。
+[A6000规模重跑](docs/INNOVATION2-GPU-SCALE-RESULTS.md)（262144TRAIN、5120更新）取得r4 TEST 59.58%，
+对随机标签null 50.10%；5轮49.84%无信号。早先74.90%应按有利抽样理解，不是数据越多越准。
 另行记录的[5轮SAT推进](docs/INNOVATION2-SAT-RESULTS.md)单次求解UNKNOWN，无预测器/TEST成绩，r6未启动。
 `model_kind=simon-hard-sat`依赖可选`.[sat]`（新环境可用`uv sync --extra sat --group dev`显式安装）；
 本轮复用已安装python-sat/Glucose4，没有执行安装。缺后端明确失败，不自动下载或切换。

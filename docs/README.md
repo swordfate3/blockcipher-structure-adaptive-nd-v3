@@ -18,6 +18,7 @@
 - [5轮SAT结果](INNOVATION2-SAT-RESULTS.md)：UNKNOWN无模型，r6/null未启动，不是50%预测。
 - [STE梯度学习方案](INNOVATION2-STE-PLAN.md)：硬布尔前向＋有偏替代梯度，非SAT/枚举。
 - [STE神经实测](INNOVATION2-STE-RESULTS.md)：r3 TEST100%、r4 74.90%、匹配null49.68%，差分暂缓。
+- [GPU规模STE](INNOVATION2-GPU-SCALE-RESULTS.md)：262144TRAIN/5120更新，r4 59.58%对null50.10%，r5无信号。
 - [STE四轮确认方案](INNOVATION2-STE-CONFIRM-PLAN.md)：冻结超参数、四项确认及条件五轮探针。
 - [STE确认结果](INNOVATION2-STE-CONFIRM-RESULTS.md)：新面板未复现74.90%，五轮真实/null未启动。
 - [审查后修订](REVIEW-FIXES-20261020.md)：顺序种子分离、BCE可比性、参数可识别性审计（分支未入 main）。
