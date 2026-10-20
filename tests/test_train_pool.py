@@ -49,16 +49,22 @@ def test_train_pool_bounds(patch: dict[str, Any]) -> None:
 def test_sweep_configs_share_one_panel() -> None:
     hard = sorted((ROOT / "configs/innovation2-sample-efficiency-hard").glob("*.json"))
     ste = sorted((ROOT / "configs/innovation2-sample-efficiency-ste").glob("*.json"))
-    assert len(hard) == 13 and len(ste) == 7
+    assert len(hard) == 19 and len(ste) == 7
     configs = [load_config(p) for p in hard + ste]
     assert {c.train_pool for c in configs} == {262144}
     assert {c.data_seed for c in configs} == {192301}
+    # Three extra keys re-run the identification threshold at k=32/512.
+    assert {c.key_seed for c in configs} == {190502, 190503, 190504, 190505}
     assert {c.rounds for c in configs} == {4} and {c.target_bit for c in configs} == {0}
     assert {(c.dev_rows, c.test_rows) for c in configs} == {(16384, 65536)}
-    # TRAIN budgets are strictly increasing along the sweep.
-    for arm in (hard, ste):
-        sizes = sorted(load_config(p).train_rows for p in arm)
+    # The primary k-sweep has one distinct budget per step; the extra key-robustness
+    # configs intentionally reuse k=32/512.
+    sweep = [p for p in hard if not p.name.startswith("key")] + ste
+    for arm in ([p for p in hard if not p.name.startswith("key")], ste):
+        sizes = [load_config(p).train_rows for p in arm]
         assert len(set(sizes)) == len(arm)
+    assert {load_config(p).train_rows for p in hard if p.name.startswith("key")} == {32, 512}
+    assert len(sweep) == 13 + 7
 
 
 def test_hard_sweep_runs_end_to_end_on_smallest_budget(tmp_path: Path) -> None:
