@@ -15,7 +15,9 @@ artifacts → Python标准库
 - `evaluation.py`：绝对位ACC/BCE、TRAIN多数/概率基线、SHA绑定严格checkpoint加载；不导入training。
 - `artifacts.py`：JSON/进度/字节SHA/源码身份；Git查询只用于可选身份记录，不同步/提交代码。
 - `data/`：无重复明文划分；synthetic用于工程，simon是真实密码单bit标签。key不进入模型。
-- `models/`：明文MLP及`prediction.py`公开依赖位/零主密钥参考；不依赖cipher/data/config/runner。
+- `models/`：明文MLP、`logic.py`三层16真值表软门候选及公开依赖位/零主密钥参考；
+  `prediction.py`只提供两种显式模型选择，不建registry；不依赖cipher/data/config/runner。
+  logic固定接线持久化，加载后检查范围；train/eval均用软门，不做隐式硬化。
 - `data/prediction.py`：无标签唯一明文与按split请求的真实/null标签分离；训练严格加载选中模型后才请求TEST标签。
   基线仅用TRAIN拟合；显式evaluate独立重建数据。
 - `ciphers/`：纯标量SIMON算法与KAT，不依赖Torch或实验代码。

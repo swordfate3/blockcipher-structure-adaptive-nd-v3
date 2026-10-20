@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import torch
 from torch import Tensor
+
+if TYPE_CHECKING:
+    from .logic import LogicPredictor
 
 from .mlp import BitMLP
 
@@ -108,6 +113,20 @@ def public_reference(inputs: Tensor, rounds: int, target_bit: int) -> Tensor:
     else:
         result = low[:, target_bit - 32 : target_bit - 31]
     return result
+
+
+def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
+                    rounds: int = 3, target_bit: int = 0, feature_mode: str = "full",
+                    prediction_mode: str = "direct") -> PlaintextPredictor | LogicPredictor:
+    """Two explicit model choices, without importing experiment config or a registry."""
+    if model_kind == "mlp":
+        return PlaintextPredictor(hidden_width, rounds=rounds, target_bit=target_bit,
+                                  feature_mode=feature_mode, prediction_mode=prediction_mode)
+    if model_kind == "logic16":
+        from .logic import LogicPredictor
+        return LogicPredictor(hidden_width, rounds=rounds, target_bit=target_bit,
+                              feature_mode=feature_mode, prediction_mode=prediction_mode)
+    raise ValueError("model_kind must be mlp or logic16")
 
 
 class PlaintextPredictor(BitMLP):

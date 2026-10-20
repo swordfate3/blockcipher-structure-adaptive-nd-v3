@@ -14,7 +14,7 @@ from torch import Tensor, nn
 from .artifacts import append_progress, file_sha256, git_identity, source_identity, write_json
 from .config import ExperimentConfig
 from .evaluation import CHECKPOINT_SCHEMA, evaluate_model, load_checkpoint
-from .models.prediction import PlaintextPredictor, public_reference
+from .models.prediction import build_predictor, public_reference
 
 
 def device_for(name: str) -> torch.device:
@@ -91,6 +91,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "timeout_policy": "cooperative between batches; not a hard process/GPU deadline",
         "test_policy": "TEST labels after selected load; no access-enforced sealed confirm",
         "label_mode": config.label_mode, "model_features": config.model_features,
+        "model_kind": config.model_kind,
         "prediction_mode": config.prediction_mode,
         "experiment_kind": "synthetic-engineering" if config.dataset == "synthetic"
                            else "simon-output-bit-baseline"})
@@ -121,7 +122,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         probability = (ones + .5) / (len(y_train) + 1)
         residual_majority, residual_probability = baseline_parameters(
             y_train, references.get("train"))
-        model = PlaintextPredictor(config.hidden_width, rounds=config.rounds,
+        model = build_predictor(config.hidden_width, model_kind=config.model_kind,
+                                rounds=config.rounds,
                                    target_bit=config.target_bit, feature_mode=config.model_features,
                                    prediction_mode=config.prediction_mode).to(device)
         initial_sha = hashlib.sha256(b"".join(
@@ -196,7 +198,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         result = {"schema": "cipher-experiments-result-v1", "status": "completed",
                   "name": config.name, "dataset": config.dataset,
                   "config_sha256": config.sha256(), "updates": updates,
-                  "model_features": config.model_features,
+                  "model_features": config.model_features, "model_kind": config.model_kind,
                   "prediction_mode": config.prediction_mode,
                   "label_mode": config.label_mode, "initial_state_sha256": initial_sha,
                   "presentations": presentations, "selected_epoch": selected_epoch,

@@ -1,0 +1,22 @@
+{
+  "logic16_candidate": {
+    "implementation": "src/cipher_experiments/models/logic.py",
+    "origin": "new local pure-PyTorch experimental implementation of 16 two-input truth table mixtures; no archive runtime imports, no CUDA extension or external model weights",
+    "primary_paper": "https://arxiv.org/abs/2210.08277",
+    "read_only_reference": {
+      "repository": "https://github.com/Felix-Petersen/difflogic",
+      "commit": "469702c01ff0bfac9cdc6a395134252e11a56bd8",
+      "path": "difflogic/functional.py",
+      "access": "read-only source retrieval; no package installation, CUDA code import or wholesale code copy"
+    },
+    "changes_and_limits": [
+      "Local truth table convention places corner00 in least significant mask bit (A=12); official reference places corner00 in most significant bit (A=3)",
+      "Independent Bernoulli multilinear relaxation, no interpretation as correlated hidden-wire joint probability",
+      "Three soft-gate layers and a real linear head; train and eval remain soft, no discrete argmax inference",
+      "Fixed persistent topology buffers and pass-A biased initialization; not the original architecture/protocol reproduction",
+      "No cipher keys, target labels or true cipher intermediate states are model inputs",
+      "No scientific fitting or new GPU experiment in this implementation stage; synthetic controls only",
+      "No claim of novelty, SIMON representability, optimization guarantee or performance improvement"
+    ]
+  }
+}

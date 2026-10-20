@@ -53,7 +53,7 @@ uv run cipher-experiments check --config configs/innovation2-smoke.json
 uv run cipher-experiments train --config configs/innovation2-smoke.json --output runs/i2-null-smoke-001
 ```
 
-## 已准备但未执行的首批配方
+## 首批配方（后续已执行）
 
 `configs/innovation2/` 中五份完整配置：
 
@@ -67,9 +67,9 @@ TRAIN 65536 / DEV 8192 / TEST 65536，目标bit0、support、hidden114、batch25
 r3为15619参数，r4两机制均17101参数。各run必须是新目录，不自动重试/续训。
 五份合计64000更新，最多9000秒**协作**时间，不是硬GPU预算。
 
-这些是可编辑、未验收的候选配方，**不是授权、不是已运行实验**。
-本轮没有GPU、远程连接、依赖安装或真实密码拟合。
-后续若要启动，应先一次确认设备、五项范围与总预算；不因50%自动加seed/epoch。
+实现阶段这些是未执行候选，不代表训练授权。随后用户明确同意五项范围，并澄清可用SSH启动Git同步后的CLI。
+2026-10-19五项GPU运行已完成，见[首批GPU结果](INNOVATION2-FIRST-GPU-RESULTS.md)。
+这不授权再次执行或因50%自动加seed/epoch；没有依赖安装。
 
 已准备环境中，查看一份配置的实际设备可用性：
 
@@ -83,7 +83,7 @@ uv run --no-sync cipher-experiments check --config configs/innovation2/r4-residu
 uv run cipher-experiments train --config configs/innovation2/r4-residual.json --output runs/i2-r4-residual-001
 ```
 
-这里不承诺GPU现场可用、长训练稳定性或断线存活，也不新增SSH编排。
+本批已现场执行，但不承诺未来GPU空闲、任意长训练稳定性或断线存活；SSH可调用已Git同步CLI，不传任务包或新增编排框架。
 
 ## 实际验证与结论边界
 

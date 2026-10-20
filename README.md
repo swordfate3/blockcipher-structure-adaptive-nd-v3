@@ -50,7 +50,7 @@ runs/first-smoke/
 
 ## 3. 运行SIMON基线
 
-复制`configs/simon-baseline.json`，修改样本量、设备、轮数等，再在**实际训练机器本机终端**运行：
+复制`configs/simon-baseline.json`，修改样本量、设备、轮数等，在实际训练机器运行（可在本机终端执行，也可授权后经SSH调用已Git同步的CLI）：
 
 ```bash
 uv run cipher-experiments check --config configs/simon-baseline.json
@@ -102,8 +102,9 @@ uv run cipher-experiments evaluate --checkpoint runs/first-smoke/best.pt --sha25
 
 1. **本地开发机**修改代码、测试、commit并push到GitHub。
 2. **远端Windows训练机**只fetch并检出指定commit，确认工作区状态；不要在训练中pull修改源码。
-3. 在训练机本机终端执行上述`train`命令，统一将结果写入仓库内的`runs/<run-id>/`。
-   关闭终端可能终止训练；没有断线存活承诺。
+3. 在训练机执行上述`train`命令，可由本机终端或授权后的SSH指令调用，统一写入`runs/<run-id>/`。
+   **允许SSH启动已同步代码；禁止的是SSH传任务包/科学源码及旧远程编排，不是SSH命令本身。**
+   关闭终端或SSH断连可能终止训练；没有断线存活承诺。
 4. **本地主动通过SSH/SCP取回**对应run目录，保存到本地`runs/received/<run-id>/`；
    读取远端已保存的`results.json`和`exit.json`，不自动重新训练、再生标签或重算指标。
 
@@ -126,8 +127,11 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 
 除原64位MLP外，已支持SIMON公开依赖位输入与1..4轮零主密钥参考残差预测；
 附带独立随机标签null对照和TRAIN-only公开参考常量基线。
-`configs/innovation2/`的五份GPU候选配方**尚未执行或现场验收**，不属于合成smoke，不能默认启动。
+`configs/innovation2/`五份配置的首批GPU实验已完成：r3 TEST81.94%，r4各项约50%。
+见[首批结果与范围](docs/INNOVATION2-FIRST-GPU-RESULTS.md)；仅单key/seed，不代表普遍有效，也不授权默认重跑。
 数据/模型合同、TEST标签时序、示例命令与限制见[创新2说明](docs/INNOVATION2-PREDICTION.md)。
+当前还新增`model_kind=logic16`三层软布尔门候选，仅完成合成验证，尚无密码拟合成绩；
+进度对齐与下一步见[当前研究状态](docs/INNOVATION2-CURRENT-STATE.md)。
 
 ## 本项目skills
 

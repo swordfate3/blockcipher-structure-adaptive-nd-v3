@@ -11,13 +11,15 @@ description: 开发、测试或解释本项目密码实验后端时使用，包�
 
 - 用户入口只用`cipher-experiments check/train/evaluate`；源码开发可用`python -m cipher_experiments.cli`。
 - `configs/smoke.json`为创新2合成工程检查；`configs/innovation1-smoke.json`为创新1四任务小训练检查。
-  `check`只检查配置/设备，不启动拟合。`train`在当前机器同步运行，不通过SSH启动训练系统。
+  `check`只检查配置/设备，不启动拟合。`train`在调用CLI的机器运行；授权后可经SSH调用远端已Git同步的CLI。
+  不通过SSH传任务包或科学源码，不恢复旧远程编排。
 - 新配置独立完整、严格字段。输出必须是新的`runs/<run-id>/`；失败不可覆写旧结果或自动续训。
 - 创新1：每decision恰4pair/组内同key，负类独立随机明文的真实加密；router只读public13。
   四任务SIMECK64r16Δ40/PRESENT80r7ΔD00000/SIMON64r13Δ40/SKINNY64r8Δ2000。
 - 创新2：输入明文、输出单bit，不能把创新1分类准确率混作位预测。两分支来源/指标分开报告。
   支持full/support输入、direct/public-residual（SIMON1..4轮）与null对照；support是保守依赖集合。
-  `configs/innovation2/`五份是未执行GPU候选，不是smoke或训练授权；合同见`docs/INNOVATION2-PREDICTION.md`。
+  `configs/innovation2/`五份已完成一次GPU对照，不是smoke或重跑授权；合同见`docs/INNOVATION2-PREDICTION.md`，
+  结果见`docs/INNOVATION2-FIRST-GPU-RESULTS.md`（r3有信号、r4近随机，仅单key/seed）。
 - 模型与密码算法不依赖训练或CLI；禁止import backup/旧运行包。必要算法提取记录commit/原路径/SHA/修改。
 
 ## 开发闭环

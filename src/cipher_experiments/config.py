@@ -22,6 +22,7 @@ class ExperimentConfig:
     rounds: int = 3
     target_bit: int = 0
     hidden_width: int = 32
+    model_kind: str = "mlp"
     model_features: str = "full"
     prediction_mode: str = "direct"
     label_mode: str = "cipher"
@@ -51,6 +52,10 @@ class ExperimentConfig:
             raise ValueError("dataset must be synthetic, simon or differential")
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
+        if self.model_kind not in ("mlp", "logic16"):
+            raise ValueError("model_kind must be mlp or logic16")
+        if self.experiment == "innovation1" and self.model_kind != "mlp":
+            raise ValueError("model_kind applies only to prediction")
         if self.model_features not in ("full", "support"):
             raise ValueError("model_features must be full or support")
         if self.prediction_mode not in ("direct", "public-residual"):
@@ -79,6 +84,8 @@ class ExperimentConfig:
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+        if self.model_kind == "logic16" and self.hidden_width < 64:
+            raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
         if self.train_rows + self.dev_rows + self.test_rows > 2_000_000:
             raise ValueError("total rows exceed 2,000,000")
         if (type(self.learning_rate) not in (int, float)

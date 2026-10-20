@@ -55,7 +55,8 @@ def test_old_default_checkpoint_still_loads_after_new_config_defaults(tmp_path: 
     from cipher_experiments.models.mlp import BitMLP
     config = ExperimentConfig(name="old")
     raw = config.to_dict()
-    for key in ("experiment", "model_features", "prediction_mode", "label_mode", "null_seed"):
+    for key in ("experiment", "model_kind", "model_features", "prediction_mode", "label_mode",
+                "null_seed"):
         raw.pop(key)
     import hashlib
     sha = hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()

@@ -11,7 +11,8 @@ from torch import Tensor, nn
 
 from .artifacts import file_sha256
 from .config import ExperimentConfig
-from .models.prediction import PlaintextPredictor
+from .models.logic import LogicPredictor
+from .models.prediction import PlaintextPredictor, build_predictor
 
 CHECKPOINT_SCHEMA = "cipher-experiments-checkpoint-v1"
 
@@ -60,7 +61,7 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
 
 
 def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
-                    ) -> tuple[PlaintextPredictor, ExperimentConfig, int, float]:
+                    ) -> tuple[PlaintextPredictor | LogicPredictor, ExperimentConfig, int, float]:
     if len(expected_sha256) != 64 or file_sha256(path) != expected_sha256:
         raise ValueError("checkpoint SHA256 mismatch")
     if path.stat().st_size > 256 * 1024 * 1024:
@@ -86,7 +87,8 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
         raise ValueError("invalid saved TRAIN majority")
     if type(probability) is not float or not 0 < probability < 1:
         raise ValueError("invalid saved TRAIN probability")
-    model = PlaintextPredictor(config.hidden_width, rounds=config.rounds,
+    model = build_predictor(config.hidden_width, model_kind=config.model_kind,
+                            rounds=config.rounds,
                                target_bit=config.target_bit, feature_mode=config.model_features,
                                prediction_mode=config.prediction_mode)
     template = model.state_dict()
@@ -100,6 +102,8 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                 or not bool(torch.isfinite(value).all())):
             raise ValueError(f"checkpoint state mismatch: {key}")
     model.load_state_dict(state, strict=True)
+    if isinstance(model, LogicPredictor):
+        model.validate_wiring()
     model.checkpoint_config_sha256 = raw_sha
     model.to(device)
     model.eval()

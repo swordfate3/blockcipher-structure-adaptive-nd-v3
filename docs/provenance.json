@@ -12,6 +12,10 @@
     "sha256": "53fd8f76752ac574a1d0ba37b949512d49db7b856b6238293fddbe698873ba7d",
     "modifications": "Locally reimplemented scalar SIMON64/128 block encryption and round-key prefix; omitted RoundTrace, trace_simon64, and simulator APIs; no old runtime imports."
   },
+  "innovation2_logic_candidate": {
+    "record": "docs/provenance-logic.json",
+    "scope": "new pure-Torch soft truth-table candidate and synthetic controls, no new scientific cipher fitting"
+  },
   "innovation2_prediction": {
     "record": "docs/provenance-prediction.json",
     "scope": "new plaintext support/direct/public-residual predictor; no historical checkpoints, solver or runner",

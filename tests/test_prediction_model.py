@@ -196,7 +196,7 @@ def test_residual_mode_rejects_unsupported_reference_rounds_and_bad_modes() -> N
         public_reference(torch.zeros((1, 64)), 5, 0)
 
 
-def test_prediction_module_has_only_torch_and_local_mlp_dependencies() -> None:
+def test_prediction_module_has_only_torch_and_local_model_dependencies() -> None:
     module_path = (
         Path(__file__).resolve().parents[1] / "src/cipher_experiments/models/prediction.py"
     )
@@ -212,7 +212,7 @@ def test_prediction_module_has_only_torch_and_local_mlp_dependencies() -> None:
         if isinstance(node, ast.Import)
         for alias in node.names
     )
-    assert imported_roots <= {"torch", "mlp", "__future__"}
+    assert imported_roots <= {"torch", "mlp", "logic", "typing", "__future__"}
     assert "inputs" in inspect.signature(PlaintextPredictor.forward).parameters
     assert "key" not in inspect.signature(PlaintextPredictor).parameters
     assert "key" not in inspect.signature(PlaintextPredictor.forward).parameters

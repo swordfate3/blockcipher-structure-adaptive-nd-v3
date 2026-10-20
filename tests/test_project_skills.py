@@ -18,6 +18,9 @@ def test_project_skills_have_portable_frontmatter_and_real_links() -> None:
     workflow = skills[1].read_text()
     assert "Windows不commit/push" in workflow
     assert "runs/received/<run-id>/" in workflow
+    assert "允许通过SSH执行已Git同步的CLI启动指令" in workflow
+    assert "不通过SSH上传任务包" in workflow
+    assert "授权后可经SSH调用远端已Git同步的CLI" in development
 
 
 def test_result_and_backup_directories_are_ignored() -> None:

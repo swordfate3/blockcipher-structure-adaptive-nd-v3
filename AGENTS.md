@@ -1,7 +1,7 @@
 # Cipher Experiments — development rules
 
 - 新项目的目标是独立、可直接使用的Python实验后端；中文说明，命令必须对应已实现入口。
-- 当前机器运行：`cipher-experiments check/train/evaluate`。不在训练中使用SSH/Git同步/远程包装。
+- CLI在实际训练机运行：`cipher-experiments check/train/evaluate`。用户授权后允许SSH执行远端已Git同步的CLI启动指令；禁止SSH传任务包/科学源码和旧远程编排，不是禁止SSH命令。训练程序本身不调用SSH/Git同步。
 - 相关任务先读`.pi/skills/cipher-experiment-development/SKILL.md`；Git发布/同步/取回再读`.pi/skills/cipher-git-result-workflow/SKILL.md`。旧backup skills不加载。
 - 创新1用configs/innovation1-smoke.json：四任务shared-M/1087509参数，每任务2/2/2groups、batch2、epoch1总4更新，只是功能训练。不要混作创新2位预测或旧M_reinit科研复现。
 - 保持明确依赖方向；模型不读key或其他cipher标签，密码不依赖模型/训练。不要通用workflow/registry/巨大utils。
