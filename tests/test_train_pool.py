@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -49,22 +49,27 @@ def test_train_pool_bounds(patch: dict[str, Any]) -> None:
 def test_sweep_configs_share_one_panel() -> None:
     hard = sorted((ROOT / "configs/innovation2-sample-efficiency-hard").glob("*.json"))
     ste = sorted((ROOT / "configs/innovation2-sample-efficiency-ste").glob("*.json"))
-    assert len(hard) == 19 and len(ste) == 7
+    primary = [p for p in hard if not p.name.startswith(("key", "desc-key"))]
+    robustness = [p for p in hard if p.name.startswith("key")]
+    descending = [p for p in hard if p.name.startswith("desc-key")]
+    assert (len(primary), len(robustness), len(descending), len(ste)) == (13, 6, 24, 7)
+
     configs = [load_config(p) for p in hard + ste]
     assert {c.train_pool for c in configs} == {262144}
     assert {c.data_seed for c in configs} == {192301}
-    # Three extra keys re-run the identification threshold at k=32/512.
     assert {c.key_seed for c in configs} == {190502, 190503, 190504, 190505}
     assert {c.rounds for c in configs} == {4} and {c.target_bit for c in configs} == {0}
     assert {(c.dev_rows, c.test_rows) for c in configs} == {(16384, 65536)}
-    # The primary k-sweep has one distinct budget per step; the extra key-robustness
-    # configs intentionally reuse k=32/512.
-    sweep = [p for p in hard if not p.name.startswith("key")] + ste
-    for arm in ([p for p in hard if not p.name.startswith("key")], ste):
+
+    # The primary sweeps have one distinct budget per step; robustness re-runs
+    # deliberately reuse budgets, and descending runs are a second selection order.
+    for arm in (primary, ste):
         sizes = [load_config(p).train_rows for p in arm]
         assert len(set(sizes)) == len(arm)
-    assert {load_config(p).train_rows for p in hard if p.name.startswith("key")} == {32, 512}
-    assert len(sweep) == 13 + 7
+    assert {load_config(p).train_rows for p in robustness} == {32, 512}
+    assert {load_config(p).train_rows for p in descending} == {8, 16, 32, 64, 128, 512}
+    assert {load_config(p).search_order for p in descending} == {"descending"}
+    assert all(load_config(p).search_order is None for p in primary + robustness + ste)
 
 
 def test_hard_sweep_runs_end_to_end_on_smallest_budget(tmp_path: Path) -> None:
@@ -76,3 +81,29 @@ def test_hard_sweep_runs_end_to_end_on_smallest_budget(tmp_path: Path) -> None:
     result = json.loads((out / "results.json").read_text())
     assert result["status"] == "completed" and result["gradient_updates"] == 0
     assert result["metrics"]["test"]["rows"] == 32
+
+
+def test_search_order_is_optional_and_recorded(tmp_path: Path) -> None:
+    base = ExperimentConfig(name="order-fixture", dataset="simon", rounds=1,
+                            hidden_width=64, model_kind="simon-hard-search", epochs=1,
+                            train_rows=4, dev_rows=8, test_rows=8, data_seed=192301)
+    assert "search_order" not in base.to_dict()
+    descending = replace(base, search_order="descending")
+    assert descending.to_dict()["search_order"] == "descending"
+    for bad in ("middle", "ASCENDING", 1, True):
+        with pytest.raises(ValueError):
+            replace(base, search_order=cast(Any, bad))
+    with pytest.raises(ValueError, match="hard search"):
+        replace(base, model_kind="mlp", search_order="descending")
+    # Both orders fit TRAIN exactly; the recorded contract differs.
+    outputs = {}
+    for name, order in (("asc", "ascending"), ("desc", "descending")):
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(replace(base, search_order=order).to_dict()))
+        out = tmp_path / name
+        from cipher_experiments.cli import main
+        assert main(["train", "--config", str(path), "--output", str(out)]) == 0
+        result = json.loads((out / "results.json").read_text())
+        assert result["metrics"]["train"]["accuracy"] == 1.
+        outputs[name] = json.loads((out / "manifest.json").read_text())["search_order"]
+    assert outputs == {"asc": "ascending", "desc": "descending"}

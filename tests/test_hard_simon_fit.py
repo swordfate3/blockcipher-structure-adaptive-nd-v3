@@ -268,3 +268,20 @@ def test_result_is_frozen_and_module_has_only_stdlib_or_public_cone_imports() ->
     )
     assert imports <= {"__future__", "math", "time", "dataclasses", "typing",
                        "representations.simon_cone"}
+
+
+def test_descending_order_returns_the_highest_consistent_assignment() -> None:
+    """Selection order is a search contract: the found assignment depends on it."""
+    plaintexts = (0x0123456789ABCDEF, 0xFEDCBA9876543210)
+    targets = (0, 1)
+    ascending = fit_hard_simon(plaintexts, targets, rounds=1, target_bit=0, max_seconds=10)
+    descending = fit_hard_simon(plaintexts, targets, rounds=1, target_bit=0, max_seconds=10,
+                                order="descending")
+    assert ascending.assignment is not None and descending.assignment is not None
+    assert ascending.assignment <= descending.assignment
+
+
+def test_invalid_order_is_rejected() -> None:
+    with pytest.raises(ValueError, match="order"):
+        fit_hard_simon((0,), (0,), rounds=1, target_bit=0, max_seconds=10,
+                       order="middle")  # type: ignore[arg-type]

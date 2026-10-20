@@ -134,6 +134,7 @@ def fit_hard_simon(
     max_seconds: int | float,
     chunk_bits: int = 16,
     max_variables: int = 24,
+    order: Literal["ascending", "descending"] = "ascending",
 ) -> HardSimonFitResult:
     """Find the lowest-index exact TRAIN assignment, or exhaust the bounded domain.
 
@@ -143,6 +144,8 @@ def fit_hard_simon(
     it never returns a partial fit or an exhausted result.
     """
     _validate_inputs(plaintexts, targets, max_seconds, chunk_bits, max_variables)
+    if order not in ("ascending", "descending"):
+        raise ValueError("order must be 'ascending' or 'descending'")
     started = time.monotonic()
     cone = simon_cone(rounds, target_bit)
     variable_coordinates = cone.round_key_coordinates
@@ -164,7 +167,8 @@ def fit_hard_simon(
     assignments_covered = 0
     rows_evaluated = 0
 
-    for block_start in range(0, domain_size, block_size):
+    for block_start in (range(0, domain_size, block_size) if order == "ascending"
+                        else range(domain_size - block_size, -1, -block_size)):
         _check_time(started, max_seconds)
         block_width = min(block_size, domain_size - block_start)
         all_candidates = (1 << block_width) - 1
@@ -192,8 +196,11 @@ def fit_hard_simon(
         blocks_completed += 1
         assignments_covered += block_width
         if alive:
-            lowest_local_assignment = (alive & -alive).bit_length() - 1
-            assignment = block_start + lowest_local_assignment
+            # Selection order is part of the search contract, not a detail: the
+            # first consistent assignment found depends on it.
+            local = ((alive & -alive).bit_length() - 1 if order == "ascending"
+                     else alive.bit_length() - 1)
+            assignment = block_start + local
             _check_time(started, max_seconds)
             return HardSimonFitResult(
                 assignment=assignment,

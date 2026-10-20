@@ -7,7 +7,7 @@ import traceback
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import torch
 
@@ -50,6 +50,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "git": git_identity(Path(__file__).resolve().parents[2]),
         "device": "cpu", "method": method,
         "selection": criterion + "; no DEV candidate selection",
+        "search_order": config.search_order or "ascending",
         "test_policy": "TEST labels only after strict selected-checkpoint loading",
         "timeout_policy": "cooperative; not a hard process limit",
         "key_schedule_constraint": False, "gradient_updates": 0})
@@ -85,7 +86,9 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         else:
             fit = fit_hard_simon(_plaintexts(x), tuple(int(v) for v in y.flatten().tolist()),
                                  rounds=config.rounds, target_bit=config.target_bit,
-                                 max_seconds=deadline())
+                                 max_seconds=deadline(),
+                                 order=cast("Literal['ascending','descending']",
+                                             config.search_order or "ascending"))
         write_json(output / "fit.json", asdict(fit))
         if fit.assignment is None:
             result: dict[str, Any] = {

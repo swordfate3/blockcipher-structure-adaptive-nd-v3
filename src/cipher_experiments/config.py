@@ -15,6 +15,7 @@ class ExperimentConfig:
     experiment: str = "prediction"
     train_rows: int = 64
     train_pool: int | None = None
+    search_order: str | None = None
     dev_rows: int = 32
     test_rows: int = 32
     data_seed: int = 1
@@ -128,6 +129,12 @@ class ExperimentConfig:
                                  "[train_rows, 1000000]")
             if self.train_pool + self.dev_rows + self.test_rows > 2_000_000:
                 raise ValueError("train_pool plus dev/test rows exceed 2,000,000")
+        # Selection order of the exact search is an experimental variable, not a
+        # constant: it decides which consistent assignment is returned.
+        if self.search_order not in (None, "ascending", "descending"):
+            raise ValueError("search_order must be null, 'ascending' or 'descending'")
+        if self.search_order is not None and not self.model_kind.startswith("simon-hard"):
+            raise ValueError("search_order applies only to hard search model kinds")
         if self.model_kind == "logic16" and self.hidden_width < 64:
             raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
         if self.dataset == "circuit-synthetic" and (
@@ -143,7 +150,7 @@ class ExperimentConfig:
 
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
-        for optional in ("shuffle_seed", "train_pool"):
+        for optional in ("shuffle_seed", "train_pool", "search_order"):
             if values.get(optional) is None:
                 values.pop(optional)
         return values
