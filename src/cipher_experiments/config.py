@@ -14,6 +14,7 @@ class ExperimentConfig:
     dataset: str = "synthetic"
     experiment: str = "prediction"
     train_rows: int = 64
+    train_pool: int | None = None
     dev_rows: int = 32
     test_rows: int = 32
     data_seed: int = 1
@@ -117,6 +118,16 @@ class ExperimentConfig:
                 type(self.shuffle_seed) is not int
                 or not 0 <= self.shuffle_seed <= 2**32 - 1):
             raise ValueError("shuffle_seed must be null or an integer in [0, 2**32-1]")
+        # Optional fixed train-panel capacity for sample-efficiency sweeps. The
+        # panel is built once at this size, so DEV/TEST boundaries stay identical
+        # while ``train_rows`` varies. ``None`` keeps the historical behaviour.
+        if self.train_pool is not None:
+            if (type(self.train_pool) is not int
+                    or not self.train_rows <= self.train_pool <= 1_000_000):
+                raise ValueError("train_pool must be null or an integer in "
+                                 "[train_rows, 1000000]")
+            if self.train_pool + self.dev_rows + self.test_rows > 2_000_000:
+                raise ValueError("train_pool plus dev/test rows exceed 2,000,000")
         if self.model_kind == "logic16" and self.hidden_width < 64:
             raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
         if self.dataset == "circuit-synthetic" and (
@@ -132,8 +143,9 @@ class ExperimentConfig:
 
     def to_dict(self) -> dict[str, Any]:
         values = asdict(self)
-        if values.get("shuffle_seed") is None:
-            values.pop("shuffle_seed")
+        for optional in ("shuffle_seed", "train_pool"):
+            if values.get(optional) is None:
+                values.pop(optional)
         return values
 
     def sha256(self) -> str:

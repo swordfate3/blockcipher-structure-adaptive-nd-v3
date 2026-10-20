@@ -40,7 +40,12 @@ def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
         return make_circuit_inputs(config.train_rows, config.dev_rows, config.test_rows,
                                    seed=config.data_seed)
     from .data.prediction import make_inputs
-    return make_inputs(config.train_rows, config.dev_rows, config.test_rows, seed=config.data_seed)
+    capacity = config.train_rows if config.train_pool is None else config.train_pool
+    panels = make_inputs(capacity, config.dev_rows, config.test_rows, seed=config.data_seed)
+    if capacity != config.train_rows:
+        # Keep DEV/TEST fixed while shrinking only the TRAIN budget.
+        panels["train"] = panels["train"][: config.train_rows].contiguous()
+    return panels
 
 
 def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
