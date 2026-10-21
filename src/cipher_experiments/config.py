@@ -90,10 +90,10 @@ class ExperimentConfig:
                 "simon-structure", "simon-ste", "simon-hard-search", "simon-hard-sat") and (
                 self.dataset != "simon" or self.hidden_width != 64
                 or self.model_features != "full" or self.prediction_mode != "direct"
-                or type(self.rounds) is not int or not 1 <= self.rounds <= 6
+                or type(self.rounds) is not int or not 1 <= self.rounds <= 16
                 or (self.rounds == 1 and type(self.target_bit) is int and self.target_bit >= 32)):
             raise ValueError("simon-structure needs simon/full/direct/hidden_width=64, "
-                             "rounds1..6 and a target depending on unknown round constants")
+                             "rounds1..16 and a target depending on unknown round constants")
         if self.model_kind.startswith("circuit-") and (
                 self.dataset != "circuit-synthetic" or self.hidden_width != 64
                 or self.model_features != "full" or self.prediction_mode != "direct"):
@@ -107,8 +107,10 @@ class ExperimentConfig:
             raise ValueError("model_features must be full or support")
         if self.prediction_mode not in ("direct", "public-residual"):
             raise ValueError("prediction_mode must be direct or public-residual")
-        if self.label_mode not in ("cipher", "null"):
-            raise ValueError("label_mode must be cipher or null")
+        if self.label_mode not in ("cipher", "null", "zero-key"):
+            raise ValueError("label_mode must be cipher, null or zero-key")
+        if self.label_mode == "zero-key" and self.dataset != "simon":
+            raise ValueError("zero-key labels require dataset=simon")
         if self.experiment == "innovation1" and (
                 self.model_features != "full" or self.prediction_mode != "direct"
                 or self.label_mode != "cipher"):

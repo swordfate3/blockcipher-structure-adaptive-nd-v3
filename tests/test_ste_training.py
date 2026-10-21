@@ -71,7 +71,7 @@ def test_ste_cli_checkpoint_and_freeze_before_test(
 
 
 @pytest.mark.parametrize("patch", [{"dataset": "synthetic"}, {"hidden_width": 32},
-                                    {"prediction_mode": "public-residual"}, {"rounds": 7}])
+                                    {"prediction_mode": "public-residual"}, {"rounds": 17}])
 def test_ste_contract(patch: dict[str, Any]) -> None:
     with pytest.raises(ValueError):
         replace(config(), **patch)

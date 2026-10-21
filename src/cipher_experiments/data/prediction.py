@@ -90,6 +90,27 @@ def key_for_seed(key_seed: int) -> int:
     return random.Random(key_seed).getrandbits(128)
 
 
+def make_zero_key_labels(inputs: Tensor, *, rounds: int, target_bit: int) -> Tensor:
+    """Labels with the master key fixed to zero, so the whole function is public.
+
+    This isolates "can a learner fit the published circuit" from "can it infer an
+    unknown constant": the exact value is computable for anyone, so no result here
+    is cryptanalysis, and the zero-error reference is available by construction.
+    """
+    from cipher_experiments.data.prediction import _plaintexts as pack
+
+    rows = _validate_inputs(inputs)
+    if type(rounds) is not int or not 1 <= rounds <= _MAX_ROUNDS:
+        raise ValueError(f"rounds must be between 1 and {_MAX_ROUNDS}")
+    if type(target_bit) is not int or not 0 <= target_bit < 64:
+        raise ValueError("target_bit must be between 0 and 63")
+    mask = 1 << (63 - target_bit)
+    labels = torch.empty((rows, 1), dtype=torch.float32)
+    for offset, plaintext in enumerate(pack(inputs)):
+        labels[offset, 0] = float(bool(_encrypt(plaintext, 0, rounds) & mask))
+    return labels
+
+
 def make_labels(
     inputs: Tensor,
     *,

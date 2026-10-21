@@ -66,6 +66,9 @@ def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
                                 target_bit=config.target_bit, key_seed=config.key_seed,
                                 key_count=config.key_count,
                                 train_key_count=config.train_key_count, split=split)
+    if config.dataset == "simon" and config.label_mode == "zero-key":
+        from .data.prediction import make_zero_key_labels
+        return make_zero_key_labels(x, rounds=config.rounds, target_bit=config.target_bit)
     from .data.prediction import make_labels
     return make_labels(x, dataset=config.dataset, rounds=config.rounds,
                        target_bit=config.target_bit,

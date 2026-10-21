@@ -47,7 +47,7 @@ def test_structure_null_cli_and_checkpoint_no_secret_constructor(tmp_path: Path)
 
 
 @pytest.mark.parametrize("patch", [
-    {"dataset": "synthetic"}, {"rounds": 7}, {"rounds": True},
+    {"dataset": "synthetic"}, {"rounds": 17}, {"rounds": True},
     {"rounds": 1, "target_bit": 32}, {"prediction_mode": "public-residual"},
     {"model_features": "support"}, {"hidden_width": 32},
 ])

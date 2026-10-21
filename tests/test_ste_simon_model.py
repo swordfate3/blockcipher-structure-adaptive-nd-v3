@@ -164,7 +164,7 @@ def test_module_has_no_cipher_label_solver_or_key_schedule_imports() -> None:
 
 def test_round_and_target_validation_are_inherited() -> None:
     with pytest.raises(ValueError, match="rounds"):
-        STESimonPredictor(rounds=7)
+        STESimonPredictor(rounds=17)
     with pytest.raises(ValueError, match="target_bit"):
         STESimonPredictor(target_bit=64)
     with pytest.raises(ValueError, match="no learnable round-key"):

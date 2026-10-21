@@ -24,6 +24,7 @@
 - [STE四轮确认方案](INNOVATION2-STE-CONFIRM-PLAN.md)：冻结超参数、四项确认及条件五轮探针。
 - [STE确认结果](INNOVATION2-STE-CONFIRM-RESULTS.md)：新面板未复现74.90%，五轮真实/null未启动。
 - [审查后修订](REVIEW-FIXES-20261020.md)：顺序种子分离、BCE可比性、参数可识别性审计（分支未入 main）。
+- [密钥置0的结构学习](INNOVATION2-ZERO-KEY.md)：公开密钥后4轮58.79%、6轮以上崩；只测优化器不测表达力。
 - [积分平衡性引擎](INNOVATION2-INTEGRAL.md)：superpoly显式判据＋穷举验证；r5用2^6数据全64位平衡、r6需2^12。
 - [方法谱系检索](INNOVATION2-METHODS-SURVEY.md)：差分-神经/线性/积分/SAT/代数各家族与我们条件的适配排序。
 - [差分输出位预测](INNOVATION2-DIFFBIT.md)：跨key可学；首测54.35%对常数50.44%/null49.76%，但含候选筛选偏差待复核。

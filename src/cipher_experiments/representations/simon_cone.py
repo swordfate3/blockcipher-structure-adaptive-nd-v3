@@ -129,7 +129,7 @@ def simon_cone(rounds: int, target_bit: int) -> SimonCone:
     if type(rounds) is not int:
         raise TypeError("rounds must be a built-in int")
     if not 1 <= rounds <= _MAX_ROUNDS:
-        raise ValueError("rounds must be between 1 and 6")
+        raise ValueError(f"rounds must be between 1 and {_MAX_ROUNDS}")
     if type(target_bit) is not int:
         raise TypeError("target_bit must be a built-in int")
     if not 0 <= target_bit < 64:

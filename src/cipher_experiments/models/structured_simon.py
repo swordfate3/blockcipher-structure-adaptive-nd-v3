@@ -23,7 +23,7 @@ class StructuredSimonPredictor(nn.Module):
 
     def __init__(self, *, rounds: int = 3, target_bit: int = 0) -> None:
         super().__init__()
-        rounds = _validate_builtin_int(rounds, "rounds", 1, 6)
+        rounds = _validate_builtin_int(rounds, "rounds", 1, 16)
         target_bit = _validate_builtin_int(target_bit, "target_bit", 0, 63)
         cone = simon_cone(rounds, target_bit)
         key_coordinates = cone.round_key_coordinates

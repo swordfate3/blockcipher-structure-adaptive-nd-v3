@@ -193,7 +193,7 @@ def test_zero_logit_threshold_is_explicitly_bit_zero() -> None:
     assert torch.equal(hard > 0, expected)
 
 
-@pytest.mark.parametrize("rounds", [0, 7, True, 1.0])
+@pytest.mark.parametrize("rounds", [0, 17, True, 1.0])
 def test_constructor_rejects_non_builtin_or_out_of_range_rounds(rounds: object) -> None:
     error = TypeError if type(rounds) is not int else ValueError
     with pytest.raises(error):
