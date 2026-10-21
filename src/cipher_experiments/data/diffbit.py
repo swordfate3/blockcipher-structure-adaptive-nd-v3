@@ -165,3 +165,31 @@ def bias_summary(labels: Tensor, *, keys_per_row: int) -> dict[str, float]:
         "max_key_rate": max(rates),
         "spread": max(rates) - min(rates),
     }
+
+
+def key_marginal_probability(inputs: Tensor, *, delta: int, rounds: int, target_bit: int,
+                             key_seed: int, train_key_count: int) -> Tensor:
+    """Per-row positive fraction over the TRAIN key pool.
+
+    This is the strongest key-agnostic predictor available to a model that has
+    seen only TRAIN keys: it uses the row's plaintext and the TRAIN keys, never a
+    held-out key or a held-out label. It is the baseline a differential model has
+    to beat before "the model learned something beyond the bias" is supportable.
+    """
+    if type(train_key_count) is not int or train_key_count < 1:
+        raise ValueError("train_key_count must be a positive integer")
+    rows = int(inputs.shape[0])
+    if not 1 <= rows <= _MAX_ROWS:
+        raise ValueError(f"row count must be between 1 and {_MAX_ROWS}")
+    keys = tuple(key_for(key_seed, index) for index in range(train_key_count))
+    plaintexts = _pack(inputs)
+    mask = 1 << (63 - target_bit)
+    fractions = torch.empty((rows, 1), dtype=torch.float32)
+    for offset, plaintext in enumerate(plaintexts):
+        hits = 0
+        for key in keys:
+            difference = (_encrypt(plaintext, key, rounds)
+                          ^ _encrypt(plaintext ^ delta, key, rounds))
+            hits += int(bool(difference & mask))
+        fractions[offset, 0] = hits / len(keys)
+    return fractions

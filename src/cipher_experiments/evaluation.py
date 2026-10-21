@@ -23,12 +23,14 @@ CHECKPOINT_SCHEMA = "cipher-experiments-checkpoint-v1"
 def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.device,
                    batch_size: int, majority: int, probability: float,
                    reference: Tensor | None = None, residual_majority: int = 0,
-                   residual_probability: float = .5) -> dict[str, Any]:
+                   residual_probability: float = .5,
+                   key_marginal: Tensor | None = None) -> dict[str, Any]:
     correct, count, loss = 0, len(y), 0.0
     constant_correct = 0
     public_correct = 0
     public_loss = 0.0
     hard_correct, hard_loss = 0, 0.0
+    marginal_correct, marginal_loss = 0, 0.0
     probability = min(max(probability, 1e-12), 1 - 1e-12)
     import math
     constant_loss = 0.0
@@ -50,6 +52,14 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
         constant_correct += int((targets == majority).sum())
         constant_loss -= ones * math.log(probability) + (len(targets) - ones) * math.log1p(
             -probability)
+        if key_marginal is not None:
+            marginal = key_marginal[start:start + batch_size].to(device, dtype=torch.float64)
+            if not bool(((marginal >= 0) & (marginal <= 1)).all()):
+                raise ValueError("key-marginal probabilities must lie in [0, 1]")
+            marginal = marginal.clamp(min=1e-12, max=1 - 1e-12)
+            marginal_correct += int(((marginal >= .5) == targets.bool()).sum())
+            marginal_loss += float(torch.nn.functional.binary_cross_entropy(
+                marginal, targets.double(), reduction="sum"))
         if reference is not None:
             ref = reference[start:start + batch_size].to(device)
             public_correct += int(((ref.bool() ^ bool(residual_majority)) == targets.bool()).sum())
@@ -69,6 +79,13 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
     if isinstance(model, StructuredSimonPredictor):
         result["hard_constants"] = {"rows": count, "correct": hard_correct,
                                     "accuracy": hard_correct / count, "bce": hard_loss / count}
+    if key_marginal is not None:
+        result["key_marginal_baseline"] = {
+            "rows": count, "correct": marginal_correct,
+            "accuracy": marginal_correct / count, "bce": marginal_loss / count,
+            "note": "per-row majority over TRAIN keys; key-agnostic ceiling"}
+        result["bce_gain_vs_key_marginal"] = marginal_loss / count - model_bce
+        result["accuracy_gain_vs_key_marginal"] = (correct / count) - (marginal_correct / count)
     if reference is not None:
         result["public_reference_constant"] = {
             "residual_bit": residual_majority, "residual_probability": residual_probability,

@@ -86,6 +86,21 @@ def reference_panels(config: ExperimentConfig, inputs: dict[str, Tensor]) -> dic
     return {}
 
 
+def key_marginal_panels(config: ExperimentConfig,
+                        inputs: dict[str, Tensor]) -> dict[str, Tensor]:
+    """Per-row TRAIN-key majority probability; report-only, never used to select."""
+    if config.dataset != "simon-diff" or config.label_mode != "cipher":
+        return {}
+    from .data.diffbit import key_marginal_probability
+    if config.input_difference is None or config.train_key_count is None:
+        return {}
+    return {split: key_marginal_probability(
+        x, delta=config.input_difference, rounds=config.rounds,
+        target_bit=config.target_bit, key_seed=config.key_seed,
+        train_key_count=config.train_key_count)
+        for split, x in inputs.items()}
+
+
 def baseline_parameters(labels: Tensor, reference: Tensor | None) -> tuple[int, float]:
     residual = labels if reference is None else (labels != reference).float()
     ones = int(residual.sum())
@@ -150,6 +165,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         panels = {split: (inputs[split], labels_for(config, inputs[split], split))
                   for split in ("train", "dev")}
         references = reference_panels(config, inputs)
+        marginals = key_marginal_panels(config, inputs)
         deadline()
         panel_sha: dict[str, Any] = {}
         import hashlib
@@ -228,7 +244,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                                  batch_size=config.batch_size, majority=majority,
                                  probability=probability, reference=references.get("dev"),
                                  residual_majority=residual_majority,
-                                 residual_probability=residual_probability)
+                                 residual_probability=residual_probability,
+                                 key_marginal=marginals.get("dev"))
             if dev["bce"] < best:
                 best, selected_epoch = dev["bce"], epoch
                 _save_checkpoint(output / "best.pt", model, config, epoch, updates,
@@ -260,7 +277,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                                         batch_size=config.batch_size, majority=majority,
                                         probability=probability, reference=references.get(split),
                                         residual_majority=residual_majority,
-                                        residual_probability=residual_probability)
+                                        residual_probability=residual_probability,
+                                        key_marginal=marginals.get(split))
                    for split in ("train", "dev", "test")}
         deadline()
         result = {"schema": "cipher-experiments-result-v1", "status": "completed",

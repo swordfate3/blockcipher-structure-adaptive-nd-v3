@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -138,3 +139,42 @@ def _pack(row: list[int]) -> int:
     for bit in row:
         value = (value << 1) | int(bit)
     return value
+
+
+def test_key_marginal_is_the_mean_over_train_keys() -> None:
+    from cipher_experiments.data.diffbit import key_marginal_probability
+
+    x = make_diff_inputs(16, 8, 8, seed=41)["train"]
+    target_bit, rounds, keys = 17, 2, 4
+    marginal = key_marginal_probability(x, delta=DELTA, rounds=rounds,
+                                        target_bit=target_bit, key_seed=5,
+                                        train_key_count=keys)
+    assert marginal.shape == (16, 1)
+    assert bool(((marginal >= 0) & (marginal <= 1)).all())
+
+    manual = []
+    for row in x.to(torch.int64).tolist():
+        plaintext = _pack(row)
+        hits = 0
+        for index in range(keys):
+            key = key_for(5, index)
+            difference = encrypt(plaintext, key, rounds) ^ encrypt(plaintext ^ DELTA, key, rounds)
+            hits += int(bool(difference & (1 << (63 - target_bit))))
+        manual.append([hits / keys])
+    assert torch.allclose(marginal, torch.tensor(manual, dtype=torch.float32), atol=1e-6)
+
+
+def test_training_records_the_key_marginal_baseline(tmp_path: Path) -> None:
+    import json
+
+    from cipher_experiments.training import train
+
+    cfg = config(train_rows=16, dev_rows=8, test_rows=8, epochs=2, batch_size=8)
+    result = train(cfg, tmp_path / "run")
+    for split in ("train", "dev", "test"):
+        metrics = result["metrics"][split]
+        assert "key_marginal_baseline" in metrics
+        assert "accuracy_gain_vs_key_marginal" in metrics
+        assert 0.0 <= metrics["key_marginal_baseline"]["accuracy"] <= 1.0
+    payload = json.loads((tmp_path / "run" / "selection.json").read_text())
+    assert payload["test_labels_generated"] is False
