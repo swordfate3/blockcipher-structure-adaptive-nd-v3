@@ -24,5 +24,6 @@
 - [STE四轮确认方案](INNOVATION2-STE-CONFIRM-PLAN.md)：冻结超参数、四项确认及条件五轮探针。
 - [STE确认结果](INNOVATION2-STE-CONFIRM-RESULTS.md)：新面板未复现74.90%，五轮真实/null未启动。
 - [审查后修订](REVIEW-FIXES-20261020.md)：顺序种子分离、BCE可比性、参数可识别性审计（分支未入 main）。
+- [方法谱系检索](INNOVATION2-METHODS-SURVEY.md)：差分-神经/线性/积分/SAT/代数各家族与我们条件的适配排序。
 - [差分输出位预测](INNOVATION2-DIFFBIT.md)：跨key可学；首测54.35%对常数50.44%/null49.76%，但含候选筛选偏差待复核。
 - [重建与实际验收](REBUILD.md)：旧项目归档、真实检查、没有执行的项目。
