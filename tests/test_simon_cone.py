@@ -132,3 +132,22 @@ def test_cone_rejects_invalid_target_bit_contract(target_bit: object) -> None:
     error = TypeError if type(target_bit) is not int else ValueError
     with pytest.raises(error):
         simon_cone(1, target_bit)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("rounds", [2, 3, 4, 5, 6])
+@pytest.mark.parametrize("bit", [0, 5, 31])
+def test_low_word_cone_is_the_previous_round_high_word(rounds: int, bit: int) -> None:
+    """Feistel swap: ciphertext low word at round r is the round r-1 high word.
+
+    So a cube over low-word plaintext bits is one round shallower than the same
+    cube over high-word bits, and any low-word claim overstates rounds by one.
+    """
+    here = simon_cone(rounds, 32 + bit)
+    previous = simon_cone(rounds - 1, bit)
+    assert here.plaintext_indices == previous.plaintext_indices
+    assert len(here.nodes) == len(previous.nodes)
+    assert here.gate_counts == previous.gate_counts
+    # Not merely isomorphic: the cone itself is identical, keys included.
+    assert here.round_key_coordinates == previous.round_key_coordinates
+    assert here.output == previous.output
+    assert [(n.kind, n.args) for n in here.nodes] == [(n.kind, n.args) for n in previous.nodes]
