@@ -109,7 +109,7 @@ def test_nodes_and_cones_are_immutable_and_reject_malformed_graphs() -> None:
     with pytest.raises(ValueError, match="prior nodes"):
         SimonCone((ConeNode("xor", args=(0, 0)),), 0)
     with pytest.raises(ValueError, match="round-key coordinate"):
-        SimonCone((ConeNode("round_key", coordinate=(6, 0)),), 0)
+        SimonCone((ConeNode("round_key", coordinate=(16, 0)),), 0)
     with pytest.raises(ValueError, match="reachable"):
         SimonCone(
             (
@@ -120,7 +120,7 @@ def test_nodes_and_cones_are_immutable_and_reject_malformed_graphs() -> None:
         )
 
 
-@pytest.mark.parametrize("rounds", [0, 7, True, 1.0])
+@pytest.mark.parametrize("rounds", [0, 17, True, 1.0])
 def test_cone_rejects_invalid_round_contract(rounds: object) -> None:
     error = TypeError if type(rounds) is not int else ValueError
     with pytest.raises(error):

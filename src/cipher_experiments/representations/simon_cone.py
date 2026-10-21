@@ -9,6 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cache
 
+# Symbolic cones are pure structure: the analysis engines stay cheap well past the
+# cipher's own 44 rounds, so this bound is about tractable analysis, not security.
+_MAX_ROUNDS = 16
+
 
 @dataclass(frozen=True)
 class ConeNode:
@@ -89,7 +93,7 @@ class SimonCone:
                         raise ValueError("plaintext coordinate must be in [0, 64)")
                 elif (
                     len(node.coordinate) != 2
-                    or not 0 <= node.coordinate[0] < 6
+                    or not 0 <= node.coordinate[0] < _MAX_ROUNDS
                     or not 0 <= node.coordinate[1] < 32
                 ):
                     raise ValueError("round-key coordinate must be in [0, 6) x [0, 32)")
@@ -116,7 +120,7 @@ class SimonCone:
 
 
 def simon_cone(rounds: int, target_bit: int) -> SimonCone:
-    """Build a symbolic SIMON64/128 output cone for rounds 1 through 6.
+    """Build a symbolic SIMON64/128 output cone for rounds 1 through 16.
 
     Bit coordinates use ciphertext/plaintext MSB order: the high state word is
     0..31 and the low state word is 32..63. Symbolic key leaves identify the
@@ -124,7 +128,7 @@ def simon_cone(rounds: int, target_bit: int) -> SimonCone:
     """
     if type(rounds) is not int:
         raise TypeError("rounds must be a built-in int")
-    if not 1 <= rounds <= 6:
+    if not 1 <= rounds <= _MAX_ROUNDS:
         raise ValueError("rounds must be between 1 and 6")
     if type(target_bit) is not int:
         raise TypeError("target_bit must be a built-in int")
