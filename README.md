@@ -139,12 +139,15 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
-## 远程数据量对照（已授权准备）
+## 远程数据量对照（已完成）
 
 [6轮数据规模合同](docs/INNOVATION2-DATA-SCALE-PLAN.md)：TRAIN4096/65536各真实/null，
 同DEV8192/TEST65536、每项8192更新；`train_pool_rows`固定持出边界以保证嵌套TRAIN，
 `dev_every_epochs`匹配每256更新的32次DEV选模。仅本批获准Git发布、远程GPU运行与结果取回，
 不自动安装或扩大预算。远端通过统一CLI执行；本地不重算取回的科学结果。
+[远程实测结果](docs/INNOVATION2-DATA-SCALE-RESULTS.md)：4096/65536条TRAIN的真实TEST50.2060%/50.1068%，
+null50.0000%/50.1862%，四项各8192更新、exit0。增加16倍数据在本固定计算预算下没有解决当前模型学习失败，
+不能排除数据×计算或其他模型路线；本批已关闭。
 
 ## 高轮推进（此前CPU结果）
 

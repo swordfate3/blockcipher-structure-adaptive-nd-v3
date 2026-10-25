@@ -22,7 +22,7 @@
 - [两初始化诊断计划](INNOVATION2-R2-DIAGNOSTIC-PLAN.md)与[结果](INNOVATION2-R2-DIAGNOSTIC-RESULTS.md)：相同模型/预算新面板96.67%/92.74%，DEV错误在TRAIN已见完整签名上；无旧TEST重放或升轮。
 - [局部四通道计划](INNOVATION2-R2-VECTOR-PLAN.md)与[结果](INNOVATION2-R2-VECTOR-RESULTS.md)：557参数vector85.99%，同期scalar96.95%，扩宽未改善本次学习；四项各800步后关闭。
 - [高轮6/8轮合同](INNOVATION2-HIGH-ROUND-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-RESULTS.md)：停止低轮诊断，四项各800步，6轮50.02%/8轮50.26%，未超常量准确率基线。
-- [远程6轮数据规模合同](INNOVATION2-DATA-SCALE-PLAN.md)：获准发布并以4096/65536嵌套TRAIN、固定持出/8192更新/32次DEV选模作四项GPU对照。
+- [远程6轮数据规模合同](INNOVATION2-DATA-SCALE-PLAN.md)与[结果](INNOVATION2-DATA-SCALE-RESULTS.md)：4096/65536嵌套TRAIN、固定持出/8192更新/32次DEV选模；A6000实测TEST50.2060%/50.1068%，四exit0，增数据未解决当前候选学习失败。
 - [AN与Fix本地论文阅读](AN-FIX-PAPER-READING.md)：生成伪迹/机制对照与固定查询预算分配；区分创新1关联和创新2非等价任务，不据此声称高轮位预测。
 - [创新2文献复核（2026-10-22）](INNOVATION2-LITERATURE-20261022.md)：输出预测证据矩阵、整块/单bit监督差异、逐层学习条件和未执行候选。
 - [logic16 GPU试验](INNOVATION2-LOGIC-GPU-RESULTS.md)：r3正控49.72%，停止后三项，执行与文件核验闭环。
