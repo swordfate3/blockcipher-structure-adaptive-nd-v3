@@ -1,0 +1,24 @@
+{
+  "kind": "locally designed differentiable round-unrolled candidate",
+  "model": "src/cipher_experiments/models/unrolled_simon.py",
+  "public_structure_sources": ["src/cipher_experiments/models/prediction.py:support_indices", "src/cipher_experiments/ciphers/simon.py:encrypt"],
+  "changes": "shared local Tanh MLP and learned round-position conditions; continuous unobserved hidden states; final single-bit supervision only",
+  "secret_boundary": "no actual key, round keys, real intermediate states, other ciphertext labels or solved assignments in model construction or forward",
+  "public_output_xor_extension": {
+    "mode": "plaintext-xor; two rounds/high-half only",
+    "derivation": "X2_j = X0_j XOR F(X1)_j XOR K1_j; final logit signed by 1-2*plaintext_j",
+    "information": "invertible public transform of the same final target bit; no extra labels or actual intermediate states",
+    "context": "docs/INNOVATION2-LITERATURE-20261022.md sections 4.1 and 6; locally derived, not copied from a paper implementation"
+  },
+  "final_low_ablation": {
+    "mode": "plaintext-xor-no-final-low; two rounds/high-half only",
+    "change": "only final-round centered low input channel set to constant zero; first round and public output sign unchanged",
+    "rationale": "local mechanism hypothesis following two weak-output-XOR batches; no external implementation copied",
+    "scope": "same parameter tensors and initialization; restricted effective input path, not an equivalent function class or recovered true state",
+    "plan": "docs/INNOVATION2-FINAL-LOW-PLAN.md"
+  },
+  "higher_round_extension": "Direct-mode constructor/config upper bound changed from6 to8 only, no forward/init changes; fixed CPU6/8-round four-arm exploration per docs/INNOVATION2-HIGH-ROUND-PLAN.md, not evidence of high-round efficacy or paper reproduction",
+  "external_implementation_copied": false,
+  "novelty": "not assessed; not a paper reproduction",
+  "base_commit": "111adab6fba0df0369e65c9a5a7312e1d8481fa6"
+}

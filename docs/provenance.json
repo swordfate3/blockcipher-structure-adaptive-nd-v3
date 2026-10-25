@@ -1,4 +1,12 @@
 {
+  "innovation2_two_round_redesign": {
+    "record": "docs/provenance-two-round.json",
+    "scope": "local four-logit structural positive control and independent-cell neural diagnostic; final absolute bit supervision, no real key/trace input"
+  },
+  "innovation2_unrolled": {
+    "record": "docs/provenance-unrolled.json",
+    "scope": "local neural round updates with final single-bit supervision only; no real trace/key inputs"
+  },
   "innovation1_extraction": {
     "model_records": "docs/provenance-models.json",
     "data_cipher_records": "docs/provenance-data.json",

@@ -14,7 +14,13 @@ from .config import ExperimentConfig
 from .models.circuit import CircuitPredictor
 from .models.logic import LogicPredictor
 from .models.prediction import PlaintextPredictor, build_predictor
+from .models.simon_two_round import (
+    TwoRoundLocalPredictor,
+    TwoRoundTablePredictor,
+    TwoRoundVectorPredictor,
+)
 from .models.structured_simon import StructuredSimonPredictor
+from .models.unrolled_simon import UnrolledSimonPredictor
 
 CHECKPOINT_SCHEMA = "cipher-experiments-checkpoint-v1"
 
@@ -74,7 +80,9 @@ def evaluate_model(model: nn.Module, x: Tensor, y: Tensor, *, device: torch.devi
 def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                     ) -> tuple[
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
-                        | StructuredSimonPredictor,
+                        | StructuredSimonPredictor | UnrolledSimonPredictor
+                        | TwoRoundTablePredictor | TwoRoundLocalPredictor
+                        | TwoRoundVectorPredictor,
                         ExperimentConfig, int, float]:
     if len(expected_sha256) != 64 or file_sha256(path) != expected_sha256:
         raise ValueError("checkpoint SHA256 mismatch")

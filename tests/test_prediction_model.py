@@ -213,7 +213,9 @@ def test_prediction_module_has_only_torch_and_local_model_dependencies() -> None
         for alias in node.names
     )
     assert imported_roots <= {
-        "torch", "mlp", "logic", "circuit", "structured_simon", "typing", "__future__"}
+        "torch", "mlp", "logic", "circuit", "structured_simon", "simon_two_round",
+        "unrolled_simon",
+        "typing", "__future__"}
     assert "inputs" in inspect.signature(PlaintextPredictor.forward).parameters
     assert "key" not in inspect.signature(PlaintextPredictor).parameters
     assert "key" not in inspect.signature(PlaintextPredictor.forward).parameters

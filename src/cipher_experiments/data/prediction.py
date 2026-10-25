@@ -28,13 +28,37 @@ _MAX_ROUNDS = 44
 _MAX_ROWS = 2_000_000
 
 
-def make_inputs(train: int, dev: int, test: int, *, seed: int) -> dict[str, Tensor]:
-    """Generate globally unique CPU-FP32 plaintext rows without making labels."""
-    total = _counts(train, dev, test)
+def make_inputs(
+    train: int, dev: int, test: int, *, seed: int, train_pool_rows: int | None = None
+) -> dict[str, Tensor]:
+    """Generate globally unique CPU-FP32 plaintext rows without making labels.
+
+    With ``train_pool_rows``, TRAIN is the pool prefix while DEV starts after
+    the full pool, so different TRAIN prefix lengths share identical heldout
+    panels. Unused pool rows are generated only as unlabeled inputs.
+    """
+    if train_pool_rows is None:
+        total = _counts(train, dev, test)
+        _seed(seed)
+        inputs = _binary_rows(_unique_blocks(total, seed))
+        # Preserve the original split implementation and byte identities.
+        return {name: pair[0] for name, pair in _split(
+            inputs, inputs[:, :0], train, dev
+        ).items()}
+
+    _counts(train, dev, test)
+    if type(train_pool_rows) is not int:
+        raise TypeError("train_pool_rows must be a built-in int or None")
+    if not train <= train_pool_rows <= 1_000_000:
+        raise ValueError("train_pool_rows must be between train and 1,000,000")
+    total = _counts(train_pool_rows, dev, test)
     _seed(seed)
     inputs = _binary_rows(_unique_blocks(total, seed))
-    # Reuse the canonical split boundaries without constructing target labels.
-    return {name: pair[0] for name, pair in _split(inputs, inputs[:, :0], train, dev).items()}
+    return {
+        "train": inputs[:train].contiguous(),
+        "dev": inputs[train_pool_rows : train_pool_rows + dev].contiguous(),
+        "test": inputs[train_pool_rows + dev :].contiguous(),
+    }
 
 
 def _validate_inputs(inputs: Tensor) -> int:

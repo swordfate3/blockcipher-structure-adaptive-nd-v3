@@ -10,7 +10,13 @@ from torch import Tensor
 if TYPE_CHECKING:
     from .circuit import CircuitPredictor
     from .logic import LogicPredictor
+    from .simon_two_round import (
+        TwoRoundLocalPredictor,
+        TwoRoundTablePredictor,
+        TwoRoundVectorPredictor,
+    )
     from .structured_simon import StructuredSimonPredictor
+    from .unrolled_simon import UnrolledSimonPredictor
 
 from .mlp import BitMLP
 
@@ -122,8 +128,37 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                     prediction_mode: str = "direct"
                     ) -> (
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
-                        | StructuredSimonPredictor):
+                        | StructuredSimonPredictor | UnrolledSimonPredictor
+                        | TwoRoundTablePredictor | TwoRoundLocalPredictor
+                        | TwoRoundVectorPredictor):
     """Explicit small model choices, without experiment config or a registry."""
+    if model_kind in ("simon-r2-table", "simon-r2-local", "simon-r2-vector"):
+        _validate_builtin_int(hidden_width, "hidden_width", 16, 16)
+        _validate_builtin_int(rounds, "rounds", 2, 2)
+        _validate_builtin_int(target_bit, "target_bit", 0, 31)
+        if feature_mode != "full" or prediction_mode != "direct":
+            raise ValueError(
+                "simon-r2 models require hidden_width=16, full/direct and rounds=2"
+            )
+        from .simon_two_round import (
+            TwoRoundLocalPredictor,
+            TwoRoundTablePredictor,
+            TwoRoundVectorPredictor,
+        )
+        if model_kind == "simon-r2-table":
+            return TwoRoundTablePredictor(rounds=rounds, target_bit=target_bit)
+        if model_kind == "simon-r2-local":
+            return TwoRoundLocalPredictor(rounds=rounds, target_bit=target_bit)
+        return TwoRoundVectorPredictor(rounds=rounds, target_bit=target_bit)
+    xor_modes = ("plaintext-xor", "plaintext-xor-no-final-low")
+    if prediction_mode in xor_modes and model_kind != "simon-unrolled":
+        raise ValueError("plaintext-xor modes require model_kind=simon-unrolled")
+    if model_kind == "simon-unrolled":
+        if feature_mode != "full" or prediction_mode not in ("direct", *xor_modes):
+            raise ValueError("simon-unrolled requires full/direct or a full/plaintext-xor mode")
+        from .unrolled_simon import UnrolledSimonPredictor
+        return UnrolledSimonPredictor(hidden_width, rounds=rounds, target_bit=target_bit,
+                                      prediction_mode=prediction_mode)
     if model_kind == "simon-structure":
         from .structured_simon import StructuredSimonPredictor
         return StructuredSimonPredictor(rounds=rounds, target_bit=target_bit)

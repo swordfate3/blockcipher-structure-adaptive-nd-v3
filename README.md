@@ -139,6 +139,58 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
+## 远程数据量对照（已授权准备）
+
+[6轮数据规模合同](docs/INNOVATION2-DATA-SCALE-PLAN.md)：TRAIN4096/65536各真实/null，
+同DEV8192/TEST65536、每项8192更新；`train_pool_rows`固定持出边界以保证嵌套TRAIN，
+`dev_every_epochs`匹配每256更新的32次DEV选模。仅本批获准Git发布、远程GPU运行与结果取回，
+不自动安装或扩大预算。远端通过统一CLI执行；本地不重算取回的科学结果。
+
+## 高轮推进（此前CPU结果）
+
+用户要求停止低轮诊断，已按[6/8轮合同](docs/INNOVATION2-HIGH-ROUND-PLAN.md)直接完成四项CPU对照。
+[结果](docs/INNOVATION2-HIGH-ROUND-RESULTS.md)：现有`simon-unrolled` direct每项800更新，
+6轮TEST50.02%、8轮50.26%，null约50.44%，准确率未超过TRAIN-only常量基线；无高轮有效结论。
+direct工程上限扩至8轮，XOR仍仅两轮；SIMON64/128完整44轮，不将6/8轮称完整攻击。
+已关闭、不回低轮继续调试，也不自动加预算/GPU。
+
+## 无真实轨迹的按轮展开候选（历史推进记录）
+
+`model_kind=simon-unrolled`在神经轮模块间传递连续隐表示，仅用最终单密文位监督；
+不输入真实key或中间状态。公开先验为Feistel复制与局部旋转，不是逐轮喂真实答案。
+实现、CPU有界试验与停止门槛见[轮展开方案](docs/INNOVATION2-UNROLLED.md)。
+这是从`main`独立推进的新候选，未合并其他分支的STE/SAT/积分改动。
+[首次CPU结果](docs/INNOVATION2-UNROLLED-RESULTS.md)：r3候选50.31%、null49.13%、同期MLP49.84%；
+DEV推进门槛失败，4轮未启动。只约束该候选与预算，不是逐轮学习不可行的证明。
+[浅轮定位](docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md)进一步补了人工规则正控：
+同模块能拟合两种极性；真实r1 TEST100%（null49.66%），r2 TEST48.94%（null50.06%）。
+没有喂真实key或状态；一轮成功不证明所有内部位置学对，两轮组合学习仍失败。
+随后有界[公开明文XOR对照](docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md)新增
+`prediction_mode=plaintext-xor`（仅simon-unrolled/full/两轮/高半位），在原logit上乘公开明文位符号，
+仍训练/评价绝对最终bit。新面板TEST53.88%对direct49.43%，两个null约50%；
+DEV53.42%未达预定推进门槛，四项CPU批次关闭，不自动扩大训练。
+用户再授权的[新面板复查](docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md)保持key/init和预算：
+XOR TEST51.49%对direct49.39%，DEV51.56%略低于direct51.66%；BCE仍略改善，效果变弱、门槛仍失败，复查批也已关闭。
+后续授权的[末轮复制项机制消融](docs/INNOVATION2-FINAL-LOW-PLAN.md)新增
+`prediction_mode=plaintext-xor-no-final-low`：保留输出XOR，仅将末轮center后low通道置0，
+不改变第一轮或最终单bit监督；同577参数不等于相同有效函数类，固定0也可能提供轮角色线索。
+[实测](docs/INNOVATION2-FINAL-LOW-RESULTS.md)候选TEST68.76%对同期XOR51.06%，null约50%，
+但DEV66.41%未达预定70%门槛；四项CPU批次关闭，不自动扩大预算或解释为真实状态恢复。
+用户要求重设方向后，[两轮结构诊断与重新设计](docs/INNOVATION2-TWO-ROUND-REDESIGN.md)
+区分原width32的表达性存在见证与实际可学习性。
+用户后续授权按[首批CPU合同](docs/INNOVATION2-R2-REDESIGN-PLAN.md)推进：
+`simon-r2-table`为四格结构化正控，`simon-r2-local`为332参数的独立局部神经候选，
+仅SIMON/full/direct、两轮高半bit、hidden_width16固定接口值，不输入真实key或轨迹。
+结构化正控单列，不作为神经轮展开成功；新浅轮目标为99%以上，而非继续小幅追分。
+独立null工程配置位于`configs/innovation2-r2-redesign-smoke/`；仍只使用check/train/evaluate入口。
+[首批结果](docs/INNOVATION2-R2-REDESIGN-RESULTS.md)：四格正控TEST100%，新神经候选96.68%，
+null51.16%/49.06%；神经候选未达99%与BCE<0.05合同，四项各800更新后关闭，不自动升轮。
+后续[两初始化诊断](docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md)保持模型/预算，用新面板得到96.67%/92.74%；
+TRAIN/DEV聚合诊断发现DEV错误全部在已见模型输入签名上，不能仅归因于未覆盖输入组合。
+未验证隐状态、未升轮，两init均未达99%目标；已完成的批次不自动重跑。
+随后[四通道对照](docs/INNOVATION2-R2-VECTOR-RESULTS.md)新增`simon-r2-vector`（557参数），同新面板/800步
+TEST85.99%，低于同期scalar96.95%；null约50%，仍未达99%，不支持本设置下简单扩宽即可解决误差。
+
 ## 本项目skills
 
 `.pi/skills/cipher-experiment-development/`规范开发、创新1/2合同与验证；

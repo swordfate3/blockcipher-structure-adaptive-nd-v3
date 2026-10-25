@@ -32,12 +32,19 @@ class ExperimentConfig:
     learning_rate: float = 0.001
     device: str = "cpu"
     max_seconds: int = 60
+    train_pool_rows: int | None = None
+    dev_every_epochs: int = 1
 
     def __post_init__(self) -> None:
         if type(self.name) is not str or not self.name.strip() or len(self.name) > 100:
             raise ValueError("name must be a nonempty string of at most 100 characters")
         if self.experiment not in ("prediction", "innovation1"):
             raise ValueError("experiment must be prediction or innovation1")
+        if self.train_pool_rows is not None:
+            if type(self.train_pool_rows) is not int:
+                raise ValueError("train_pool_rows must be an integer or null")
+            if self.experiment != "prediction" or self.dataset != "simon":
+                raise ValueError("train_pool_rows requires experiment=prediction and dataset=simon")
         if self.experiment == "innovation1":
             if self.dataset != "differential":
                 raise ValueError("innovation1 requires dataset=differential")
@@ -46,6 +53,8 @@ class ExperimentConfig:
                 raise ValueError("innovation1 split groups and batch_size must be positive even")
             if self.batch_size > self.train_rows or self.train_rows % self.batch_size:
                 raise ValueError("innovation1 batch_size must divide train_rows")
+            if self.dev_every_epochs != 1:
+                raise ValueError("innovation1 requires dev_every_epochs=1")
             if max(self.train_rows, self.dev_rows, self.test_rows) > 65536:
                 raise ValueError("innovation1 groups per task must not exceed 65536")
         if self.dataset not in ("synthetic", "circuit-synthetic", "simon", "differential"):
@@ -53,8 +62,32 @@ class ExperimentConfig:
         if self.experiment == "prediction" and self.dataset == "differential":
             raise ValueError("differential requires experiment=innovation1")
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
-                                   "simon-structure"):
+                                   "simon-structure", "simon-unrolled", "simon-r2-table",
+                                   "simon-r2-local", "simon-r2-vector"):
             raise ValueError("unknown prediction model_kind")
+        if self.model_kind in ("simon-r2-table", "simon-r2-local", "simon-r2-vector") and (
+                self.experiment != "prediction" or self.dataset != "simon"
+                or self.hidden_width != 16 or self.model_features != "full"
+                or self.prediction_mode != "direct" or type(self.rounds) is not int
+                or self.rounds != 2 or type(self.target_bit) is not int
+                or not 0 <= self.target_bit <= 31):
+            raise ValueError("simon-r2 models require prediction/simon/full/direct/hidden_width16, "
+                             "rounds=2 and target_bit=0..31")
+        if self.model_kind == "simon-unrolled" and (
+                self.dataset != "simon" or self.model_features != "full"
+                or self.prediction_mode not in (
+                    "direct", "plaintext-xor", "plaintext-xor-no-final-low")
+                or (self.prediction_mode == "direct" and (
+                    type(self.rounds) is not int or not 1 <= self.rounds <= 8
+                    or (self.rounds == 1 and type(self.target_bit) is int
+                        and self.target_bit >= 32)))
+                or (self.prediction_mode in (
+                    "plaintext-xor", "plaintext-xor-no-final-low") and (
+                    type(self.rounds) is not int or self.rounds != 2
+                    or type(self.target_bit) is not int or self.target_bit >= 32))):
+            raise ValueError("simon-unrolled needs simon/full and either direct rounds1..8 "
+                             "with a learned target, or a plaintext-xor mode at "
+                             "rounds=2/high-half")
         if self.model_kind == "simon-structure" and (
                 self.dataset != "simon" or self.hidden_width != 64
                 or self.model_features != "full" or self.prediction_mode != "direct"
@@ -73,8 +106,13 @@ class ExperimentConfig:
             raise ValueError("model_kind applies only to prediction")
         if self.model_features not in ("full", "support"):
             raise ValueError("model_features must be full or support")
-        if self.prediction_mode not in ("direct", "public-residual"):
-            raise ValueError("prediction_mode must be direct or public-residual")
+        if self.prediction_mode not in (
+                "direct", "public-residual", "plaintext-xor", "plaintext-xor-no-final-low"):
+            raise ValueError("unknown prediction_mode")
+        if self.prediction_mode in (
+                "plaintext-xor", "plaintext-xor-no-final-low") and (
+                    self.model_kind != "simon-unrolled"):
+            raise ValueError("plaintext-xor modes require model_kind=simon-unrolled")
         if self.label_mode not in ("cipher", "null"):
             raise ValueError("label_mode must be cipher or null")
         if self.experiment == "innovation1" and (
@@ -92,13 +130,16 @@ class ExperimentConfig:
         bounds = {"train_rows": (1, 1_000_000), "dev_rows": (1, 1_000_000),
                   "test_rows": (1, 1_000_000), "rounds": (1, 44), "target_bit": (0, 63),
                   "hidden_width": (1, 4096), "batch_size": (1, 65536),
-                  "epochs": (1, 10000), "max_seconds": (1, 86400),
+                  "epochs": (1, 10000), "dev_every_epochs": (1, 10000),
+                  "max_seconds": (1, 86400),
                   "data_seed": (0, 2**32 - 1), "key_seed": (0, 2**32 - 1),
                   "init_seed": (0, 2**32 - 1), "null_seed": (0, 2**32 - 1)}
         for name, (low, high) in bounds.items():
             value = getattr(self, name)
             if type(value) is not int or not low <= value <= high:
                 raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+        if self.dev_every_epochs > self.epochs:
+            raise ValueError("dev_every_epochs must not exceed epochs")
         if self.model_kind == "logic16" and self.hidden_width < 64:
             raise ValueError("logic16 requires hidden_width >= 64 for feature coverage")
         if self.dataset == "circuit-synthetic" and (
@@ -106,6 +147,11 @@ class ExperimentConfig:
             raise ValueError("circuit-synthetic has only 256 distinct relevant input assignments")
         if self.train_rows + self.dev_rows + self.test_rows > 2_000_000:
             raise ValueError("total rows exceed 2,000,000")
+        if self.train_pool_rows is not None:
+            if not self.train_rows <= self.train_pool_rows <= 1_000_000:
+                raise ValueError("train_pool_rows must be between train_rows and 1,000,000")
+            if self.train_pool_rows + self.dev_rows + self.test_rows > 2_000_000:
+                raise ValueError("train pool, DEV and TEST rows exceed 2,000,000")
         if (type(self.learning_rate) not in (int, float)
                 or not 0 < self.learning_rate <= 1):
             raise ValueError("learning_rate must be finite in (0, 1]")

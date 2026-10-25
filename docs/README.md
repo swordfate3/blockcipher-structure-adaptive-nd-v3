@@ -6,8 +6,25 @@
 - [来源](provenance.json)：算法/模型提取源路径、提交与SHA。
 - [创新1训练](INNOVATION1-TRAINING.md)：四任务shared-M功能训练。
 - [创新2位预测](INNOVATION2-PREDICTION.md)：direct/公开残差、null对照与配置合同。
+- [无真实轨迹的神经轮展开](INNOVATION2-UNROLLED.md)：main上的新候选、最终单bit监督及有界CPU试验。
+- [轮展开首次CPU结果](INNOVATION2-UNROLLED-RESULTS.md)：r3约50%，停止4轮，结果与核验范围。
+- [轮展开浅轮定位计划](INNOVATION2-UNROLLED-LOCAL-PLAN.md)：人工局部规则与1→2轮DEV门槛。
+- [轮展开浅轮定位结果](INNOVATION2-UNROLLED-LOCAL-RESULTS.md)：人工拟合通过、一轮100%、两轮无信号。
 - [创新2首批GPU结果](INNOVATION2-FIRST-GPU-RESULTS.md)：五项完成，r3有信号、r4近随机。
-- [创新2当前进度与下一步](INNOVATION2-CURRENT-STATE.md)：旧神经/代数边界、新残差阴性和logic16候选。
+- [创新2当前进度与下一步](INNOVATION2-CURRENT-STATE.md)：最新有界试验闭环及历史方法/结果边界。
+- [两轮公开明文XOR计划](INNOVATION2-PLAINTEXT-XOR-PLAN.md)：保持单bit监督、四项CPU对照与预定DEV门槛。
+- [两轮公开明文XOR结果](INNOVATION2-PLAINTEXT-XOR-RESULTS.md)：TEST53.88%对direct49.43%，DEV门槛未通过、批次关闭。
+- [公开XOR新面板计划](INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md)及[复查结果](INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md)：同key/init、TEST51.49%，DEV准确率优势未保留，门槛仍失败、关闭。
+- [末轮复制项机制消融计划](INNOVATION2-FINAL-LOW-PLAN.md)与[结果](INNOVATION2-FINAL-LOW-RESULTS.md)：同期XOR对照51.06%、屏蔽末轮low后68.76%，DEV66.41%仍未过70%门槛，批次关闭。
+- [两轮重新设计](INNOVATION2-TWO-ROUND-REDESIGN.md)：原width32表达性见证、结构化四格正控与332参数不共享局部神经候选分开。
+- [重新设计首批CPU合同](INNOVATION2-R2-REDESIGN-PLAN.md)：table正控/local神经模型各真实/null，单bit最终监督、每项800更新、浅轮99%验收目标。
+- [重新设计首批结果](INNOVATION2-R2-REDESIGN-RESULTS.md)：正控100%、神经候选96.68%，null约50%；候选仍未达99%合同，批次已关闭。
+- [两初始化诊断计划](INNOVATION2-R2-DIAGNOSTIC-PLAN.md)与[结果](INNOVATION2-R2-DIAGNOSTIC-RESULTS.md)：相同模型/预算新面板96.67%/92.74%，DEV错误在TRAIN已见完整签名上；无旧TEST重放或升轮。
+- [局部四通道计划](INNOVATION2-R2-VECTOR-PLAN.md)与[结果](INNOVATION2-R2-VECTOR-RESULTS.md)：557参数vector85.99%，同期scalar96.95%，扩宽未改善本次学习；四项各800步后关闭。
+- [高轮6/8轮合同](INNOVATION2-HIGH-ROUND-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-RESULTS.md)：停止低轮诊断，四项各800步，6轮50.02%/8轮50.26%，未超常量准确率基线。
+- [远程6轮数据规模合同](INNOVATION2-DATA-SCALE-PLAN.md)：获准发布并以4096/65536嵌套TRAIN、固定持出/8192更新/32次DEV选模作四项GPU对照。
+- [AN与Fix本地论文阅读](AN-FIX-PAPER-READING.md)：生成伪迹/机制对照与固定查询预算分配；区分创新1关联和创新2非等价任务，不据此声称高轮位预测。
+- [创新2文献复核（2026-10-22）](INNOVATION2-LITERATURE-20261022.md)：输出预测证据矩阵、整块/单bit监督差异、逐层学习条件和未执行候选。
 - [logic16 GPU试验](INNOVATION2-LOGIC-GPU-RESULTS.md)：r3正控49.72%，停止后三项，执行与文件核验闭环。
 - [结构接线诊断](INNOVATION2-STRUCTURE-DIAGNOSTIC.md)：人工任务aligned100%/random48.44%，不是密码结果。
 - [公开结构＋未知参数学习](INNOVATION2-STRUCTURED-SIMON.md)：simon-structure候选、软/硬指标与未执行探针。

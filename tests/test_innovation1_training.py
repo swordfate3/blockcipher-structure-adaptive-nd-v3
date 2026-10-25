@@ -30,7 +30,8 @@ def test_shared_m_four_task_training_checkpoint_and_evaluation(tmp_path: Path) -
     evaluate_checkpoint(checkpoint, file_sha256(checkpoint), "cpu", tmp_path / "eval")
     # Additive prediction defaults must not invalidate old shared-M identities.
     old = torch.load(checkpoint, weights_only=True, map_location="cpu")
-    for field in ("model_kind", "model_features", "prediction_mode", "label_mode", "null_seed"):
+    for field in ("model_kind", "model_features", "prediction_mode", "label_mode", "null_seed",
+                  "train_pool_rows", "dev_every_epochs"):
         old["config"].pop(field)
     old["config_sha256"] = hashlib.sha256(json.dumps(
         old["config"], sort_keys=True).encode()).hexdigest()
