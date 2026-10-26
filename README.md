@@ -139,14 +139,16 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
-## 六轮公开坐标候选（工程准备，未科学运行）
+## 六轮公开坐标候选（已完成，无泛化信号）
 
 `model_kind=mlp`新增`prediction_mode=public-coordinate`，仅simon/full、2..44轮：
 把明文可逆地转为`(Y XOR F(X),X)`再送入原MLP，不读真实key或中间状态。
 同参数/初态不变，但有效函数类/优化几何改变，不保证更易学；本提案仅六轮bit0。
-[四项计划与边界](docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md)；873tests/mypy79/Ruff与干净源码null CLI通过。
-`configs/innovation2-public-coordinate-smoke/`为两个CPU null工程配置，统一check/train/evaluate；
-用户现已确认本批四项发布/远程GPU预算及取回；运行前核验与冻结，尚无本批科学分数，不沿用旧批许可。
+[四项计划](docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md)与[A6000结果](docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md)：
+原始输入TEST50.15%、坐标50.23%，DEV49.52%/49.48%，两者均未通过信号门槛。
+每项8192更新、四exit0；后期真实/null训练损失均下降但DEV恶化，未观察到泛化改善，批次关闭。
+873tests/mypy79/Ruff、干净源码null CLI与现场CUDA null预检通过；46文件取回核SHA，不重算科学预测。
+`configs/innovation2-public-coordinate-smoke/`为两个CPU null工程配置，统一check/train/evaluate。
 
 ## 六轮架构比较（已完成）
 

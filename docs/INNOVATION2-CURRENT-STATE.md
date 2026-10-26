@@ -1,13 +1,16 @@
 # 创新2进度对齐与下一步
 
-## 最新准备：公开可逆坐标MLP，尚未科学运行
+## 最新完成：公开可逆坐标未改善六轮泛化
 
-用户“好，推进”后，本轮仅实现/验证[六轮公开坐标方案](INNOVATION2-PUBLIC-COORDINATE-PLAN.md)：
-phi(X,Y)=(Y XOR F(X),X)，64bit可逆，不是实际第一轮状态，真实状态仍相差未知K0。
-同24961参数MLP与direct初态/RNG一致，只改输入坐标，无真实key/state/其他bit标签。
-873tests/mypy79/Ruff及两模式干净源码null check/train/evaluate通过；新面板193701无标签唯一/预列9面板零交集。
-用户在预算说明后再次“推进”，现已确认本批四项各8192更新的发布/远程GPU/取回。
-先发布/同步与GPU预检，再冻结四项运行；尚无新科学分数，不沿用已关闭上批预算，不保证坐标更易学。
+用户确认[本批四项方案](INNOVATION2-PUBLIC-COORDINATE-PLAN.md)后完成A6000运行与取回，
+[完整结果](INNOVATION2-PUBLIC-COORDINATE-RESULTS.md)：原始输入TEST50.1526%、公开坐标50.2319%，null50.3006%/50.0458%。
+DEV原始49.5239%、坐标49.4751%，坐标BCE略差；两种模式DEV/TEST探索门槛都失败。
+phi(X,Y)=(Y XOR F(X),X)可逆、不是实际第一轮状态，真实状态仍相差未知K0；
+同24961参数MLP、四项初始化SHA相同，无真实key/state/其他bit标签。
+后期两模式真实/null在线TRAIN BCE降至约.51–.53，DEV BCE升至约.87；不能说全程无拟合或完整记忆。
+新面板193701、65536/8192/65536，每项8192更新，四exit0/32768更新/8388608呈现；46文件核远端字节SHA，未重算科学标签/前向。
+运行commit f9d58dde218a0586e34a26d13b6ebb998bbccf52；873tests/mypy79/Ruff、干净源码null CLI与现场CUDA null通过。
+本批关闭，不自动加epochs/seed或多轮坐标，不把阴性结果当六轮不可学习证明。
 
 ## 前批完成：六轮直接MLP也未出现泛化信号
 
