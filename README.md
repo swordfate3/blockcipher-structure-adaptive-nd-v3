@@ -139,6 +139,14 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
+## 下一批高轮比较（仅准备，尚未训练）
+
+[六轮MLP与轮展开对照](docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md)已准备：同新面板65536/8192/65536、
+每项8192更新，现有1089参数unrolled对24961参数直接MLP，各真实/null。
+参数量、拓扑和激活不同，不是“仅取消隐状态压缩”的单因素证明。
+本地850tests/mypy77/Ruff及两模型干净副本null CLI通过；用户现已确认本批发布/远程GPU四项运行与取回，
+按固定预算执行，不继承旧批或自动追加；本节准备时尚无科学分数。
+
 ## 远程数据量对照（已完成）
 
 [6轮数据规模合同](docs/INNOVATION2-DATA-SCALE-PLAN.md)：TRAIN4096/65536各真实/null，
