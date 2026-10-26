@@ -139,13 +139,14 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
-## 六轮MLP数据量／计算量诊断（工程准备，未正式运行）
+## 六轮MLP数据量／计算量诊断（已完成，无泛化信号）
 
-[六项固定方案](docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)：原始MLP不变，
+[六项固定方案](docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)与[A6000结果](docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md)：
 A=65536 TRAIN/8192更新，B=262144 TRAIN/8192更新，C=262144 TRAIN/32768更新，各真实/null。
-同持出、嵌套TRAIN、各8次DEV选模，共98304更新；用户现已确认本批发布/远程GPU与取回，尚无本批科学分数。
-875tests/mypy80/Ruff及A/B/C三条件干净源码CPU null check/train/evaluate通过；无科学源码改动。
-发布/同步和现场预检后冻结运行，不自动沿用已关闭批次或扩大预算。
+真实TEST50.1160%/50.2106%/50.2106%，null均约50%，所有信号门槛失败。
+四倍数据缓解损失恶化但未见预测信号；大数据继续训练DEV恶化，不能据此断言数据永远无关。
+六exit0、98304更新/25165824呈现、66文件取回核SHA，无科学重算；本批关闭不自动扩规模。
+875tests/mypy80/Ruff、三条件干净源码CPU null CLI及现场CUDA null预检通过；无科学源码改动。
 
 ## 六轮公开坐标候选（已完成，无泛化信号）
 

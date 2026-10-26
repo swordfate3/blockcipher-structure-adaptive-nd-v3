@@ -1,12 +1,16 @@
 # 创新2进度对齐与下一步
 
-## 最新准备：MLP数据量与计算量六项诊断，尚未科学运行
+## 最新完成：四倍数据／计算仍未使MLP六轮泛化
 
-用户问数据量后，按[本批方案](INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)推进配置与本地工程：
-A65536 TRAIN/8192更新，B262144 TRAIN/8192更新，C262144 TRAIN/32768更新，各真实/null，合计98304更新。
-同六轮bit0/direct MLP24961参数、key/init、新嵌套面板193801、共同DEV8192/TEST65536，每项8次DEV选模。
-875tests/mypy80/Ruff与A/B/C干净源码CPU null CLI闭环通过；335872不同明文与预列10面板零交集（仅无标签检查）。
-科学源码未改；用户在预算说明后再次“推进”，现已确认本批六项发布/远程GPU/取回。先发布同步与预检，再冻结执行，尚无本批科学分数，不继承旧批许可。
+用户确认[六项方案](INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)后完成发布、A6000运行与取回，
+[结果](INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md)：A65536 TRAIN/8192更新TEST50.1160%，
+B262144 TRAIN/8192更新与C262144 TRAIN/32768更新均50.2106%，null约50%，DEV/TEST探索门槛全失败。
+B比A DEV+1.07422pp但TEST仅+.09460pp；大数据继续训练仍选epoch4，未带来泛化信号。
+多数据同更新缓解训练/DEV损失分化，但真实/null类似；不能说数据永远无关或模型完全没有拟合。
+六轮bit0/direct MLP24961参数、同key/init、新嵌套面板193801、共同DEV8192/TEST65536，每项8次DEV选择。
+六exit0/98304更新/25165824呈现，66文件核远端SHA，未本地重算科学标签/前向。
+运行commit9335105b74aea724bd17096a6e8be1afacd9cac0；875tests/mypy80/Ruff、三条件CPU/CUDA null CLI通过。
+预检辅助命令曾解析失败、执行前修正，无正式fit重试；本批关闭，不自动上百万数据或增加epochs。
 
 ## 最新完成：公开可逆坐标未改善六轮泛化
 
