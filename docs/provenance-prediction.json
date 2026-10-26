@@ -1,4 +1,13 @@
 {
+  "public_coordinate_mode": {
+    "implementation": "src/cipher_experiments/models/prediction.py: public_coordinate_transform/public_coordinate_inverse and PlaintextPredictor mode",
+    "basis": "Public SIMON recurrence only: phi(X,Y)=(Y xor F(X),X), inverse(U,V)=(V,U xor F(V)); original local implementation, not external code copy",
+    "state_boundary": "Actual first round high half is U xor unknown K0; coordinates are not actual secret-key cipher states or extra supervision",
+    "information": "64-bit bijection, no information loss or extra labels; MLP ordinary TRAIN-learned effects allowed; no actual key or traces injected",
+    "comparison": "Same BitMLP parameter count/state keys/init RNG; input coordinates change effective function class and optimization, not a learnability guarantee",
+    "plan": "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+    "status_at_preparation": "engineering only, no scientific fitting, publication, GPU or SSH"
+  },
   "plaintext_prediction_model": {
     "origin": "new standalone plaintext predictor with optional conservative structural support features and public zero-master residual logits",
     "reference_basis": {

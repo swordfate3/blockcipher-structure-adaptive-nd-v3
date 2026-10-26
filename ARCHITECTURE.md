@@ -20,6 +20,8 @@ artifacts → Python标准库
 - `models/`：明文MLP、`logic.py`三层16真值表软门候选及公开依赖位/零主密钥参考；
   `prediction.py`提供MLP、logic16、人工任务circuit-aligned/random及simon-structure选择，不建registry；
   不依赖cipher/data/config/runner。
+  MLP的`public-coordinate`模式仅对输入执行可逆公开phi(X,Y)=(Y XOR F(X),X)，
+  同64bit网络和参数不变；不是实际state或输出残差，不读真实key，限定simon/full/2..44轮。
   logic固定接线持久化，加载后检查范围；train/eval均用软门，不做隐式硬化。
   `structured_simon.py`读取公开符号DAG，仅学习未知常量logit；不接收真实key/trace。
   evaluation对其额外报告hard_constants，不改变soft DEV BCE选模。

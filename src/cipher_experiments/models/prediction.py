@@ -91,6 +91,38 @@ def support_indices(rounds: int, target_bit: int) -> tuple[int, ...]:
     return tuple(sorted(x_support[target_bit] if target_bit < 32 else y_support[target_bit - 32]))
 
 
+def _public_round_function(high: Tensor) -> Tensor:
+    """Apply ROL1(X) & ROL8(X) xor ROL2(X) in MSB-indexed tensor order."""
+    rotate_one = torch.cat((high[:, 1:], high[:, :1]), dim=1)
+    rotate_eight = torch.cat((high[:, 8:], high[:, :8]), dim=1)
+    rotate_two = torch.cat((high[:, 2:], high[:, :2]), dim=1)
+    return (rotate_one & rotate_eight) ^ rotate_two
+
+
+def public_coordinate_transform(inputs: Tensor) -> Tensor:
+    """Map plaintext (X,Y) to the reversible, key-free coordinate (Y xor F(X), X).
+
+    This is a public coordinate system, not an actual cipher state: it does not
+    include round-key material. Boolean operations preserve all 64 bits exactly
+    before the result is returned in the model's float32 input dtype.
+    """
+    _validate_reference_inputs(inputs)
+    bits = inputs.to(dtype=torch.bool)
+    high, low = bits[:, :32], bits[:, 32:]
+    transformed = torch.cat((low ^ _public_round_function(high), high), dim=1)
+    return transformed.to(dtype=torch.float32)
+
+
+def public_coordinate_inverse(coordinates: Tensor) -> Tensor:
+    """Invert :func:`public_coordinate_transform` for binary 64-bit rows."""
+    _validate_reference_inputs(coordinates)
+    bits = coordinates.to(dtype=torch.bool)
+    transformed_high, original_high = bits[:, :32], bits[:, 32:]
+    original_low = transformed_high ^ _public_round_function(original_high)
+    plaintexts = torch.cat((original_high, original_low), dim=1)
+    return plaintexts.to(dtype=torch.float32)
+
+
 def public_reference(inputs: Tensor, rounds: int, target_bit: int) -> Tensor:
     """Compute a zero-master-key SIMON64/128 reference output bit.
 
@@ -151,6 +183,8 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
             return TwoRoundLocalPredictor(rounds=rounds, target_bit=target_bit)
         return TwoRoundVectorPredictor(rounds=rounds, target_bit=target_bit)
     xor_modes = ("plaintext-xor", "plaintext-xor-no-final-low")
+    if prediction_mode == "public-coordinate" and model_kind != "mlp":
+        raise ValueError("public-coordinate requires model_kind=mlp")
     if prediction_mode in xor_modes and model_kind != "simon-unrolled":
         raise ValueError("plaintext-xor modes require model_kind=simon-unrolled")
     if model_kind == "simon-unrolled":
@@ -199,10 +233,15 @@ class PlaintextPredictor(BitMLP):
         target_bit = _validate_builtin_int(target_bit, "target_bit", 0, 63)
         if feature_mode not in ("full", "support"):
             raise ValueError("feature_mode must be 'full' or 'support'")
-        if prediction_mode not in ("direct", "public-residual"):
-            raise ValueError("prediction_mode must be 'direct' or 'public-residual'")
+        if prediction_mode not in ("direct", "public-residual", "public-coordinate"):
+            raise ValueError(
+                "prediction_mode must be 'direct', 'public-residual', or 'public-coordinate'"
+            )
         if prediction_mode == "public-residual" and rounds > 4:
             raise ValueError("public-residual mode supports rounds 1..4")
+        if prediction_mode == "public-coordinate" and (
+                feature_mode != "full" or not 2 <= rounds <= 44):
+            raise ValueError("public-coordinate mode requires full features and rounds 2..44")
 
         selected = (
             tuple(range(64))
@@ -222,9 +261,11 @@ class PlaintextPredictor(BitMLP):
         _validate_plaintexts(inputs)
         if inputs.device != next(self.parameters()).device:
             raise ValueError("inputs and model must be on the same device")
-        features = inputs.index_select(1, self.indices)
+        predictor_inputs = (public_coordinate_transform(inputs)
+                            if self.prediction_mode == "public-coordinate" else inputs)
+        features = predictor_inputs.index_select(1, self.indices)
         logits = super().forward(features)
-        if self.prediction_mode == "direct":
+        if self.prediction_mode in ("direct", "public-coordinate"):
             return logits
         reference = public_reference(inputs, self.rounds, self.target_bit)
         reference = reference.to(dtype=logits.dtype)

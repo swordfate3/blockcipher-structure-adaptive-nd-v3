@@ -164,6 +164,19 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                 for name, value in model.named_parameters())).hexdigest(),
             "features": list(model.indices.cpu().tolist()),
             "parameters": sum(p.numel() for p in model.parameters())})
+        if config.prediction_mode == "public-coordinate":
+            write_json(output / "model_metadata.json", {
+                "kind": "mlp",
+                "prediction_mode": "public-coordinate",
+                "coordinates": "(Y xor ((ROL1(X) & ROL8(X)) xor ROL2(X)), X)",
+                "bit_order": "64-bit plaintext MSB index 0..63; X=0..31, Y=32..63",
+                "interpretation": "public bijective coordinates only; not actual cipher state",
+                "learned_constants": "none",
+                "extra_labels": "none; absolute final target-bit labels only",
+                "input": "plaintext only; no actual key, trace, ciphertext, or other labels",
+                "parameter_learning": "ordinary MLP weights from TRAIN labels; no key injection",
+                "selection": "absolute DEV BCE",
+            })
         if isinstance(model, StructuredSimonPredictor):
             write_json(output / "model_metadata.json", {
                 "kind": "simon-structure", "rounds": config.rounds,

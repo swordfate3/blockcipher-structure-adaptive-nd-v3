@@ -107,7 +107,8 @@ class ExperimentConfig:
         if self.model_features not in ("full", "support"):
             raise ValueError("model_features must be full or support")
         if self.prediction_mode not in (
-                "direct", "public-residual", "plaintext-xor", "plaintext-xor-no-final-low"):
+                "direct", "public-residual", "public-coordinate", "plaintext-xor",
+                "plaintext-xor-no-final-low"):
             raise ValueError("unknown prediction_mode")
         if self.prediction_mode in (
                 "plaintext-xor", "plaintext-xor-no-final-low") and (
@@ -123,6 +124,13 @@ class ExperimentConfig:
                 and (self.dataset != "simon" or type(self.rounds) is not int
                      or not 1 <= self.rounds <= 4)):
             raise ValueError("public-residual requires simon rounds 1..4")
+        if self.prediction_mode == "public-coordinate" and (
+                self.experiment != "prediction" or self.model_kind != "mlp"
+                or self.dataset != "simon" or self.model_features != "full"
+                or type(self.rounds) is not int or not 2 <= self.rounds <= 44):
+            raise ValueError(
+                "public-coordinate requires prediction/mlp/simon/full and rounds 2..44"
+            )
         if self.model_features == "support" and self.dataset != "simon":
             raise ValueError("support features require simon")
         if self.label_mode == "null" and self.dataset != "simon":

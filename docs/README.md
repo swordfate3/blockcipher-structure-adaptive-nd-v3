@@ -24,6 +24,7 @@
 - [高轮6/8轮合同](INNOVATION2-HIGH-ROUND-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-RESULTS.md)：停止低轮诊断，四项各800步，6轮50.02%/8轮50.26%，未超常量准确率基线。
 - [远程6轮数据规模合同](INNOVATION2-DATA-SCALE-PLAN.md)与[结果](INNOVATION2-DATA-SCALE-RESULTS.md)：4096/65536嵌套TRAIN、固定持出/8192更新/32次DEV选模；A6000实测TEST50.2060%/50.1068%，四exit0，增数据未解决当前候选学习失败。
 - [六轮MLP对照计划](INNOVATION2-HIGH-ROUND-MLP-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-MLP-RESULTS.md)：A6000四项各8192更新，unrolled49.72%/MLP49.76%，null约50.1%；MLP训练损失下降但DEV恶化，无泛化突破，批次关闭。
+- [六轮公开可逆坐标计划](INNOVATION2-PUBLIC-COORDINATE-PLAN.md)：同MLP参数/初态、公开输入坐标变换；873tests及null CLI通过，用户已确认本批发布/远程四项预算，运行前冻结。
 - [AN与Fix本地论文阅读](AN-FIX-PAPER-READING.md)：生成伪迹/机制对照与固定查询预算分配；区分创新1关联和创新2非等价任务，不据此声称高轮位预测。
 - [创新2文献复核（2026-10-22）](INNOVATION2-LITERATURE-20261022.md)：输出预测证据矩阵、整块/单bit监督差异、逐层学习条件和未执行候选。
 - [logic16 GPU试验](INNOVATION2-LOGIC-GPU-RESULTS.md)：r3正控49.72%，停止后三项，执行与文件核验闭环。

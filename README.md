@@ -139,6 +139,15 @@ Windows runs/<run-id>/ → SSH/SCP → 本地 runs/received/<run-id>/
 [合同与功能配置](docs/INNOVATION2-STRUCTURED-SIMON.md)。允许学习未知参数，不向模型提供真实key；
 当前仅完成计算一致性和功能验证，尚未取得新的真实密码拟合成绩。
 
+## 六轮公开坐标候选（工程准备，未科学运行）
+
+`model_kind=mlp`新增`prediction_mode=public-coordinate`，仅simon/full、2..44轮：
+把明文可逆地转为`(Y XOR F(X),X)`再送入原MLP，不读真实key或中间状态。
+同参数/初态不变，但有效函数类/优化几何改变，不保证更易学；本提案仅六轮bit0。
+[四项计划与边界](docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md)；873tests/mypy79/Ruff与干净源码null CLI通过。
+`configs/innovation2-public-coordinate-smoke/`为两个CPU null工程配置，统一check/train/evaluate；
+用户现已确认本批四项发布/远程GPU预算及取回；运行前核验与冻结，尚无本批科学分数，不沿用旧批许可。
+
 ## 六轮架构比较（已完成）
 
 [六轮MLP与轮展开对照](docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md)已完成：同新面板65536/8192/65536、

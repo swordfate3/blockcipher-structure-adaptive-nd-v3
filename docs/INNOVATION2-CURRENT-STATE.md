@@ -1,6 +1,15 @@
 # 创新2进度对齐与下一步
 
-## 最新完成：六轮直接MLP也未出现泛化信号
+## 最新准备：公开可逆坐标MLP，尚未科学运行
+
+用户“好，推进”后，本轮仅实现/验证[六轮公开坐标方案](INNOVATION2-PUBLIC-COORDINATE-PLAN.md)：
+phi(X,Y)=(Y XOR F(X),X)，64bit可逆，不是实际第一轮状态，真实状态仍相差未知K0。
+同24961参数MLP与direct初态/RNG一致，只改输入坐标，无真实key/state/其他bit标签。
+873tests/mypy79/Ruff及两模式干净源码null check/train/evaluate通过；新面板193701无标签唯一/预列9面板零交集。
+用户在预算说明后再次“推进”，现已确认本批四项各8192更新的发布/远程GPU/取回。
+先发布/同步与GPU预检，再冻结四项运行；尚无新科学分数，不沿用已关闭上批预算，不保证坐标更易学。
+
+## 前批完成：六轮直接MLP也未出现泛化信号
 
 用户确认本批发布/远程预算后，按[四项合同](INNOVATION2-HIGH-ROUND-MLP-PLAN.md)完成A6000对照，
 [完整结果](INNOVATION2-HIGH-ROUND-MLP-RESULTS.md)：unrolled TEST49.7238%、直接MLP49.7620%，null50.1343%/50.1495%。
