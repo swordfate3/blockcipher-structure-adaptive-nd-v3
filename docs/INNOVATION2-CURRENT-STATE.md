@@ -1,5 +1,17 @@
 # 创新2进度对齐与下一步
 
+## 最新完成：六轮轮展开三档学习率仍近基线
+
+用户确认发布/GPU/取回后，按[轮展开优化合同](INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md)完成六项，
+[完整结果](INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：lr.001/.0003/.0001真实TEST50.1770%/50.2975%/50.2975%，null约50%。
+按DEV BCE选baseline.001，三档DEV/TEST合取门槛全失败；TRAIN selected约50.08–50.56%，末在线BCE仍近.693，未见充分拟合。
+合成探针梯度连通和数值差分通过不代表正式训练梯度全程有效，未定位唯一瓶颈；不否定全部结构学习。
+六exit0/196608更新/50331648呈现、72文件核远端SHA、128progress每项、合计elapsed3118.328s，无正式checkpoint重放或标签再生。
+运行commit199f3066c0ff827658d8335d7ff1113bd2c9bc13；只发布本批必要文件，干净发布副本914tests/mypy86，本地完整970tests/mypy91分别报告。
+外层DEV验收曾先检查TEST聚合恒等式/有限性，后保存仅DEV选择；如实披露访问偏差，不称sealed confirm，未依TEST追加训练。
+本批关闭；普通MLP学习率提案搁置，不自动扩大预算、seed、结构或数据。
+
+
 ## 最新完成：四倍数据／计算仍未使MLP六轮泛化
 
 用户确认[六项方案](INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)后完成发布、A6000运行与取回，

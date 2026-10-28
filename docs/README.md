@@ -1,5 +1,7 @@
 # 文档
 
+- [六轮神经轮展开优化计划](INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md)与[结果](INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：三档lr各32768更新，真实TEST50.1770%/50.2975%/50.2975%，未见可靠拟合／泛化；六项关闭。
+
 - [主使用说明](../README.md)：安装、check/train/evaluate、输出解释。
 - [架构](../ARCHITECTURE.md)：模块依赖方向与明确限制。
 - [决策](../DECISIONS.md)：为什么不迁移旧编排。
