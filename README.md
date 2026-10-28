@@ -5,7 +5,10 @@
 提供创新2合成启动检查与SIMON64/128单输出位MLP基线，以及创新1四任务shared-M小训练入口。
 **不是旧实验复现，也不承诺任何准确率。**
 
-最新[六轮神经轮展开学习率结果](docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：
+最新[六轮残差CNN结果](docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md)：
+普通环形/旋转邻接CNN真实TEST49.7543%/49.6429%，末在线TRAIN BCE约.061/.041而DEV恶化；有强拟合但无泛化信号，四项已关闭。
+
+前批[六轮神经轮展开学习率结果](docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：
 三档lr各32768更新，真实TEST50.1770%/50.2975%/50.2975%，未达探索门槛；六项完成，本批关闭。
 
 ## 1. 安装

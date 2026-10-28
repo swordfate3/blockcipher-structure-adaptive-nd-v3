@@ -1,5 +1,7 @@
 # 文档
 
+- [六轮残差CNN邻接计划](INNOVATION2-CONV-STRUCTURE-PLAN.md)与[结果](INNOVATION2-CONV-STRUCTURE-RESULTS.md)：真实TEST49.7543%/49.6429%，TRAIN强拟合但不泛化，四项已关闭。
+
 - [六轮神经轮展开优化计划](INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md)与[结果](INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：三档lr各32768更新，真实TEST50.1770%/50.2975%/50.2975%，未见可靠拟合／泛化；六项关闭。
 
 - [主使用说明](../README.md)：安装、check/train/evaluate、输出解释。

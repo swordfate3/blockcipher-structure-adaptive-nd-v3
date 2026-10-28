@@ -1,5 +1,18 @@
 # 创新2进度对齐与下一步
 
+## 最新完成：多通道残差CNN强拟合但未泛化
+
+用户确认[四项方案](INNOVATION2-CONV-STRUCTURE-PLAN.md)后已发布并完成A6000训练/取回，
+[完整结果](INNOVATION2-CONV-STRUCTURE-RESULTS.md)：普通环形CNN TEST49.7543%、公开旋转邻接CNN49.6429%，null约49.7%，所有DEV/TEST推进门槛失败。
+64通道/6独立残差块/203329参数，只有offsets(0,1,2,3)/(0,1,2,8)不同；不是实际密码轮状态仿真。
+末epoch在线TRAIN BCE real .0613/.0410，DEV BCE3.2141/3.7910，null同样拟合；说明强训练拟合与泛化分离，不称末TRAIN100%。
+四项best均首次DEV点epoch4/1024更新，跨真实DEV BCE选local；没有rotation优越性证据，也非所有CNN不可能。
+四exit0/32768更新/8388608呈现/48文件SHA核对/合计训练elapsed534.969s，无正式checkpoint本地重放或再生标签。
+运行commit5fbf5871ac0087d9a6c9cd03b3439d47b6334435，干净发布副本1002tests/mypy91，本地完整1064tests/mypy96分别报告。
+TEST由CLI自动保存/输出，外层DEV决定前读取完整JSON但不做TEST数值选择，不称sealed；全项披露无TEST-directed追加。
+本批关闭，不自动加attention、数据、seed/key、学习率或步数；人工16角点成功仍仅工程，不是六轮正控。
+
+
 ## 最新完成：六轮轮展开三档学习率仍近基线
 
 用户确认发布/GPU/取回后，按[轮展开优化合同](INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md)完成六项，
