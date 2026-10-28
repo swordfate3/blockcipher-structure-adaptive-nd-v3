@@ -63,8 +63,16 @@ class ExperimentConfig:
             raise ValueError("differential requires experiment=innovation1")
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
                                    "simon-structure", "simon-unrolled", "simon-r2-table",
-                                   "simon-r2-local", "simon-r2-vector"):
+                                   "simon-r2-local", "simon-r2-vector", "simon-cnn",
+                                   "simon-rotation-cnn"):
             raise ValueError("unknown prediction model_kind")
+        if self.model_kind in ("simon-cnn", "simon-rotation-cnn") and (
+                self.experiment != "prediction" or self.dataset != "simon"
+                or self.model_features != "full" or self.prediction_mode != "direct"
+                or type(self.hidden_width) is not int or not 8 <= self.hidden_width <= 256
+                or type(self.rounds) is not int or self.rounds != 6):
+            raise ValueError("simon CNN models require prediction/simon/full/direct, "
+                             "rounds=6 and hidden_width=8..256")
         if self.model_kind in ("simon-r2-table", "simon-r2-local", "simon-r2-vector") and (
                 self.experiment != "prediction" or self.dataset != "simon"
                 or self.hidden_width != 16 or self.model_features != "full"

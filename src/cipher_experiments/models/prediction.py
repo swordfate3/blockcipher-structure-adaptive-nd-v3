@@ -10,6 +10,7 @@ from torch import Tensor
 if TYPE_CHECKING:
     from .circuit import CircuitPredictor
     from .logic import LogicPredictor
+    from .simon_conv import SimonConvPredictor
     from .simon_two_round import (
         TwoRoundLocalPredictor,
         TwoRoundTablePredictor,
@@ -162,8 +163,15 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor | UnrolledSimonPredictor
                         | TwoRoundTablePredictor | TwoRoundLocalPredictor
-                        | TwoRoundVectorPredictor):
+                        | TwoRoundVectorPredictor | SimonConvPredictor):
     """Explicit small model choices, without experiment config or a registry."""
+    if model_kind in ("simon-cnn", "simon-rotation-cnn"):
+        if feature_mode != "full" or prediction_mode != "direct":
+            raise ValueError("simon CNN models require full/direct")
+        from .simon_conv import SimonConvPredictor
+        return SimonConvPredictor(
+            hidden_width, rounds=rounds, target_bit=target_bit,
+            neighborhood="local" if model_kind == "simon-cnn" else "rotation")
     if model_kind in ("simon-r2-table", "simon-r2-local", "simon-r2-vector"):
         _validate_builtin_int(hidden_width, "hidden_width", 16, 16)
         _validate_builtin_int(rounds, "rounds", 2, 2)

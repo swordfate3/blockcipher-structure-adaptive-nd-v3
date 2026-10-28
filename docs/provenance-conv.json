@@ -1,0 +1,24 @@
+{
+  "kind": "locally designed matched-adjacency residual convolution candidates",
+  "model": "src/cipher_experiments/models/simon_conv.py",
+  "models": ["simon-cnn", "simon-rotation-cnn"],
+  "public_structure": "MSB position i reads (i+offset) mod32; offsets0,1,2,3 versus0,1,2,8",
+  "design": "two plaintext channels; multichannel continuous residual features; independent blocks; positional parameters and flatten readout; final single-bit labels only",
+  "external_implementation_copied": false,
+  "inspiration": [
+    {
+      "url": "https://github.com/agohr/deep_speck/blob/master/train_nets.py",
+      "read_scope": "full train_nets.py; residual Conv1D tower and bit-sliced channel representation",
+      "differences": "source is SPECK differential ciphertext-pair classification; current task is SIMON fixed-key plaintext-to-absolute-bit, uses circular taps, LayerNorm/GELU and BCE instead of BN/ReLU/MSE; not reproduced or executed"
+    },
+    {
+      "url": "https://arxiv.org/html/1603.05027",
+      "read_scope": "identity paths and preactivation architecture discussion",
+      "limitation": "image-network optimization rationale, not SIMON learnability evidence"
+    }
+  ],
+  "secret_boundary": "no actual key/round keys/true intermediate states/other ciphertext labels/solved weights; positional parameters learned only from TRAIN",
+  "interpretation": "six residual blocks are depth, not verified six cipher round states",
+  "novelty": "not assessed; not claimed",
+  "plan": "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md"
+}

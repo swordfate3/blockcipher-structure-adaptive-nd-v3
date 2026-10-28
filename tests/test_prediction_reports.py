@@ -15,6 +15,8 @@ from cipher_experiments.prediction_reports import experiment_kind, model_metadat
 
 
 @pytest.mark.parametrize(("kind", "mode", "width", "has_metadata"), [
+    ("simon-cnn", "direct", 8, True),
+    ("simon-rotation-cnn", "direct", 8, True),
     ("mlp", "direct", 8, False),
     ("mlp", "public-coordinate", 8, True),
     ("logic16", "direct", 64, False),
@@ -28,7 +30,8 @@ from cipher_experiments.prediction_reports import experiment_kind, model_metadat
 ])
 def test_reports_preserve_parameters_gradients_inputs_rng_and_modes(
         kind: str, mode: str, width: int, has_metadata: bool) -> None:
-    model = build_predictor(width, model_kind=kind, rounds=2, prediction_mode=mode)
+    rounds = 6 if kind in ("simon-cnn", "simon-rotation-cnn") else 2
+    model = build_predictor(width, model_kind=kind, rounds=rounds, prediction_mode=mode)
     model.train()
     # Preserve heterogeneous mode flags too; report generation must not call eval/train.
     children = list(model.children())
@@ -43,7 +46,7 @@ def test_reports_preserve_parameters_gradients_inputs_rng_and_modes(
     modes = [m.training for m in model.modules()]
     original_x, original_y = x.clone(), y.clone()
     cpu_rng, python_rng = torch.get_rng_state().clone(), random.getstate()
-    metadata = model_metadata(model, model_kind=kind, prediction_mode=mode, rounds=2,
+    metadata = model_metadata(model, model_kind=kind, prediction_mode=mode, rounds=rounds,
                               target_bit=0, x_train=x, y_train=y, device=torch.device("cpu"))
     assert (metadata is not None) == has_metadata
     assert torch.equal(cpu_rng, torch.get_rng_state()) and random.getstate() == python_rng
@@ -79,6 +82,8 @@ def test_table_coverage_aggregates_only_explicit_train_labels() -> None:
 @pytest.mark.parametrize(("dataset", "kind", "expected"), [
     ("synthetic", "mlp", "synthetic-engineering"),
     ("circuit-synthetic", "circuit-aligned", "synthetic-engineering"),
+    ("simon", "simon-cnn", "simon-residual-cnn-final-bit-supervision"),
+    ("simon", "simon-rotation-cnn", "simon-residual-cnn-final-bit-supervision"),
     ("simon", "mlp", "simon-output-bit-baseline"),
     ("simon", "logic16", "simon-output-bit-baseline"),
     ("simon", "simon-structure", "simon-structure-unknown-constants"),

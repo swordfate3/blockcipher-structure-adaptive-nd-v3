@@ -214,7 +214,7 @@ def test_prediction_module_has_only_torch_and_local_model_dependencies() -> None
     )
     assert imported_roots <= {
         "torch", "mlp", "logic", "circuit", "structured_simon", "simon_two_round",
-        "unrolled_simon",
+        "unrolled_simon", "simon_conv",
         "typing", "__future__"}
     assert "inputs" in inspect.signature(PlaintextPredictor.forward).parameters
     assert "key" not in inspect.signature(PlaintextPredictor).parameters

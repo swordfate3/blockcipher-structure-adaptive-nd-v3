@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from torch import Tensor, nn
 
+from .models.simon_conv import SimonConvPredictor
 from .models.simon_two_round import (
     TwoRoundLocalPredictor,
     TwoRoundTablePredictor,
@@ -23,6 +24,8 @@ def experiment_kind(dataset: str, model_kind: str) -> str:
     """Describe the existing experiment role without dispatching execution."""
     if dataset in ("synthetic", "circuit-synthetic"):
         return "synthetic-engineering"
+    if model_kind in ("simon-cnn", "simon-rotation-cnn"):
+        return "simon-residual-cnn-final-bit-supervision"
     if model_kind == "simon-structure":
         return "simon-structure-unknown-constants"
     if model_kind == "simon-unrolled":
@@ -81,6 +84,23 @@ def model_metadata(model: nn.Module, *, model_kind: str, prediction_mode: str,
             "input": "plaintext only; no actual key, trace, ciphertext, or other labels",
             "parameter_learning": "ordinary MLP weights from TRAIN labels; no key injection",
             "selection": "absolute DEV BCE",
+        }
+    if isinstance(model, SimonConvPredictor):
+        return {
+            "kind": model_kind, "rounds": rounds, "target_bit": target_bit,
+            "channels": model.hidden_width, "blocks": 6,
+            "neighborhood": model.neighborhood, "offsets": list(model.offsets),
+            "convolution": "four ordered taps; output i reads (i+offset) mod32, MSB order",
+            "input": "plaintext high/low as 2 channels over32 positions; no actual key/state",
+            "embedding": "learned [1,channels,32], zero initialized; not actual round keys",
+            "normalization": "per-position channel LayerNorm before each GELU/convolution",
+            "readout": "channel-major flatten32*channels then one raw-logit linear head",
+            "sharing": "spatial convolution weights shared; independent six residual blocks",
+            "hidden_state": "multichannel continuous features; no intermediate sigmoid",
+            "interpretation": "adjacency prior only; six blocks are not six cipher states",
+            "supervision": "absolute final target-bit BCE only; no auxiliary teachers",
+            "selection": "absolute DEV BCE",
+            "parameters": sum(p.numel() for p in model.parameters()),
         }
     if isinstance(model, StructuredSimonPredictor):
         return {
