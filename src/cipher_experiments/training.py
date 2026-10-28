@@ -12,16 +12,12 @@ import torch
 from torch import Tensor, nn
 
 from .artifacts import append_progress, file_sha256, git_identity, source_identity, write_json
+from .checkpoints import load_checkpoint, save_checkpoint
 from .config import ExperimentConfig
-from .evaluation import CHECKPOINT_SCHEMA, evaluate_model, load_checkpoint
+from .evaluation import evaluate_model
 from .models.prediction import build_predictor, public_reference
-from .models.simon_two_round import (
-    TwoRoundLocalPredictor,
-    TwoRoundTablePredictor,
-    TwoRoundVectorPredictor,
-)
-from .models.structured_simon import StructuredSimonPredictor
-from .models.unrolled_simon import UnrolledSimonPredictor
+from .models.simon_two_round import TwoRoundLocalPredictor, TwoRoundVectorPredictor
+from .prediction_reports import experiment_kind, model_metadata
 from .two_round_diagnostics import two_round_local_diagnostics
 
 
@@ -74,18 +70,6 @@ def baseline_parameters(labels: Tensor, reference: Tensor | None) -> tuple[int, 
     return int(2 * ones > len(labels)), (ones + .5) / (len(labels) + 1)
 
 
-def _save_checkpoint(path: Path, model: nn.Module, config: ExperimentConfig,
-                     epoch: int, updates: int, majority: int, probability: float) -> None:
-    state = {key: value.detach().cpu().clone() for key, value in model.state_dict().items()}
-    payload = {"schema": CHECKPOINT_SCHEMA, "config": config.to_dict(),
-               "config_sha256": config.sha256(), "state_dict": state,
-               "epoch": epoch, "updates": updates,
-               "majority": majority, "probability": probability}
-    temporary = path.with_suffix(".tmp")
-    torch.save(payload, temporary)
-    temporary.replace(path)
-
-
 def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
     if config.experiment != "prediction":
         raise ValueError("prediction train requires experiment=prediction")
@@ -110,19 +94,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "model_kind": config.model_kind,
         "prediction_mode": config.prediction_mode,
         "train_pool_rows": config.train_pool_rows,
-        "experiment_kind": "synthetic-engineering" if config.dataset in (
-            "synthetic", "circuit-synthetic")
-                           else "simon-structure-unknown-constants" if (
-                               config.model_kind == "simon-structure")
-                           else "simon-unrolled-final-bit-supervision" if (
-                               config.model_kind == "simon-unrolled")
-                           else "simon-r2-table-positive-control" if (
-                               config.model_kind == "simon-r2-table")
-                           else "simon-r2-local-neural-candidate" if (
-                               config.model_kind == "simon-r2-local")
-                           else "simon-r2-vector-neural-candidate" if (
-                               config.model_kind == "simon-r2-vector")
-                           else "simon-output-bit-baseline"})
+        "experiment_kind": experiment_kind(config.dataset, config.model_kind)})
 
     def deadline() -> None:
         if time.monotonic() - started > config.max_seconds:
@@ -164,115 +136,12 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                 for name, value in model.named_parameters())).hexdigest(),
             "features": list(model.indices.cpu().tolist()),
             "parameters": sum(p.numel() for p in model.parameters())})
-        if config.prediction_mode == "public-coordinate":
-            write_json(output / "model_metadata.json", {
-                "kind": "mlp",
-                "prediction_mode": "public-coordinate",
-                "coordinates": "(Y xor ((ROL1(X) & ROL8(X)) xor ROL2(X)), X)",
-                "bit_order": "64-bit plaintext MSB index 0..63; X=0..31, Y=32..63",
-                "interpretation": "public bijective coordinates only; not actual cipher state",
-                "learned_constants": "none",
-                "extra_labels": "none; absolute final target-bit labels only",
-                "input": "plaintext only; no actual key, trace, ciphertext, or other labels",
-                "parameter_learning": "ordinary MLP weights from TRAIN labels; no key injection",
-                "selection": "absolute DEV BCE",
-            })
-        if isinstance(model, StructuredSimonPredictor):
-            write_json(output / "model_metadata.json", {
-                "kind": "simon-structure", "rounds": config.rounds,
-                "target_bit": config.target_bit,
-                "unknowns": "independent learned round-constant effects; not true key input",
-                "initialization": "random signs and noise from init_seed, no data/key access",
-                "key_schedule_constraint": False,
-                "selection": "soft absolute DEV BCE; hard constants report-only",
-                "gate_counts": model.cone.gate_counts,
-                "symbolic_coordinates": list(model.cone.round_key_coordinates)})
-        if isinstance(model, (TwoRoundTablePredictor, TwoRoundLocalPredictor,
-                              TwoRoundVectorPredictor)):
-            is_table = isinstance(model, TwoRoundTablePredictor)
-            is_vector = isinstance(model, TwoRoundVectorPredictor)
-            metadata: dict[str, Any] = {
-                "kind": config.model_kind,
-                "role": "positive-control" if is_table else "neural-candidate",
-                "rounds": 2, "target_bit": config.target_bit,
-                "supervision": "absolute final target-bit BCE only",
-                "key_free": True,
-                "input": "public plaintext bits only; no key or intermediate states; "
-                         "final absolute bit labels only",
-                "selection": "absolute DEV BCE",
-            }
-            if isinstance(model, TwoRoundTablePredictor):
-                with torch.no_grad():
-                    cells, public_t = model.public_table_features(x_train.to(device))
-                    residual = torch.logical_xor(
-                        y_train.to(device).bool().squeeze(1), public_t.bool().squeeze(1)
-                    )
-                    cell_counts: list[int] = []
-                    residual_ones: list[int] = []
-                    conflicts: list[bool] = []
-                    for cell in range(4):
-                        cell_mask = cells == cell
-                        count = int(cell_mask.sum())
-                        ones = int((residual & cell_mask).sum())
-                        cell_counts.append(count)
-                        residual_ones.append(ones)
-                        conflicts.append(ones not in (0, count))
-                covered = sum(count > 0 for count in cell_counts)
-                metadata.update({
-                    "parameters": 4,
-                    "formula": "U=Y XOR F(X); A=U[j+1], B=U[j+8], "
-                               "T=X[j] XOR U[j+2]; logit=(1-2T)*table_logits[2A+B]",
-                    "train_table": {
-                        "counts": cell_counts,
-                        "residual_ones": residual_ones,
-                        "covered_all_cells": covered == 4,
-                        "conflicting_cells": [cell for cell, conflict in enumerate(conflicts)
-                                              if conflict],
-                    },
-                })
-            elif is_vector:
-                metadata.update({
-                    "parameters": 557,
-                    "modules": "three independent 4->16->4 local modules with Tanh hidden "
-                               "activation only, then 12->8->1 with Tanh hidden activation",
-                    "local_features": "centered [P_Y[q],P_X[q+1],P_X[q+8],P_X[q+2]], "
-                                     "q=j+1,j+8,j+2",
-                    "hidden_channels": "sigmoid per local logit then center; concatenate 12",
-                    "output_sign": "(1-2*P_X[j])",
-                    "parameter_sharing": "independent local module weights; no sharing",
-                })
-            else:
-                metadata.update({
-                    "parameters": 332,
-                    "modules": "three independent 4->16->1 Tanh MLPs, then 3->8->1 Tanh",
-                    "local_features": "centered [P_Y[q],P_X[q+1],P_X[q+8],P_X[q+2]], "
-                                     "q=j+1,j+8,j+2",
-                    "output_sign": "(1-2*P_X[j])",
-                    "parameter_sharing": "independent local module weights; no sharing",
-                })
+        metadata = model_metadata(
+            model, model_kind=config.model_kind, prediction_mode=config.prediction_mode,
+            rounds=config.rounds, target_bit=config.target_bit,
+            x_train=x_train, y_train=y_train, device=device)
+        if metadata is not None:
             write_json(output / "model_metadata.json", metadata)
-        if isinstance(model, UnrolledSimonPredictor):
-            write_json(output / "model_metadata.json", {
-                "kind": "simon-unrolled", "rounds": config.rounds,
-                "target_bit": config.target_bit, "prediction_mode": config.prediction_mode,
-                "supervision": "final-only absolute target-bit BCE; no real intermediate states",
-                "public_reference": (
-                    "plaintext target bit at target_bit in the high half (indices 0..31); "
-                    "sign factor (1-2*x[target_bit])"
-                    if config.prediction_mode in (
-                        "plaintext-xor", "plaintext-xor-no-final-low")
-                    else "none (direct mode)"),
-                "final_low_input": (
-                    "zero after centering for every position in the final round only"
-                    if config.prediction_mode == "plaintext-xor-no-final-low"
-                    else "centered local low-state value in every round"),
-                "input": "plaintext only; no true key or round-key input",
-                "public_prior": "Feistel copy and rotations 1,8,2; local neural update",
-                "state": "continuous latent scalars, not verified cipher round states",
-                "cell": "shared 8->hidden_width->1 Tanh MLP, sigmoid hidden updates",
-                "conditions": "learned [round,position,4], randomly initialized",
-                "key_schedule_constraint": False,
-                "selection": "absolute DEV BCE; no discrete parameter search"})
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
         shuffle = torch.Generator(device="cpu").manual_seed(config.data_seed + 1)
         best = math.inf
@@ -306,8 +175,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                    if dev_evaluated else None)
             if dev is not None and dev["bce"] < best:
                 best, selected_epoch = dev["bce"], epoch
-                _save_checkpoint(output / "best.pt", model, config, epoch, updates,
-                                 majority, probability)
+                save_checkpoint(output / "best.pt", model, config, epoch, updates,
+                                majority, probability)
             record = {"epoch": epoch, "updates": updates, "presentations": presentations,
                       "train_bce": loss_sum / len(y_train), "dev": dev,
                       "dev_evaluated": dev_evaluated,
@@ -320,8 +189,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                 handle.write(message + "\n")
             print(message, flush=True)
         deadline()
-        _save_checkpoint(output / "last.pt", model, config, current_epoch, updates,
-                         majority, probability)
+        save_checkpoint(output / "last.pt", model, config, current_epoch, updates,
+                        majority, probability)
         best_path = output / "best.pt"
         selected, _, _, _ = load_checkpoint(best_path, file_sha256(best_path), device=device)
         write_json(output / "selection.json", {

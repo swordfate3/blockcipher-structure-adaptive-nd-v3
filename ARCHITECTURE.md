@@ -2,7 +2,10 @@
 
 ```text
 cli → config + training / evaluation
-training → data + models + evaluation + artifacts
+training → data + models + evaluation + checkpoints + prediction_reports + artifacts
+checkpoints → config + models + artifacts
+evaluation → models (+ checkpoint兼容导出)
+prediction_reports → models + torch
 data/simon → ciphers/simon
 models → torch
 ciphers → Python标准库
@@ -11,8 +14,14 @@ artifacts → Python标准库
 
 - `cli.py`：唯一用户入口，check/train/evaluate，错误返回非零。
 - `config.py`：冻结dataclass，严格JSON字段/类型/范围，不含审批或远程主机。
-- `training.py`：组装数据/模型、Adam循环、DEV选模、保存、最后TEST，真实更新/样本计数。
-- `evaluation.py`：绝对位ACC/BCE、TRAIN多数/概率基线、SHA绑定严格checkpoint加载；不导入training。
+- `training.py`：组装数据/模型、Adam循环、预算检查、DEV选模、调度保存与最后TEST，真实更新/样本计数；
+  不实现模型专属报告字段或四格聚合，报告采集与写盘仍在原初始化位置。选中两轮模型的TRAIN/DEV诊断仍在TEST标签前显式调用。
+- `prediction_reports.py`：接收模型、公开配置项和既有TRAIN输入/标签，返回实验角色、模型说明与四格覆盖聚合；
+  不依赖config/训练/评估/checkpoint/数据生成，不写文件、不更新参数、模式、梯度或RNG，不接收TEST或实际key。
+- `checkpoints.py`：创新2的checkpoint payload、原子保存和SHA绑定严格加载；不依赖training/evaluation，
+  原始配置SHA、schema、state名称/shape/dtype/layout/有限值与接线校验不变。
+- `evaluation.py`：绝对位ACC/BCE、TRAIN多数/概率基线及结构模型硬化报告；不导入training。
+  原有`load_checkpoint`/`CHECKPOINT_SCHEMA`导入路径仅兼容再导出，加载实现归checkpoints。
 - `two_round_diagnostics.py`：对选中local两轮模型只聚合TRAIN/DEV的公开特征分组、完整输入签名覆盖与错误；
   在TEST标签前保存，不参与选模/梯度，也不读取真实状态或key。角点hidden统计不是状态验证。
 - `artifacts.py`：JSON/进度/字节SHA/源码身份；Git查询只用于可选身份记录，不同步/提交代码。
@@ -48,6 +57,7 @@ artifacts → Python标准库
 
 范围：一个同步本机实验入口。不包含SSH启动、通用工作流、插件注册、HTTP后端、数据库、自动调度或旧审批流程。
 不迁移旧runner、旧环境配置和批次产物。算法提取记录在`docs/provenance.json`。
+本次局部边界整理见[后端职责迁移说明](docs/BACKEND-BOUNDARIES.md)；没有改模型/密码/采样或科学实验合同。
 
 限制：协作超时不等于硬截止；创新2预建明文、选模后生成TEST标签，创新1仍预建split标签；
 没有访问强制的sealedconfirm、resume、跨key统计或GPU现场验收声明。扩展从实际需求出发，不预建多层空目录。
