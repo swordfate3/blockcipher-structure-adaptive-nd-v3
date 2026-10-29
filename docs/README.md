@@ -1,6 +1,6 @@
 # 文档
 
-- [六轮结构向量两项探索](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)：固定目标DAG动态向量，真实/null两项获准执行；非人工95%门槛。
+- [六轮结构向量两项合同](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)与[结果](INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：真实TEST50.1694%、null49.8474%，TRAIN未明显拟合，TEST BCE未优于常量/null；描述性DEV条件满足不代表可靠进展，两项关闭。
 - [项目研究工作流](../.pi/skills/cipher-research-workflow/SKILL.md)：方法论证、有界执行与证据范围。
 
 - [六轮残差CNN邻接计划](INNOVATION2-CONV-STRUCTURE-PLAN.md)与[结果](INNOVATION2-CONV-STRUCTURE-RESULTS.md)：真实TEST49.7543%/49.6429%，TRAIN强拟合但不泛化，四项已关闭。

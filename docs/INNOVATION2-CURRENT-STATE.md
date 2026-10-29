@@ -1,12 +1,16 @@
 # 创新2进度对齐与下一步
 
-## 当前准备：六轮目标图有界向量单候选
+## 最新完成：六轮目标图有界向量，未见可靠改善
 
-用户继续推进后已实现[两项正式提案](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)，`simon-vector`固定六轮bit0/full/direct/width32，10529参数。
-406节点公开DAG、AND/XOR共享乘性交互、目标节点唯一读出；新增每节点L2半径2投影处理人工原型内部放大，不宣称继承人工87%或保证优化。
-Ruff/mypy103/1093tests通过，干净源码CPU null CLI2更新/8呈现通过；初态和10倍参数压力探针激活受限/梯度有限，仅1次独立null工程更新。
-准备时正式标签/拟合0；用户“推进实验”已确认真实/null两项各8192更新，共16384更新/4194304呈现及发布、Windows/A6000和取回，实际完成另记录。
-不拿人工95%作淘汰条件，真实DEV BCE/ACC相对常量/null按预定规则描述，不将微差称显著；不自动追加确认。
+[两项合同](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)与[完整结果](INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：真实TEST50.1694%／BCE0.69321714，null49.8474%／0.69316327。
+`simon-vector`固定六轮bit0/full/direct/width32，10529参数，406节点公开DAG、AND/XOR共享乘性交互、半径2投影、目标节点唯一读出。
+真实DEV50.5371%对null50.1953%，满足原定描述性DEV改善规则，但真实TEST BCE劣于常量和null；不称统计证据或有效突破。
+真实selected TRAIN/DEV/TEST正确数恰等各split bit1数量，与始终预测1相容；聚合记录不能证明逐样本恒定，但不能作为学到输入条件规律的证据。
+末在线TRAIN BCE real0.693284/null0.693258，没有明显TRAIN拟合，不沿用上一CNN强拟合但泛化失败解释。
+代码ae2c7ac160bda758d6ee716816da303ebfaa9870，干净发布index1037tests/mypy98/Ruff，现场CUDA null2更新/8呈现。
+两项exit0、共16384更新／4194304呈现／16DEV点、24文件取回核SHA，保存训练elapsed合计971.797秒；无科学重算/拟合重试。
+启动前Windows长命令与路径格式故障已留原证据，确认未进入正式CLI后修正；科学源码仅Git同步。
+TEST由CLI自动生成/输出、外层完整JSON已读，先冻结DEV再展示TEST，不称sealed。批次关闭，不追加参数扫描或自动确认。
 
 ## 最新机制检查：结构向量人工泛化87.11%，严格验收未通过
 

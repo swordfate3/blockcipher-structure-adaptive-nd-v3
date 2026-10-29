@@ -5,7 +5,10 @@
 提供创新2合成启动检查与SIMON64/128单输出位MLP基线，以及创新1四任务shared-M小训练入口。
 **不是旧实验复现，也不承诺任何准确率。**
 
-最新[六轮残差CNN结果](docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md)：
+最新[六轮结构向量结果](docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：
+真实TEST50.1694%、null49.8474%，真实TEST BCE未优于常量/null，TRAIN未明显拟合。预定描述性DEV条件满足，但无可靠突破证据，两项已关闭。
+
+此前[六轮残差CNN结果](docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md)：
 普通环形/旋转邻接CNN真实TEST49.7543%/49.6429%，末在线TRAIN BCE约.061/.041而DEV恶化；有强拟合但无泛化信号，四项已关闭。
 
 前批[六轮神经轮展开学习率结果](docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：
