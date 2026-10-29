@@ -19,6 +19,7 @@ from .models.simon_two_round import (
     TwoRoundTablePredictor,
     TwoRoundVectorPredictor,
 )
+from .models.simon_vector import SimonVectorPredictor
 from .models.structured_simon import StructuredSimonPredictor
 from .models.unrolled_simon import UnrolledSimonPredictor
 
@@ -42,7 +43,7 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor | UnrolledSimonPredictor
                         | TwoRoundTablePredictor | TwoRoundLocalPredictor
-                        | TwoRoundVectorPredictor | SimonConvPredictor,
+                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor,
                         ExperimentConfig, int, float]:
     if len(expected_sha256) != 64 or file_sha256(path) != expected_sha256:
         raise ValueError("checkpoint SHA256 mismatch")
@@ -84,7 +85,8 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                 or not bool(torch.isfinite(value).all())):
             raise ValueError(f"checkpoint state mismatch: {key}")
     model.load_state_dict(state, strict=True)
-    if isinstance(model, (LogicPredictor, CircuitPredictor, SimonConvPredictor)):
+    if isinstance(model, (LogicPredictor, CircuitPredictor, SimonConvPredictor,
+                          SimonVectorPredictor)):
         model.validate_wiring()
     model.checkpoint_config_sha256 = raw_sha
     model.to(device)

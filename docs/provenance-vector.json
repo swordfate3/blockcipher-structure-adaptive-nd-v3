@@ -1,0 +1,21 @@
+{
+  "kind": "public target-DAG typed dynamic vectors with bounded activations",
+  "model": "src/cipher_experiments/models/simon_vector.py",
+  "public_representation": "src/cipher_experiments/representations/simon_vector.py",
+  "source": "current-project simon_cone.py and isolated tests/structure_vector_fixture.py artificial prototype",
+  "external_implementation_copied": false,
+  "changes": "canonical depth/op batching, two symmetric shared multiplicative units, per-node L2 radius2 projection, target-node-only head",
+  "source_limit": "artificial prototype TEST87.11% is not a result for this bounded candidate or SIMON; no actual solved constants/state/weights reused",
+  "literature": {
+    "url": "https://arxiv.org/html/2305.16373",
+    "read_scope": "DeepGate2 introduction and methodology III-B..III-E",
+    "borrowed_concepts": "separate structural descriptors and functional representations, source identities/reconvergence and topological propagation",
+    "not_adopted": "internal gate truth-table distance/probability supervision; no actual cipher-state teacher allowed",
+    "not_reproduced": true
+  },
+  "secret_boundary": "plaintext and public routing only; symbolic-effect vectors learned from TRAIN, never actual key/round-key/trace/other-bit labels",
+  "model_scope": "SIMON64/128 six rounds, absolute MSB bit0, full/direct, width32 only",
+  "key_schedule_constraint": false,
+  "novelty": "not assessed or claimed",
+  "plan": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md"
+}

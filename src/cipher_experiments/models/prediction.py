@@ -16,6 +16,7 @@ if TYPE_CHECKING:
         TwoRoundTablePredictor,
         TwoRoundVectorPredictor,
     )
+    from .simon_vector import SimonVectorPredictor
     from .structured_simon import StructuredSimonPredictor
     from .unrolled_simon import UnrolledSimonPredictor
 
@@ -163,8 +164,13 @@ def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor | UnrolledSimonPredictor
                         | TwoRoundTablePredictor | TwoRoundLocalPredictor
-                        | TwoRoundVectorPredictor | SimonConvPredictor):
+                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor):
     """Explicit small model choices, without experiment config or a registry."""
+    if model_kind == "simon-vector":
+        if feature_mode != "full" or prediction_mode != "direct":
+            raise ValueError("simon-vector requires full/direct")
+        from .simon_vector import SimonVectorPredictor
+        return SimonVectorPredictor(hidden_width, rounds=rounds, target_bit=target_bit)
     if model_kind in ("simon-cnn", "simon-rotation-cnn"):
         if feature_mode != "full" or prediction_mode != "direct":
             raise ValueError("simon CNN models require full/direct")

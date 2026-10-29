@@ -41,5 +41,13 @@
     "implementation": "src/cipher_experiments/data/synthetic.py and src/cipher_experiments/data/simon.py",
     "policy": "Legacy make_simon/make_synthetic APIs still materialize all labels; prediction training now constructs plaintext identities first and requests TEST labels only after strict selected-checkpoint load. Innovation1 still prebuilds split labels.",
     "limitation": "The test split is not an audit-equivalent sealed confirm set: generation exposes all panels to the caller at once, and no access-control or evaluation-freeze boundary is implemented."
+  },
+  "innovation2_structure_vector": {
+    "record": "docs/provenance-vector.json",
+    "scope": "bounded typed target-DAG vectors; local engineering only, not formally fitted"
+  },
+  "innovation2_conv_structure": {
+    "record": "docs/provenance-conv.json",
+    "scope": "matched multichannel residual CNN adjacency comparison; final-bit-only, no true key/state"
   }
 }

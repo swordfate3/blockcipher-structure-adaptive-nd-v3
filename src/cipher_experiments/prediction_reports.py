@@ -16,6 +16,7 @@ from .models.simon_two_round import (
     TwoRoundTablePredictor,
     TwoRoundVectorPredictor,
 )
+from .models.simon_vector import SimonVectorPredictor
 from .models.structured_simon import StructuredSimonPredictor
 from .models.unrolled_simon import UnrolledSimonPredictor
 
@@ -26,6 +27,8 @@ def experiment_kind(dataset: str, model_kind: str) -> str:
         return "synthetic-engineering"
     if model_kind in ("simon-cnn", "simon-rotation-cnn"):
         return "simon-residual-cnn-final-bit-supervision"
+    if model_kind == "simon-vector":
+        return "simon-vector-target-dag-final-bit-supervision"
     if model_kind == "simon-structure":
         return "simon-structure-unknown-constants"
     if model_kind == "simon-unrolled":
@@ -101,6 +104,21 @@ def model_metadata(model: nn.Module, *, model_kind: str, prediction_mode: str,
             "supervision": "absolute final target-bit BCE only; no auxiliary teachers",
             "selection": "absolute DEV BCE",
             "parameters": sum(p.numel() for p in model.parameters()),
+        }
+    if isinstance(model, SimonVectorPredictor):
+        return {
+            "kind": "simon-vector", "rounds": 6, "target_bit": 0,
+            "channels": 32, "nodes": model.plan.node_count, "depth": model.plan.depth,
+            "plaintext_leaves": len(model.plan.plaintext_indices),
+            "symbolic_coordinates": [list(c) for c in model.plan.symbolic_coordinates],
+            "gate": "typed shared symmetric linear+Hadamard+projected-Hadamard",
+            "activation_bound": "per-node L2 ball radius2, identity inside; not LayerNorm",
+            "readout": "target node only; no global flatten or plaintext bypass",
+            "supervision": "absolute final target bit BCE only",
+            "interpretation": "latent vectors, not true states or key values",
+            "key_schedule_constraint": False,
+            "parameters": sum(p.numel() for p in model.parameters()),
+            "selection": "absolute DEV BCE",
         }
     if isinstance(model, StructuredSimonPredictor):
         return {

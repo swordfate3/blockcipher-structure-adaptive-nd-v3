@@ -64,8 +64,16 @@ class ExperimentConfig:
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
                                    "simon-structure", "simon-unrolled", "simon-r2-table",
                                    "simon-r2-local", "simon-r2-vector", "simon-cnn",
-                                   "simon-rotation-cnn"):
+                                   "simon-rotation-cnn", "simon-vector"):
             raise ValueError("unknown prediction model_kind")
+        if self.model_kind == "simon-vector" and (
+                self.experiment != "prediction" or self.dataset != "simon"
+                or self.model_features != "full" or self.prediction_mode != "direct"
+                or type(self.hidden_width) is not int or self.hidden_width != 32
+                or type(self.rounds) is not int or self.rounds != 6
+                or type(self.target_bit) is not int or self.target_bit != 0):
+            raise ValueError("simon-vector requires prediction/simon/full/direct, "
+                             "rounds6/bit0/width32")
         if self.model_kind in ("simon-cnn", "simon-rotation-cnn") and (
                 self.experiment != "prediction" or self.dataset != "simon"
                 or self.model_features != "full" or self.prediction_mode != "direct"

@@ -39,6 +39,14 @@ artifacts → Python标准库
   两轮高半位可用`plaintext-xor`将原selected logit乘公开明文位符号，不改轮内递推、标签或参数。
   `plaintext-xor-no-final-low`在此基础上仅将末轮center后的low输入通道置0；
   第一轮和其余输入不变，不增参数或标签，但有效函数类受限，不能视为真实状态学习。
+- `models/simon_vector.py`：六轮bit0目标DAG上的32维动态表示，AND/XOR类型共享乘性交互；
+  每节点半径2投影，目标节点唯一读出，无实际key/状态/额外监督或全局旁路。
+  `representations/simon_vector.py`仅将既有公开图按深度/类型编排，重用子式，不接收样本标签。
+  配置固定simon/full/direct/r6/bit0/width32；checkpoint核对全部持久路由；训练/评价语义不改。
+- `models/simon_conv.py`：六层独立多通道残差CNN，连续环邻接与公开旋转邻接仅四tap不同；
+  逐位置channel LayerNorm/GELU、可学习位置条件、flatten单logit读出，不中间sigmoid、不真实轮状态仿真。
+  只读明文/公开邻接，规范持久化接线由checkpoint加载后验证；不访问配置文件、标签、key或密码模块。
+  `prediction.py`显式选择两CNN；配置限定六轮/full/direct，width8..256；训练/数据/选模循环不改。
 - `models/simon_two_round.py`：两轮高半位的结构化四格正控与独立局部神经候选；
   公共特征或局部接线由明文计算，无真实key/轨迹或其他密文标签输入。
   `simon-r2-vector`为独立4通道局部变体（557参数），三个4→16→4与12→8→1，仍仅最终bit监督。

@@ -6,6 +6,7 @@ description: 开发、测试或解释本项目密码实验后端时使用，包�
 # 本项目开发与实验
 
 先读根目录[AGENTS](../../../AGENTS.md)、[README](../../../README.md)及[架构](../../../ARCHITECTURE.md)。
+涉及研究方向、模型候选或连续实验时，先用[研究工作流](../cipher-research-workflow/SKILL.md)明确方法与有界预算；本skill负责实现验证，不替代科学论证。
 
 ## 核心路径
 
