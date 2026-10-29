@@ -70,10 +70,10 @@ class ExperimentConfig:
                 self.experiment != "prediction" or self.dataset != "simon"
                 or self.model_features != "full" or self.prediction_mode != "direct"
                 or type(self.hidden_width) is not int or self.hidden_width != 32
-                or type(self.rounds) is not int or self.rounds != 6
+                or type(self.rounds) is not int or self.rounds not in (5, 6)
                 or type(self.target_bit) is not int or self.target_bit != 0):
             raise ValueError("simon-vector requires prediction/simon/full/direct, "
-                             "rounds6/bit0/width32")
+                             "rounds5or6/bit0/width32")
         if self.model_kind in ("simon-cnn", "simon-rotation-cnn") and (
                 self.experiment != "prediction" or self.dataset != "simon"
                 or self.model_features != "full" or self.prediction_mode != "direct"

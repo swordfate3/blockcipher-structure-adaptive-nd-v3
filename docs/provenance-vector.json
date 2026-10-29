@@ -14,8 +14,9 @@
     "not_reproduced": true
   },
   "secret_boundary": "plaintext and public routing only; symbolic-effect vectors learned from TRAIN, never actual key/round-key/trace/other-bit labels",
-  "model_scope": "SIMON64/128 six rounds, absolute MSB bit0, full/direct, width32 only",
+  "model_scope": "SIMON64/128 five or six rounds, absolute MSB bit0, full/direct, width32 only; six-round default retained",
   "key_schedule_constraint": false,
   "novelty": "not assessed or claimed",
-  "plan": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md"
+  "plan": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+  "five_round_extension": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md; same gate formula/projection/optimizer, distinct public target DAG and symbolic leaf count"
 }

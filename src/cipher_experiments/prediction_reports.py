@@ -107,8 +107,9 @@ def model_metadata(model: nn.Module, *, model_kind: str, prediction_mode: str,
         }
     if isinstance(model, SimonVectorPredictor):
         return {
-            "kind": "simon-vector", "rounds": 6, "target_bit": 0,
-            "channels": 32, "nodes": model.plan.node_count, "depth": model.plan.depth,
+            "kind": "simon-vector", "rounds": model.rounds,
+            "target_bit": model.target_bit, "channels": model.hidden_width,
+            "nodes": model.plan.node_count, "depth": model.plan.depth,
             "plaintext_leaves": len(model.plan.plaintext_indices),
             "symbolic_coordinates": [list(c) for c in model.plan.symbolic_coordinates],
             "gate": "typed shared symmetric linear+Hadamard+projected-Hadamard",

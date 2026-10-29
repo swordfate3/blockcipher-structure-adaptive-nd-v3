@@ -1,5 +1,7 @@
 # 文档
 
+- [五轮结构向量对照](INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md)：用户授权真实/null各8192更新，仅改变轮数，不自动扫描参数。
+
 - [六轮结构向量两项合同](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)与[结果](INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：真实TEST50.1694%、null49.8474%，TRAIN未明显拟合，TEST BCE未优于常量/null；描述性DEV条件满足不代表可靠进展，两项关闭。
 - [项目研究工作流](../.pi/skills/cipher-research-workflow/SKILL.md)：方法论证、有界执行与证据范围。
 

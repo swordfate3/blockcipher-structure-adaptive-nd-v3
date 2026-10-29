@@ -11,11 +11,16 @@ import torch
 from cipher_experiments.models.simon_vector import SimonVectorPredictor
 from cipher_experiments.prediction_reports import experiment_kind, model_metadata
 
+VECTOR_FACTS = {5: (266, 20, 9697), 6: (406, 24, 10529)}
 
-def test_vector_metadata_does_not_read_train_or_run_model(monkeypatch: pytest.MonkeyPatch) -> None:
+
+@pytest.mark.parametrize("rounds", [5, 6])
+def test_vector_metadata_does_not_read_train_or_run_model(
+    rounds: int, monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with torch.random.fork_rng():
         torch.manual_seed(17)
-        model = SimonVectorPredictor()
+        model = SimonVectorPredictor(rounds=rounds)
     model.train()
     original = {n: t.detach().clone() for n, t in model.state_dict().items()}
     rng = torch.get_rng_state().clone()
@@ -25,10 +30,17 @@ def test_vector_metadata_does_not_read_train_or_run_model(monkeypatch: pytest.Mo
 
     monkeypatch.setattr(model, "forward", forbidden)
     metadata = model_metadata(model, model_kind="simon-vector", prediction_mode="direct",
-                              rounds=6, target_bit=0, x_train=torch.tensor(float('nan')),
-                              y_train=torch.tensor(float('nan')), device=torch.device("cpu"))
+                              rounds=rounds, target_bit=0,
+                              x_train=torch.tensor(float('nan')),
+                              y_train=torch.tensor(float('nan')),
+                              device=torch.device("cpu"))
     assert metadata is not None
-    assert (metadata['nodes'], metadata['depth'], metadata['parameters']) == (406, 24, 10529)
+    nodes, depth, parameters = VECTOR_FACTS[rounds]
+    assert (metadata['nodes'], metadata['depth'], metadata['parameters']) == (
+        nodes, depth, parameters)
+    assert metadata['rounds'] == rounds and metadata['target_bit'] == 0
+    assert metadata['channels'] == 32 and metadata['kind'] == 'simon-vector'
+    assert len(metadata['symbolic_coordinates']) == (44 if rounds == 5 else 70)
     assert model.training and torch.equal(rng, torch.get_rng_state())
     assert all(torch.equal(original[n], t) for n, t in model.state_dict().items())
     assert all(p.grad is None for p in model.parameters())

@@ -1,4 +1,4 @@
-"""Levelized public six-round bit0 cone; no secret values or training state."""
+"""Levelized public SIMON bit0 cones for five or six rounds; no secret values."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,14 +23,19 @@ class SimonVectorPlan:
     depth: int
 
 
-def simon_vector_plan() -> SimonVectorPlan:
-    """Reorder the canonical SIMON6/bit0 DAG for parallel same-depth gates.
+def simon_vector_plan(rounds: int = 6) -> SimonVectorPlan:
+    """Reorder the canonical SIMON bit0 DAG (rounds 5 or 6) into same-depth gates.
 
+    Only rounds 5 and 6 are compiled; other counts and bool values are rejected.
     Operand indices refer to an append-only vector table. Groups of the same
     depth read only earlier depths; shared ancestors/constant coordinates are
     retained exactly once. This compiles routing, never evaluates cipher bits.
     """
-    cone = simon_cone(6, 0)
+    if type(rounds) is not int:
+        raise TypeError("rounds must be a built-in int")
+    if rounds not in (5, 6):
+        raise ValueError("rounds must be 5 or 6")
+    cone = simon_cone(rounds, 0)
     depths: list[int] = []
     for node in cone.nodes:
         depths.append(0 if not node.args else 1 + max(depths[a] for a in node.args))

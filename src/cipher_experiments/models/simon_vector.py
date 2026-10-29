@@ -1,4 +1,4 @@
-"""Typed vector computation over the public SIMON6/bit0 target cone."""
+"""Typed vector computation over the public SIMON bit0 target cone."""
 from __future__ import annotations
 
 import math
@@ -45,7 +45,11 @@ class SymmetricVectorGate(nn.Module):
 
 
 class SimonVectorPredictor(nn.Module):
-    """Plaintexts->[N,1], no true key/state/teachers and no global readout bypass."""
+    """Plaintexts->[N,1], no true key/state/teachers and no global readout bypass.
+
+    Rounds 5 and 6 select the compiled public plan; the default stays 6 so the
+    six-round initialization order and RNG consumption are unchanged.
+    """
 
     indices: Tensor
     output_index: Tensor
@@ -55,13 +59,13 @@ class SimonVectorPredictor(nn.Module):
                  target_bit: int = 0) -> None:
         super().__init__()
         _validate_builtin_int(hidden_width, "hidden_width", 32, 32)
-        _validate_builtin_int(rounds, "rounds", 6, 6)
+        _validate_builtin_int(rounds, "rounds", 5, 6)
         _validate_builtin_int(target_bit, "target_bit", 0, 0)
         self.hidden_width = hidden_width
         self.rounds, self.target_bit = rounds, target_bit
         self.feature_mode, self.prediction_mode = "full", "direct"
         self.checkpoint_config_sha256 = ""
-        plan = simon_vector_plan()
+        plan = simon_vector_plan(rounds)
         self.plan = plan
         self.register_buffer("indices", torch.tensor(plan.plaintext_indices), persistent=True)
         self.register_buffer("symbolic_coordinates", torch.tensor(plan.symbolic_coordinates),
@@ -76,7 +80,7 @@ class SimonVectorPredictor(nn.Module):
         self.readout = nn.Linear(hidden_width, 1)
 
     def validate_wiring(self) -> None:
-        plan = simon_vector_plan()
+        plan = simon_vector_plan(self.rounds)
         expected = {"indices": torch.tensor(plan.plaintext_indices),
                     "symbolic_coordinates": torch.tensor(plan.symbolic_coordinates),
                     "output_index": torch.tensor([plan.output])}
