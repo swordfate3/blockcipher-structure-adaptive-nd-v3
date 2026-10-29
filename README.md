@@ -5,7 +5,10 @@
 提供创新2合成启动检查与SIMON64/128单输出位MLP基线，以及创新1四任务shared-M小训练入口。
 **不是旧实验复现，也不承诺任何准确率。**
 
-最新[六轮结构向量结果](docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：
+最新[五轮结构向量结果](docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md)：
+真实TEST50.0046%、null49.9588%，准确率与各自TRAIN多数常量一致，TRAIN未明显拟合；降低一轮仍未见可靠预测改善，两项关闭。
+
+此前[六轮结构向量结果](docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：
 真实TEST50.1694%、null49.8474%，真实TEST BCE未优于常量/null，TRAIN未明显拟合。预定描述性DEV条件满足，但无可靠突破证据，两项已关闭。
 
 此前[六轮残差CNN结果](docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md)：
