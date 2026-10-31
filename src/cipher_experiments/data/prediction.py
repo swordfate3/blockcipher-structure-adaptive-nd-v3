@@ -113,6 +113,8 @@ def make_labels(
     label_mode: str = "cipher",
     null_seed: int = 191302,
     split: str,
+    label_expression: str = "bit",
+    label_bits: tuple[int, ...] = (),
 ) -> Tensor:
     """Create one detached CPU-FP32 label per input row.
 
@@ -120,7 +122,9 @@ def make_labels(
     ``simon`` labels are the selected MSB-first ciphertext bit under a key
     generated locally from ``key_seed``; the key is never returned. ``null``
     labels use a deterministic local RNG stream independently domain-separated
-    by the explicit train/dev/test split.
+    by the explicit train/dev/test split. Non-bit expressions select distinct
+    MSB-first bits from that same complete ciphertext, never additional encryptions.
+    Null validates the declaration but does not compute a ciphertext expression.
     """
     rows = _validate_inputs(inputs)
     if dataset not in ("synthetic", "simon"):
@@ -141,6 +145,28 @@ def make_labels(
         raise ValueError("target_bit must be between 0 and 63")
     if label_mode == "null" and dataset != "simon":
         raise ValueError("null labels require dataset=simon")
+    if type(label_expression) is not str or label_expression not in (
+            "bit", "xor2", "xor3", "xor-and"):
+        raise ValueError("label_expression must be bit, xor2, xor3 or xor-and")
+    if type(label_bits) not in (tuple, list):
+        raise TypeError("label_bits must be a tuple or JSON array")
+    if any(type(bit) is not int or not 0 <= bit <= 63 for bit in label_bits):
+        raise ValueError("label_bits must contain built-in integers in [0, 63]")
+    bits = tuple(label_bits)
+    if label_expression == "bit":
+        if bits:
+            raise ValueError("bit requires empty label_bits; use target_bit")
+    else:
+        count = 2 if label_expression == "xor2" else 3
+        if len(bits) != count or len(set(bits)) != count:
+            raise ValueError(f"{label_expression} requires {count} distinct label_bits")
+        if bits[0] != target_bit:
+            raise ValueError("label_bits[0] must equal target_bit")
+        ordered = bits[1:] if label_expression == "xor-and" else bits
+        if ordered != tuple(sorted(ordered)):
+            raise ValueError("XOR bits, or the AND operand bits, must be increasing")
+        if dataset != "simon":
+            raise ValueError("non-bit expressions require dataset=simon")
 
     if label_mode == "null":
         rng = _null_rng(null_seed, split)
@@ -149,6 +175,25 @@ def make_labels(
         return inputs[:, :1].clone().contiguous()
 
     key = random.Random(key_seed).getrandbits(128)
+    if label_expression != "bit":
+        labels = torch.empty((rows, 1), dtype=torch.float32)
+        for start in range(0, rows, 8192):
+            part = _plaintexts(inputs[start : start + 8192])
+            values: list[float] = []
+            for plaintext in part:
+                ciphertext = _encrypt(plaintext, key, rounds)
+                selected = [(ciphertext >> (63 - bit)) & 1 for bit in bits]
+                if label_expression == "xor2":
+                    value = selected[0] ^ selected[1]
+                elif label_expression == "xor3":
+                    value = selected[0] ^ selected[1] ^ selected[2]
+                else:
+                    value = selected[0] ^ (selected[1] & selected[2])
+                values.append(float(value))
+            labels[start : start + len(part), 0] = torch.tensor(values, dtype=torch.float32)
+        return labels
+
+    # Keep the historical default bit path byte-for-byte equivalent.
     mask = 1 << (63 - target_bit)
     labels = torch.empty((rows, 1), dtype=torch.float32)
     for start in range(0, rows, 8192):

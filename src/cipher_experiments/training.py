@@ -52,14 +52,19 @@ def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
         from .data.circuit import circuit_labels
         return circuit_labels(x)
     from .data.prediction import make_labels
+    expression_options: dict[str, Any] = {}
+    if config.label_expression != "bit":
+        expression_options = {"label_expression": config.label_expression,
+                              "label_bits": config.label_bits}
     return make_labels(x, dataset=config.dataset, rounds=config.rounds,
                        target_bit=config.target_bit,
                        key_seed=config.key_seed, label_mode=config.label_mode,
-                       null_seed=config.null_seed, split=split)
+                       null_seed=config.null_seed, split=split, **expression_options)
 
 
 def reference_panels(config: ExperimentConfig, inputs: dict[str, Tensor]) -> dict[str, Tensor]:
-    if config.dataset == "simon" and config.rounds <= 4:
+    if (config.dataset == "simon" and config.rounds <= 4
+            and config.label_expression == "bit"):
         return {s: public_reference(x, config.rounds, config.target_bit) for s, x in inputs.items()}
     return {}
 
@@ -80,6 +85,33 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
     updates = 0
     presentations = 0
     current_epoch = 0
+    role = experiment_kind(config.dataset, config.model_kind)
+    if config.label_expression != "bit":
+        role = (f"simon-output-expression-{config.label_expression}-mlp-"
+                + ("null-control" if config.label_mode == "null" else "baseline"))
+    # Keep declaration fields separate from the dataset's actual label operands.
+    label_semantics = {
+        "label_expression": config.label_expression,
+        "label_bits": list(config.label_bits),
+        "effective_label_bits": list(config.label_bits or (config.target_bit,)),
+        "label_bit_order": "64-bit ciphertext MSB=0, LSB=63",
+        "label_source": ("independent uniform random bit; expression not evaluated"
+                         if config.label_mode == "null" else "ciphertext expression"),
+    }
+    if config.dataset == "synthetic":
+        label_semantics.update({
+            "effective_label_bits": [0],
+            "label_bit_order": "64-bit plaintext input MSB=0, LSB=63",
+            "label_source": "first plaintext input bit: x[0]; target_bit ignored",
+        })
+    elif config.dataset == "circuit-synthetic":
+        label_semantics.update({
+            "effective_label_bits": list(range(8)),
+            "label_bit_order": "input column indices 0..63; first eight bits are relevant",
+            "label_source": ("XOR of four disjoint adjacent input ANDs: "
+                             "(x[0] AND x[1]) XOR (x[2] AND x[3]) XOR "
+                             "(x[4] AND x[5]) XOR (x[6] AND x[7]); target_bit ignored"),
+        })
     write_json(output / "config.json", config.to_dict())
     write_json(output / "manifest.json", {
         "schema": "cipher-experiments-run-v1", "name": config.name,
@@ -94,7 +126,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "model_kind": config.model_kind,
         "prediction_mode": config.prediction_mode,
         "train_pool_rows": config.train_pool_rows,
-        "experiment_kind": experiment_kind(config.dataset, config.model_kind)})
+        "experiment_kind": role, **label_semantics})
 
     def deadline() -> None:
         if time.monotonic() - started > config.max_seconds:
@@ -219,6 +251,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                   "model_features": config.model_features, "model_kind": config.model_kind,
                   "prediction_mode": config.prediction_mode,
                   "label_mode": config.label_mode, "initial_state_sha256": initial_sha,
+                  "experiment_kind": role, **label_semantics,
                   "presentations": presentations, "selected_epoch": selected_epoch,
                   "metrics": metrics, "best_checkpoint": "best.pt",
                   "best_checkpoint_sha256": file_sha256(best_path),

@@ -34,10 +34,37 @@ class ExperimentConfig:
     max_seconds: int = 60
     train_pool_rows: int | None = None
     dev_every_epochs: int = 1
+    label_expression: str = "bit"
+    label_bits: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.name) is not str or not self.name.strip() or len(self.name) > 100:
             raise ValueError("name must be a nonempty string of at most 100 characters")
+        if type(self.label_expression) is not str or self.label_expression not in (
+                "bit", "xor2", "xor3", "xor-and"):
+            raise ValueError("label_expression must be bit, xor2, xor3 or xor-and")
+        if type(self.label_bits) not in (tuple, list):
+            raise ValueError("label_bits must be a tuple or JSON array")
+        if any(type(bit) is not int or not 0 <= bit <= 63 for bit in self.label_bits):
+            raise ValueError("label_bits must contain built-in integers in [0, 63]")
+        bits = tuple(self.label_bits)
+        object.__setattr__(self, "label_bits", bits)
+        if self.label_expression == "bit":
+            if bits:
+                raise ValueError("bit requires empty label_bits; use target_bit")
+        else:
+            count = 2 if self.label_expression == "xor2" else 3
+            if len(bits) != count or len(set(bits)) != count:
+                raise ValueError(f"{self.label_expression} requires {count} distinct label_bits")
+            if type(self.target_bit) is not int or bits[0] != self.target_bit:
+                raise ValueError("label_bits[0] must equal built-in integer target_bit")
+            ordered = bits[1:] if self.label_expression == "xor-and" else bits
+            if ordered != tuple(sorted(ordered)):
+                raise ValueError("XOR bits, or the AND operand bits, must be increasing")
+            if (self.experiment != "prediction" or self.dataset != "simon"
+                    or self.model_kind != "mlp" or self.model_features != "full"
+                    or self.prediction_mode != "direct"):
+                raise ValueError("non-bit expressions require prediction/simon/mlp/full/direct")
         if self.experiment not in ("prediction", "innovation1"):
             raise ValueError("experiment must be prediction or innovation1")
         if self.train_pool_rows is not None:
@@ -183,7 +210,12 @@ class ExperimentConfig:
             raise ValueError("device must be cpu, cuda:0 or cuda:1; no automatic fallback")
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result = asdict(self)
+        if self.label_expression == "bit" and not self.label_bits:
+            # Additive defaults must not change historical config/checkpoint identities.
+            del result["label_expression"]
+            del result["label_bits"]
+        return result
 
     def sha256(self) -> str:
         return hashlib.sha256(json.dumps(self.to_dict(), sort_keys=True,
