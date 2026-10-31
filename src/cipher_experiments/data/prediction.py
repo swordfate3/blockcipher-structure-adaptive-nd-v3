@@ -31,7 +31,7 @@ _MAX_ROWS = 2_000_000
 
 def make_inputs(
     train: int, dev: int, test: int, *, seed: int, train_pool_rows: int | None = None,
-    plaintext_space: str = "full",
+    plaintext_space: str = "full", plaintext_fixed_value: int = 0,
 ) -> dict[str, Tensor]:
     """Generate globally unique CPU-FP32 plaintext rows without making labels.
 
@@ -39,11 +39,17 @@ def make_inputs(
     the full pool, so different TRAIN prefix lengths share identical heldout
     panels. Unused pool rows are generated only as unlabeled inputs.
     Non-full spaces sample the same unique 32-bit sequence before placing it in
-    the active half; the other half is fixed to zero. No key or label is used.
+    the active half; the other half is fixed to ``plaintext_fixed_value``.
+    The historical ``*-zero`` names select the fixed half, not its value.
+    No key or label is used.
     """
     if type(plaintext_space) is not str or plaintext_space not in (
             "full", "high32-zero", "low32-zero"):
         raise ValueError("plaintext_space must be full, high32-zero or low32-zero")
+    if type(plaintext_fixed_value) is not int or not 0 <= plaintext_fixed_value < (1 << 32):
+        raise ValueError("plaintext_fixed_value must be a built-in integer in [0, 4294967295]")
+    if plaintext_space == "full" and plaintext_fixed_value != 0:
+        raise ValueError("full plaintext_space requires plaintext_fixed_value=0")
     if plaintext_space != "full":
         _counts(train, dev, test)
         pool = train if train_pool_rows is None else train_pool_rows
@@ -63,7 +69,9 @@ def make_inputs(
             if value in seen:
                 continue
             seen.add(value)
-            blocks.append(value if plaintext_space == "high32-zero" else value << 32)
+            blocks.append(((plaintext_fixed_value << 32) | value)
+                          if plaintext_space == "high32-zero"
+                          else ((value << 32) | plaintext_fixed_value))
             if len(blocks) == total:
                 break
         else:

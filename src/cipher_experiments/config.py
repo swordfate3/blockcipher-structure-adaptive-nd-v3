@@ -37,11 +37,17 @@ class ExperimentConfig:
     label_expression: str = "bit"
     label_bits: tuple[int, ...] = ()
     plaintext_space: str = "full"
+    plaintext_fixed_value: int = 0
 
     def __post_init__(self) -> None:
         if type(self.plaintext_space) is not str or self.plaintext_space not in (
                 "full", "high32-zero", "low32-zero"):
             raise ValueError("plaintext_space must be full, high32-zero or low32-zero")
+        if (type(self.plaintext_fixed_value) is not int
+                or not 0 <= self.plaintext_fixed_value < (1 << 32)):
+            raise ValueError("plaintext_fixed_value must be a built-in integer in [0, 4294967295]")
+        if self.plaintext_space == "full" and self.plaintext_fixed_value != 0:
+            raise ValueError("full plaintext_space requires plaintext_fixed_value=0")
         if self.plaintext_space != "full" and (
                 self.experiment != "prediction" or self.dataset != "simon"
                 or self.model_kind != "mlp" or self.model_features != "full"
@@ -220,6 +226,8 @@ class ExperimentConfig:
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
+        if self.plaintext_fixed_value == 0:
+            del result["plaintext_fixed_value"]
         if self.plaintext_space == "full":
             del result["plaintext_space"]
         if self.label_expression == "bit" and not self.label_bits:

@@ -46,6 +46,8 @@ def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
     space_options: dict[str, Any] = {}
     if config.plaintext_space != "full":
         space_options["plaintext_space"] = config.plaintext_space
+    if config.plaintext_fixed_value != 0:
+        space_options["plaintext_fixed_value"] = config.plaintext_fixed_value
     return make_inputs(config.train_rows, config.dev_rows, config.test_rows,
                        seed=config.data_seed, train_pool_rows=config.train_pool_rows,
                        **space_options)
@@ -77,6 +79,28 @@ def baseline_parameters(labels: Tensor, reference: Tensor | None) -> tuple[int, 
     residual = labels if reference is None else (labels != reference).float()
     ones = int(residual.sum())
     return int(2 * ones > len(labels)), (ones + .5) / (len(labels) + 1)
+
+
+def _input_semantics(config: ExperimentConfig) -> dict[str, Any]:
+    """Describe the public SIMON plaintext panel for manifest and results."""
+    # The circuit fixture is not a uniform uint64 panel.
+    if config.dataset != "simon":
+        return {}
+    fixed_bits = (list(range(32)) if config.plaintext_space == "high32-zero"
+                  else list(range(32, 64)) if config.plaintext_space == "low32-zero"
+                  else [])
+    return {
+        "plaintext_space": config.plaintext_space,
+        "active_plaintext_bits": 64 - len(fixed_bits),
+        "fixed_plaintext_bits": fixed_bits,
+        "fixed_plaintext_value": config.plaintext_fixed_value if fixed_bits else None,
+        "plaintext_bit_order": "64-bit plaintext MSB=0, LSB=63",
+        "plaintext_sampling": ("unique uniform uint64 draws; local random.Random(data_seed)"
+                               if not fixed_bits else
+                               "unique uniform uint32 draws; local random.Random(data_seed); "
+                               "placed in active half, other half fixed to "
+                               f"0x{config.plaintext_fixed_value:08X}"),
+    }
 
 
 def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
@@ -116,23 +140,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                              "(x[0] AND x[1]) XOR (x[2] AND x[3]) XOR "
                              "(x[4] AND x[5]) XOR (x[6] AND x[7]); target_bit ignored"),
         })
-    # SIMON-only provenance: the circuit fixture is not a uniform uint64 panel.
-    input_semantics: dict[str, Any] = {}
-    if config.dataset == "simon":
-        fixed_bits = (list(range(32)) if config.plaintext_space == "high32-zero"
-                      else list(range(32, 64)) if config.plaintext_space == "low32-zero"
-                      else [])
-        input_semantics = {
-            "plaintext_space": config.plaintext_space,
-            "active_plaintext_bits": 64 - len(fixed_bits),
-            "fixed_plaintext_bits": fixed_bits,
-            "fixed_plaintext_value": 0 if fixed_bits else None,
-            "plaintext_bit_order": "64-bit plaintext MSB=0, LSB=63",
-            "plaintext_sampling": ("unique uniform uint64 draws; local random.Random(data_seed)"
-                                   if not fixed_bits else
-                                   "unique uniform uint32 draws; local random.Random(data_seed); "
-                                   "placed in active half, other half fixed to zero"),
-        }
+    input_semantics = _input_semantics(config)
     write_json(output / "config.json", config.to_dict())
     write_json(output / "manifest.json", {
         "schema": "cipher-experiments-run-v1", "name": config.name,
