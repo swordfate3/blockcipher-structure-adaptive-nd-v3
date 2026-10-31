@@ -1,0 +1,32 @@
+{
+  "dataset": "simon",
+  "experiment": "prediction",
+  "train_rows": 8,
+  "dev_rows": 4,
+  "test_rows": 4,
+  "data_seed": 195601,
+  "key_seed": 190502,
+  "init_seed": 17,
+  "rounds": 3,
+  "target_bit": 0,
+  "hidden_width": 128,
+  "model_kind": "mlp",
+  "model_features": "full",
+  "prediction_mode": "direct",
+  "label_mode": "null",
+  "null_seed": 195602,
+  "batch_size": 4,
+  "epochs": 1,
+  "learning_rate": 0.001,
+  "device": "cpu",
+  "max_seconds": 60,
+  "train_pool_rows": 8,
+  "dev_every_epochs": 1,
+  "label_expression": "xor2",
+  "label_bits": [
+    0,
+    8
+  ],
+  "name": "r3-mlp-plaintext-subspace-low32-zero-xor2-smoke",
+  "plaintext_space": "low32-zero"
+}

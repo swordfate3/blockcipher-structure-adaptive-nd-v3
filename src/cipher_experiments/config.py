@@ -36,8 +36,17 @@ class ExperimentConfig:
     dev_every_epochs: int = 1
     label_expression: str = "bit"
     label_bits: tuple[int, ...] = ()
+    plaintext_space: str = "full"
 
     def __post_init__(self) -> None:
+        if type(self.plaintext_space) is not str or self.plaintext_space not in (
+                "full", "high32-zero", "low32-zero"):
+            raise ValueError("plaintext_space must be full, high32-zero or low32-zero")
+        if self.plaintext_space != "full" and (
+                self.experiment != "prediction" or self.dataset != "simon"
+                or self.model_kind != "mlp" or self.model_features != "full"
+                or self.prediction_mode != "direct"):
+            raise ValueError("non-full plaintext_space requires prediction/simon/mlp/full/direct")
         if type(self.name) is not str or not self.name.strip() or len(self.name) > 100:
             raise ValueError("name must be a nonempty string of at most 100 characters")
         if type(self.label_expression) is not str or self.label_expression not in (
@@ -211,6 +220,8 @@ class ExperimentConfig:
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
+        if self.plaintext_space == "full":
+            del result["plaintext_space"]
         if self.label_expression == "bit" and not self.label_bits:
             # Additive defaults must not change historical config/checkpoint identities.
             del result["label_expression"]

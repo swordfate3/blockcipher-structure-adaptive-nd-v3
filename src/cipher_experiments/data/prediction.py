@@ -16,6 +16,7 @@ from torch import Tensor
 
 from cipher_experiments.ciphers.simon import encrypt as _encrypt
 from cipher_experiments.data.synthetic import (
+    _DRAWS_PER_SAMPLE,
     _binary_rows,
     _counts,
     _seed,
@@ -29,14 +30,51 @@ _MAX_ROWS = 2_000_000
 
 
 def make_inputs(
-    train: int, dev: int, test: int, *, seed: int, train_pool_rows: int | None = None
+    train: int, dev: int, test: int, *, seed: int, train_pool_rows: int | None = None,
+    plaintext_space: str = "full",
 ) -> dict[str, Tensor]:
     """Generate globally unique CPU-FP32 plaintext rows without making labels.
 
     With ``train_pool_rows``, TRAIN is the pool prefix while DEV starts after
     the full pool, so different TRAIN prefix lengths share identical heldout
     panels. Unused pool rows are generated only as unlabeled inputs.
+    Non-full spaces sample the same unique 32-bit sequence before placing it in
+    the active half; the other half is fixed to zero. No key or label is used.
     """
+    if type(plaintext_space) is not str or plaintext_space not in (
+            "full", "high32-zero", "low32-zero"):
+        raise ValueError("plaintext_space must be full, high32-zero or low32-zero")
+    if plaintext_space != "full":
+        _counts(train, dev, test)
+        pool = train if train_pool_rows is None else train_pool_rows
+        if type(pool) is not int:
+            raise TypeError("train_pool_rows must be a built-in int or None")
+        if not train <= pool <= 1_000_000:
+            raise ValueError("train_pool_rows must be between train and 1,000,000")
+        total = _counts(pool, dev, test)
+        _seed(seed)
+        if total > (1 << 32):
+            raise ValueError("requested rows exceed the 32-bit plaintext space capacity")
+        rng = random.Random(seed)
+        blocks: list[int] = []
+        seen: set[int] = set()
+        for _ in range(total * _DRAWS_PER_SAMPLE):
+            value = rng.getrandbits(32)
+            if value in seen:
+                continue
+            seen.add(value)
+            blocks.append(value if plaintext_space == "high32-zero" else value << 32)
+            if len(blocks) == total:
+                break
+        else:
+            raise RuntimeError("unique uint32 sampling exhausted its bounded draw budget")
+        inputs = _binary_rows(blocks)
+        panels = {name: pair[0] for name, pair in _split(
+            inputs, inputs[:, :0], pool, dev
+        ).items()}
+        panels["train"] = panels["train"][:train].contiguous()
+        return panels
+
     if train_pool_rows is None:
         total = _counts(train, dev, test)
         _seed(seed)

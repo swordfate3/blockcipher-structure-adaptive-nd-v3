@@ -43,8 +43,12 @@ def input_panels(config: ExperimentConfig) -> dict[str, Tensor]:
         return make_circuit_inputs(config.train_rows, config.dev_rows, config.test_rows,
                                    seed=config.data_seed)
     from .data.prediction import make_inputs
+    space_options: dict[str, Any] = {}
+    if config.plaintext_space != "full":
+        space_options["plaintext_space"] = config.plaintext_space
     return make_inputs(config.train_rows, config.dev_rows, config.test_rows,
-                       seed=config.data_seed, train_pool_rows=config.train_pool_rows)
+                       seed=config.data_seed, train_pool_rows=config.train_pool_rows,
+                       **space_options)
 
 
 def labels_for(config: ExperimentConfig, x: Tensor, split: str) -> Tensor:
@@ -112,6 +116,23 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                              "(x[0] AND x[1]) XOR (x[2] AND x[3]) XOR "
                              "(x[4] AND x[5]) XOR (x[6] AND x[7]); target_bit ignored"),
         })
+    # SIMON-only provenance: the circuit fixture is not a uniform uint64 panel.
+    input_semantics: dict[str, Any] = {}
+    if config.dataset == "simon":
+        fixed_bits = (list(range(32)) if config.plaintext_space == "high32-zero"
+                      else list(range(32, 64)) if config.plaintext_space == "low32-zero"
+                      else [])
+        input_semantics = {
+            "plaintext_space": config.plaintext_space,
+            "active_plaintext_bits": 64 - len(fixed_bits),
+            "fixed_plaintext_bits": fixed_bits,
+            "fixed_plaintext_value": 0 if fixed_bits else None,
+            "plaintext_bit_order": "64-bit plaintext MSB=0, LSB=63",
+            "plaintext_sampling": ("unique uniform uint64 draws; local random.Random(data_seed)"
+                                   if not fixed_bits else
+                                   "unique uniform uint32 draws; local random.Random(data_seed); "
+                                   "placed in active half, other half fixed to zero"),
+        }
     write_json(output / "config.json", config.to_dict())
     write_json(output / "manifest.json", {
         "schema": "cipher-experiments-run-v1", "name": config.name,
@@ -126,7 +147,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         "model_kind": config.model_kind,
         "prediction_mode": config.prediction_mode,
         "train_pool_rows": config.train_pool_rows,
-        "experiment_kind": role, **label_semantics})
+        "experiment_kind": role, **label_semantics, **input_semantics})
 
     def deadline() -> None:
         if time.monotonic() - started > config.max_seconds:
@@ -251,7 +272,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                   "model_features": config.model_features, "model_kind": config.model_kind,
                   "prediction_mode": config.prediction_mode,
                   "label_mode": config.label_mode, "initial_state_sha256": initial_sha,
-                  "experiment_kind": role, **label_semantics,
+                  "experiment_kind": role, **label_semantics, **input_semantics,
                   "presentations": presentations, "selected_epoch": selected_epoch,
                   "metrics": metrics, "best_checkpoint": "best.pt",
                   "best_checkpoint_sha256": file_sha256(best_path),
