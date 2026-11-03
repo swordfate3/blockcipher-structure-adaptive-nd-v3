@@ -16,8 +16,11 @@ from .checkpoints import load_checkpoint, save_checkpoint
 from .config import ExperimentConfig
 from .evaluation import evaluate_model
 from .models.prediction import build_predictor, public_reference
+from .models.public_prediction import PublicPredictor
 from .models.simon_two_round import TwoRoundLocalPredictor, TwoRoundVectorPredictor
+from .prediction_evidence import PredictionCapture, checked_bce_delta, write_prediction_evidence
 from .prediction_reports import experiment_kind, model_metadata
+from .representations.prediction_public import zero_round_constant_reference
 from .two_round_diagnostics import two_round_local_diagnostics
 
 
@@ -73,6 +76,34 @@ def reference_panels(config: ExperimentConfig, inputs: dict[str, Tensor]) -> dic
             and config.label_expression == "bit"):
         return {s: public_reference(x, config.rounds, config.target_bit) for s, x in inputs.items()}
     return {}
+
+
+def _zero_reference_panels(config: ExperimentConfig,
+                           inputs: dict[str, Tensor]) -> dict[str, Tensor]:
+    """Cache key-free q only for the recorded full/bit0 multicycle protocol."""
+    if (config.record_predictions and config.dataset == "simon"
+            and config.plaintext_space == "full" and config.label_expression == "bit"
+            and config.target_bit == 0 and config.rounds in (6, 8, 10)):
+        return {split: zero_round_constant_reference(x, rounds=config.rounds,
+                                                     target_bit=config.target_bit)
+                for split, x in inputs.items()}
+    return {}
+
+
+def _selected_metrics(
+    selected: nn.Module, panels: dict[str, tuple[Tensor, Tensor]], *, device: torch.device,
+    batch_size: int, majority: int, probability: float, references: dict[str, Tensor],
+    residual_majority: int, residual_probability: float, zero_references: dict[str, Tensor],
+    zero_majority: int, zero_probability: float, captures: dict[str, PredictionCapture],
+) -> dict[str, Any]:
+    """Evaluate original selected split calls, optionally capturing their existing logits."""
+    return {split: evaluate_model(
+        selected, *panels[split], device=device, batch_size=batch_size,
+        majority=majority, probability=probability, reference=references.get(split),
+        residual_majority=residual_majority, residual_probability=residual_probability,
+        capture=captures.get(split), zero_constant_reference=zero_references.get(split),
+        zero_constant_majority=zero_majority, zero_constant_probability=zero_probability)
+        for split in ("train", "dev", "test")}
 
 
 def baseline_parameters(labels: Tensor, reference: Tensor | None) -> tuple[int, float]:
@@ -170,6 +201,7 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         panels = {split: (inputs[split], labels_for(config, inputs[split], split))
                   for split in ("train", "dev")}
         references = reference_panels(config, inputs)
+        zero_references = _zero_reference_panels(config, inputs)
         deadline()
         panel_sha: dict[str, Any] = {}
         import hashlib
@@ -183,10 +215,15 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
         probability = (ones + .5) / (len(y_train) + 1)
         residual_majority, residual_probability = baseline_parameters(
             y_train, references.get("train"))
-        model = build_predictor(config.hidden_width, model_kind=config.model_kind,
-                                rounds=config.rounds,
-                                   target_bit=config.target_bit, feature_mode=config.model_features,
-                                   prediction_mode=config.prediction_mode).to(device)
+        zero_majority, zero_probability = (baseline_parameters(y_train, zero_references["train"])
+                                           if zero_references else (0, .5))
+        model = build_predictor(
+            config.hidden_width, model_kind=config.model_kind, rounds=config.rounds,
+            target_bit=config.target_bit, feature_mode=config.model_features,
+            prediction_mode=config.prediction_mode, public_input=config.public_input,
+            public_readout=config.public_readout, background_init=config.background_init,
+            l1_penalty=config.l1_penalty, plaintext_space=config.plaintext_space,
+            plaintext_fixed_value=config.plaintext_fixed_value).to(device)
         initial_sha = hashlib.sha256(b"".join(
             name.encode() + value.detach().cpu().contiguous().numpy().tobytes()
             for name, value in model.state_dict().items())).hexdigest()
@@ -212,27 +249,37 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
             model.train()
             order = torch.randperm(len(y_train), generator=shuffle)
             loss_sum = 0.0
+            objective_sum = 0.0
             for offset in range(0, len(order), config.batch_size):
                 deadline()
                 indices = order[offset:offset + config.batch_size]
                 x, y = x_train[indices].to(device), y_train[indices].to(device)
                 optimizer.zero_grad(set_to_none=True)
                 loss = nn.functional.binary_cross_entropy_with_logits(model(x), y)
-                if not bool(torch.isfinite(loss)):
+                objective = loss
+                if config.model_kind == "public-linear":
+                    assert isinstance(model, PublicPredictor)
+                    objective = loss + model.regularization_loss()
+                if not bool(torch.isfinite(objective)):
                     raise ValueError("nonfinite training loss")
-                loss.backward()  # type: ignore[no-untyped-call]
+                objective.backward()  # type: ignore[no-untyped-call]
                 nn.utils.clip_grad_norm_(model.parameters(), 1., error_if_nonfinite=True)
                 optimizer.step()
                 updates += 1
                 presentations += len(indices)
                 loss_sum += float(loss.detach()) * len(indices)
+                if config.model_kind == "public-linear":
+                    objective_sum += float(objective.detach()) * len(indices)
             deadline()
             dev_evaluated = (epoch % config.dev_every_epochs == 0 or epoch == config.epochs)
             dev = (evaluate_model(model, *panels["dev"], device=device,
                                   batch_size=config.batch_size, majority=majority,
                                   probability=probability, reference=references.get("dev"),
                                   residual_majority=residual_majority,
-                                  residual_probability=residual_probability)
+                                  residual_probability=residual_probability,
+                                  zero_constant_reference=zero_references.get("dev"),
+                                  zero_constant_majority=zero_majority,
+                                  zero_constant_probability=zero_probability)
                    if dev_evaluated else None)
             if dev is not None and dev["bce"] < best:
                 best, selected_epoch = dev["bce"], epoch
@@ -242,6 +289,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                       "train_bce": loss_sum / len(y_train), "dev": dev,
                       "dev_evaluated": dev_evaluated,
                       "elapsed_seconds": time.monotonic() - started}
+            if config.model_kind == "public-linear":
+                record["train_objective"] = objective_sum / len(y_train)
             append_progress(output / "progress.jsonl", record)
             message = (f"epoch={epoch}/{config.epochs} updates={updates} "
                        + (f"dev_bce={dev['bce']:.6f}" if dev is not None
@@ -267,12 +316,30 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
             panel_sha[split]["y_sha256"] = hashlib.sha256(
                 y.contiguous().numpy().tobytes()).hexdigest()
         write_json(output / "data.json", panel_sha)
-        metrics = {split: evaluate_model(selected, *panels[split], device=device,
-                                        batch_size=config.batch_size, majority=majority,
-                                        probability=probability, reference=references.get(split),
-                                        residual_majority=residual_majority,
-                                        residual_probability=residual_probability)
-                   for split in ("train", "dev", "test")}
+        captures = ({split: PredictionCapture(len(panels[split][1]))
+                     for split in ("train", "dev", "test")} if config.record_predictions else {})
+        metrics = _selected_metrics(
+            selected, panels, device=device, batch_size=config.batch_size, majority=majority,
+            probability=probability, references=references, residual_majority=residual_majority,
+            residual_probability=residual_probability, zero_references=zero_references,
+            zero_majority=zero_majority, zero_probability=zero_probability, captures=captures)
+        # Persist only the original selected evaluations; never do another forward.
+        _captured_predictions = {split: capture.finish() for split, capture in captures.items()}
+        evidence_index: dict[str, Any] = {}
+        # Check every split before publishing evidence; original metrics remain untouched.
+        discrepancies = {split: checked_bce_delta(z, captured_y, metrics[split]["bce"])
+                         for split, (z, captured_y) in _captured_predictions.items()}
+        for split, (z, captured_y) in _captured_predictions.items():
+            reference = zero_references.get(split)
+            index = write_prediction_evidence(
+                output, split=split, logits=z, labels=captured_y,
+                x_sha256=panel_sha[split]["x_sha256"], y_sha256=panel_sha[split]["y_sha256"],
+                config_sha256=config.sha256(), checkpoint_sha256=file_sha256(best_path),
+                reference_bits=(reference.detach().cpu().numpy()[:, 0].astype("uint8")
+                                if reference is not None else None),
+                reference_majority=zero_majority, reference_probability=zero_probability,
+                train_majority=majority, train_probability=probability)
+            evidence_index[split] = {**index, "fp64_bce_delta": discrepancies[split]}
         deadline()
         result = {"schema": "cipher-experiments-result-v1", "status": "completed",
                   "name": config.name, "dataset": config.dataset,
@@ -285,6 +352,8 @@ def train(config: ExperimentConfig, output: Path) -> dict[str, Any]:
                   "metrics": metrics, "best_checkpoint": "best.pt",
                   "best_checkpoint_sha256": file_sha256(best_path),
                   "elapsed_seconds": time.monotonic() - started}
+        if config.record_predictions:
+            result["prediction_evidence"] = evidence_index
         write_json(output / "results.json", result)
         write_json(output / "exit.json", {"status": "completed", "exit_code": 0,
                                          "updates": updates, "presentations": presentations,

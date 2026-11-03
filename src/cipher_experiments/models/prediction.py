@@ -10,6 +10,7 @@ from torch import Tensor
 if TYPE_CHECKING:
     from .circuit import CircuitPredictor
     from .logic import LogicPredictor
+    from .public_prediction import PublicPredictor
     from .simon_conv import SimonConvPredictor
     from .simon_two_round import (
         TwoRoundLocalPredictor,
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from .structured_simon import StructuredSimonPredictor
     from .unrolled_simon import UnrolledSimonPredictor
 
+from ..representations.prediction_public import public_coordinates
 from .mlp import BitMLP
 
 
@@ -108,11 +110,7 @@ def public_coordinate_transform(inputs: Tensor) -> Tensor:
     include round-key material. Boolean operations preserve all 64 bits exactly
     before the result is returned in the model's float32 input dtype.
     """
-    _validate_reference_inputs(inputs)
-    bits = inputs.to(dtype=torch.bool)
-    high, low = bits[:, :32], bits[:, 32:]
-    transformed = torch.cat((low ^ _public_round_function(high), high), dim=1)
-    return transformed.to(dtype=torch.float32)
+    return public_coordinates(inputs)
 
 
 def public_coordinate_inverse(coordinates: Tensor) -> Tensor:
@@ -159,13 +157,32 @@ def public_reference(inputs: Tensor, rounds: int, target_bit: int) -> Tensor:
 
 def build_predictor(hidden_width: int = 64, *, model_kind: str = "mlp",
                     rounds: int = 3, target_bit: int = 0, feature_mode: str = "full",
-                    prediction_mode: str = "direct"
+                    prediction_mode: str = "direct", public_input: str = "identity",
+                    public_readout: str = "direct", background_init: str = "standard",
+                    l1_penalty: float = 0.0, plaintext_space: str = "full",
+                    plaintext_fixed_value: int = 0
                     ) -> (
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor | UnrolledSimonPredictor
                         | TwoRoundTablePredictor | TwoRoundLocalPredictor
-                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor):
-    """Explicit small model choices, without experiment config or a registry."""
+                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor
+                        | PublicPredictor):
+    """Explicit public parameters only; no config, key, labels or report switches."""
+    if model_kind in ("public-mlp", "public-linear"):
+        if feature_mode != "full" or prediction_mode != "direct":
+            raise ValueError("public models require full features and legacy direct mode")
+        from .public_prediction import PublicPredictor
+        return PublicPredictor(
+            hidden_width, model_kind=model_kind, rounds=rounds, target_bit=target_bit,
+            public_input=public_input, public_readout=public_readout,
+            background_init=background_init, l1_penalty=l1_penalty,
+            plaintext_space=plaintext_space, plaintext_fixed_value=plaintext_fixed_value)
+    # Reject before dispatch: old branches must never silently ignore research controls.
+    if (type(public_input) is not str or public_input != "identity"
+            or type(public_readout) is not str or public_readout != "direct"
+            or type(background_init) is not str or background_init != "standard"
+            or type(l1_penalty) not in (int, float) or l1_penalty != 0.0):
+        raise ValueError("research public options require a public model_kind")
     if model_kind == "simon-vector":
         if feature_mode != "full" or prediction_mode != "direct":
             raise ValueError("simon-vector requires full/direct")

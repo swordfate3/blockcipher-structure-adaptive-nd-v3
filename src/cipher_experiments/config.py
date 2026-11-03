@@ -38,8 +38,15 @@ class ExperimentConfig:
     label_bits: tuple[int, ...] = ()
     plaintext_space: str = "full"
     plaintext_fixed_value: int = 0
+    public_input: str = "identity"
+    public_readout: str = "direct"
+    background_init: str = "standard"
+    l1_penalty: float = 0.0
+    record_predictions: bool = False
 
     def __post_init__(self) -> None:
+        self._validate_public_options()
+        n1_public = self.model_kind == "public-mlp" and self.public_input == "background-zero"
         if type(self.plaintext_space) is not str or self.plaintext_space not in (
                 "full", "high32-zero", "low32-zero"):
             raise ValueError("plaintext_space must be full, high32-zero or low32-zero")
@@ -50,9 +57,10 @@ class ExperimentConfig:
             raise ValueError("full plaintext_space requires plaintext_fixed_value=0")
         if self.plaintext_space != "full" and (
                 self.experiment != "prediction" or self.dataset != "simon"
-                or self.model_kind != "mlp" or self.model_features != "full"
-                or self.prediction_mode != "direct"):
-            raise ValueError("non-full plaintext_space requires prediction/simon/mlp/full/direct")
+                or (self.model_kind != "mlp" and not n1_public)
+                or self.model_features != "full" or self.prediction_mode != "direct"):
+            raise ValueError("non-full plaintext_space requires prediction/simon/mlp/full/direct "
+                             "or the explicit N1 public model")
         if type(self.name) is not str or not self.name.strip() or len(self.name) > 100:
             raise ValueError("name must be a nonempty string of at most 100 characters")
         if type(self.label_expression) is not str or self.label_expression not in (
@@ -77,9 +85,10 @@ class ExperimentConfig:
             if ordered != tuple(sorted(ordered)):
                 raise ValueError("XOR bits, or the AND operand bits, must be increasing")
             if (self.experiment != "prediction" or self.dataset != "simon"
-                    or self.model_kind != "mlp" or self.model_features != "full"
-                    or self.prediction_mode != "direct"):
-                raise ValueError("non-bit expressions require prediction/simon/mlp/full/direct")
+                    or (self.model_kind != "mlp" and not n1_public)
+                    or self.model_features != "full" or self.prediction_mode != "direct"):
+                raise ValueError("non-bit expressions require prediction/simon/mlp/full/direct "
+                                 "or the explicit N1 public model")
         if self.experiment not in ("prediction", "innovation1"):
             raise ValueError("experiment must be prediction or innovation1")
         if self.train_pool_rows is not None:
@@ -106,7 +115,8 @@ class ExperimentConfig:
         if self.model_kind not in ("mlp", "logic16", "circuit-aligned", "circuit-random",
                                    "simon-structure", "simon-unrolled", "simon-r2-table",
                                    "simon-r2-local", "simon-r2-vector", "simon-cnn",
-                                   "simon-rotation-cnn", "simon-vector"):
+                                   "simon-rotation-cnn", "simon-vector",
+                                   "public-mlp", "public-linear"):
             raise ValueError("unknown prediction model_kind")
         if self.model_kind == "simon-vector" and (
                 self.experiment != "prediction" or self.dataset != "simon"
@@ -224,8 +234,59 @@ class ExperimentConfig:
         if self.device not in ("cpu", "cuda:0", "cuda:1"):
             raise ValueError("device must be cpu, cuda:0 or cuda:1; no automatic fallback")
 
+    def _validate_public_options(self) -> None:
+        """Validate research identity without importing models or generating labels."""
+        for name, choices in (
+            ("public_input", ("identity", "background-zero", "simon-interactions")),
+            ("public_readout", ("direct", "zero-round-constant-residual")),
+            ("background_init", ("standard", "match-direct")),
+        ):
+            value = getattr(self, name)
+            if type(value) is not str or value not in choices:
+                raise ValueError(f"{name} must be an exact built-in string in {choices}")
+        if type(self.record_predictions) is not bool:
+            raise ValueError("record_predictions must be a built-in bool")
+        if self.record_predictions and self.experiment != "prediction":
+            raise ValueError("record_predictions applies only to prediction")
+        if type(self.l1_penalty) not in (int, float):
+            raise ValueError("l1_penalty must be a built-in int or float")
+        if self.model_kind not in ("public-mlp", "public-linear"):
+            if (self.public_input != "identity" or self.public_readout != "direct"
+                    or self.background_init != "standard" or self.l1_penalty != 0.0):
+                raise ValueError("research public options require a public model_kind")
+            return
+        if (type(self.model_kind) is not str or self.experiment != "prediction"
+                or self.dataset != "simon" or self.model_features != "full"
+                or self.prediction_mode != "direct" or type(self.target_bit) is not int
+                or self.target_bit != 0):
+            raise ValueError("public models require prediction/simon/full/direct/bit0")
+        expected_l1 = 1e-4 if self.model_kind == "public-linear" else 0.0
+        if self.l1_penalty != expected_l1:
+            raise ValueError("invalid l1_penalty for public model_kind")
+        if self.public_input == "background-zero":
+            if (self.model_kind != "public-mlp" or type(self.rounds) is not int
+                    or self.rounds != 3 or self.plaintext_space != "high32-zero"
+                    or self.public_readout != "direct" or self.label_expression != "xor2"
+                    or type(self.label_bits) not in (tuple, list)
+                    or tuple(self.label_bits) != (0, 8)):
+                raise ValueError("N1 requires public-mlp/background-zero/r3/high32-zero/xor2[0,8]")
+        elif (type(self.rounds) is not int or self.rounds not in (6, 8, 10)
+                or self.plaintext_space != "full" or self.plaintext_fixed_value != 0
+                or self.background_init != "standard" or self.label_expression != "bit"):
+            raise ValueError("N2 requires rounds6/8/10, full/fixed0, standard init and bit label")
+        if self.model_kind == "public-linear" and (
+                self.hidden_width != 128 or self.public_input != "simon-interactions"
+                or self.public_readout != "zero-round-constant-residual"
+                or self.background_init != "standard"):
+            raise ValueError("public-linear requires width128/interactions/residual/standard")
+
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)
+        for name, default in (("public_input", "identity"), ("public_readout", "direct"),
+                              ("background_init", "standard"), ("l1_penalty", 0.0),
+                              ("record_predictions", False)):
+            if result[name] == default:
+                del result[name]
         if self.plaintext_fixed_value == 0:
             del result["plaintext_fixed_value"]
         if self.plaintext_space == "full":

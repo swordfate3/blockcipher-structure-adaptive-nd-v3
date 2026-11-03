@@ -13,6 +13,7 @@ from .config import ExperimentConfig
 from .models.circuit import CircuitPredictor
 from .models.logic import LogicPredictor
 from .models.prediction import PlaintextPredictor, build_predictor
+from .models.public_prediction import PublicPredictor
 from .models.simon_conv import SimonConvPredictor
 from .models.simon_two_round import (
     TwoRoundLocalPredictor,
@@ -43,7 +44,8 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
                         PlaintextPredictor | LogicPredictor | CircuitPredictor
                         | StructuredSimonPredictor | UnrolledSimonPredictor
                         | TwoRoundTablePredictor | TwoRoundLocalPredictor
-                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor,
+                        | TwoRoundVectorPredictor | SimonConvPredictor | SimonVectorPredictor
+                        | PublicPredictor,
                         ExperimentConfig, int, float]:
     if len(expected_sha256) != 64 or file_sha256(path) != expected_sha256:
         raise ValueError("checkpoint SHA256 mismatch")
@@ -70,10 +72,13 @@ def load_checkpoint(path: Path, expected_sha256: str, *, device: torch.device
         raise ValueError("invalid saved TRAIN majority")
     if type(probability) is not float or not 0 < probability < 1:
         raise ValueError("invalid saved TRAIN probability")
-    model = build_predictor(config.hidden_width, model_kind=config.model_kind,
-                            rounds=config.rounds,
-                               target_bit=config.target_bit, feature_mode=config.model_features,
-                               prediction_mode=config.prediction_mode)
+    model = build_predictor(
+        config.hidden_width, model_kind=config.model_kind, rounds=config.rounds,
+        target_bit=config.target_bit, feature_mode=config.model_features,
+        prediction_mode=config.prediction_mode, public_input=config.public_input,
+        public_readout=config.public_readout, background_init=config.background_init,
+        l1_penalty=config.l1_penalty, plaintext_space=config.plaintext_space,
+        plaintext_fixed_value=config.plaintext_fixed_value)
     template = model.state_dict()
     state = payload["state_dict"]
     if type(state) is not dict or set(state) != set(template):

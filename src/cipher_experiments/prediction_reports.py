@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from torch import Tensor, nn
 
+from .models.public_prediction import PublicPredictor
 from .models.simon_conv import SimonConvPredictor
 from .models.simon_two_round import (
     TwoRoundLocalPredictor,
@@ -25,6 +26,8 @@ def experiment_kind(dataset: str, model_kind: str) -> str:
     """Describe the existing experiment role without dispatching execution."""
     if dataset in ("synthetic", "circuit-synthetic"):
         return "synthetic-engineering"
+    if model_kind in ("public-mlp", "public-linear"):
+        return "simon-public-final-bit-supervision"
     if model_kind in ("simon-cnn", "simon-rotation-cnn"):
         return "simon-residual-cnn-final-bit-supervision"
     if model_kind == "simon-vector":
@@ -75,6 +78,38 @@ def model_metadata(model: nn.Module, *, model_kind: str, prediction_mode: str,
     Only the table control inspects the supplied TRAIN tensors. This function
     does not change parameters, gradients, module modes or random generators.
     """
+    if isinstance(model, PublicPredictor):
+        representations = {
+            "identity": "P=[X,Y], 64 uncentered binary plaintext bits",
+            "background-zero": "[zeros32,Y]; check public fixed high32 before zeroing; no phi",
+            "simon-interactions": "Z=phi(P)=[Y xor F(X),X]; Psi=[Z, "
+                                  "Z_high[i+1] AND Z_high[i+8] for i=0..31 mod32]",
+        }
+        return {
+            "kind": model.model_kind, "rounds": model.rounds, "target_bit": model.target_bit,
+            "public_input": model.public_input, "public_readout": model.public_readout,
+            "background_init": model.background_init, "l1_penalty": model.l1_penalty,
+            "plaintext_space": model.plaintext_space,
+            "plaintext_fixed_value": model.plaintext_fixed_value,
+            "input_width": model.input_width,
+            "representation": representations[model.public_input],
+            "bit_order": "MSB index 0..63; X=0..31, Y=32..63; rotations 1,8,2",
+            "public_reference": (
+                "q_r bit0: every round constant ZERO; not a zero master key cipher; "
+                "absolute logit=(1-2*q_r)*raw logit"
+                if model.public_readout == "zero-round-constant-residual" else "none"),
+            "initialization": (
+                "first bias += W_high @ bits32(public fixed_value) once at construction; "
+                "no forward or post-load compensation"
+                if model.background_init == "match-direct" else "standard PyTorch Linear draws"),
+            "interpretation": "key-free public representation/reference; not actual cipher state",
+            "input": "plaintext and explicit public parameters only; no actual key/state/labels",
+            "extra_labels": "none; absolute final target-bit labels only",
+            "supervision": "absolute final target-bit BCE only; no auxiliary teachers",
+            "regularization": "weight-only L1" if model.model_kind == "public-linear" else "none",
+            "parameters": sum(p.numel() for p in model.parameters()),
+            "selection": "absolute DEV BCE",
+        }
     if prediction_mode == "public-coordinate":
         return {
             "kind": "mlp",
