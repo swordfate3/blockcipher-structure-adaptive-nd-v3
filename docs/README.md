@@ -1,43 +1,23 @@
-# 文档
+# 当前文档导航
 
-- [五轮结构向量合同](INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md)与[结果](INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md)：真实TEST50.0046%、null49.9588%，TRAIN未明显拟合、准确率与常量一致；两项关闭。
+docs 根目录仅保留本导航、`superpowers/` 与 `archive/`。指南归档只是存放位置调整，不等于停用；下列使用与边界文档仍可阅读。
 
-- [六轮结构向量两项合同](INNOVATION2-STRUCTURE-VECTOR-PLAN.md)与[结果](INNOVATION2-STRUCTURE-VECTOR-RESULTS.md)：真实TEST50.1694%、null49.8474%，TRAIN未明显拟合，TEST BCE未优于常量/null；描述性DEV条件满足不代表可靠进展，两项关闭。
-- [项目研究工作流](../.pi/skills/cipher-research-workflow/SKILL.md)：方法论证、有界执行与证据范围。
+## 使用与边界
 
-- [六轮残差CNN邻接计划](INNOVATION2-CONV-STRUCTURE-PLAN.md)与[结果](INNOVATION2-CONV-STRUCTURE-RESULTS.md)：真实TEST49.7543%/49.6429%，TRAIN强拟合但不泛化，四项已关闭。
+- [主使用说明](../README.md)：本机 CLI、安装及结果读取；[架构](../ARCHITECTURE.md)与[后端职责](archive/guides/BACKEND-BOUNDARIES.md)。
+- [创新1训练](archive/guides/INNOVATION1-TRAINING.md)：四任务 shared-M 功能训练。
+- [创新2位预测](archive/guides/INNOVATION2-PREDICTION.md)：单输出位任务合同；[研究状态记录](archive/guides/INNOVATION2-CURRENT-STATE.md)保留既有结论与限制，其中历史路径可查下方归档映射。
+- [核积分](archive/guides/INNOVATION2-KERNEL-INTEGRAL.md)与[分裂消去](archive/guides/INNOVATION2-SPLIT-CANCEL.md)：相关方法及边界。
+- [来源记录](archive/provenance/provenance.json)：其余 `provenance*.json` 同样位于 [archive/provenance/](archive/provenance/)。
 
-- [六轮神经轮展开优化计划](INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md)与[结果](INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md)：三档lr各32768更新，真实TEST50.1770%/50.2975%/50.2975%，未见可靠拟合／泛化；六项关闭。
+## 当前方案与结果入口
 
-- [主使用说明](../README.md)：安装、check/train/evaluate、输出解释。
-- [架构](../ARCHITECTURE.md)：模块依赖方向与明确限制。
-- [决策](../DECISIONS.md)：为什么不迁移旧编排。
-- [来源](provenance.json)：算法/模型提取源路径、提交与SHA。
-- [创新1训练](INNOVATION1-TRAINING.md)：四任务shared-M功能训练。
-- [创新2位预测](INNOVATION2-PREDICTION.md)：direct/公开残差、null对照与配置合同。
-- [无真实轨迹的神经轮展开](INNOVATION2-UNROLLED.md)：main上的新候选、最终单bit监督及有界CPU试验。
-- [轮展开首次CPU结果](INNOVATION2-UNROLLED-RESULTS.md)：r3约50%，停止4轮，结果与核验范围。
-- [轮展开浅轮定位计划](INNOVATION2-UNROLLED-LOCAL-PLAN.md)：人工局部规则与1→2轮DEV门槛。
-- [轮展开浅轮定位结果](INNOVATION2-UNROLLED-LOCAL-RESULTS.md)：人工拟合通过、一轮100%、两轮无信号。
-- [创新2首批GPU结果](INNOVATION2-FIRST-GPU-RESULTS.md)：五项完成，r3有信号、r4近随机。
-- [创新2当前进度与下一步](INNOVATION2-CURRENT-STATE.md)：最新有界试验闭环及历史方法/结果边界。
-- [两轮公开明文XOR计划](INNOVATION2-PLAINTEXT-XOR-PLAN.md)：保持单bit监督、四项CPU对照与预定DEV门槛。
-- [两轮公开明文XOR结果](INNOVATION2-PLAINTEXT-XOR-RESULTS.md)：TEST53.88%对direct49.43%，DEV门槛未通过、批次关闭。
-- [公开XOR新面板计划](INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md)及[复查结果](INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md)：同key/init、TEST51.49%，DEV准确率优势未保留，门槛仍失败、关闭。
-- [末轮复制项机制消融计划](INNOVATION2-FINAL-LOW-PLAN.md)与[结果](INNOVATION2-FINAL-LOW-RESULTS.md)：同期XOR对照51.06%、屏蔽末轮low后68.76%，DEV66.41%仍未过70%门槛，批次关闭。
-- [两轮重新设计](INNOVATION2-TWO-ROUND-REDESIGN.md)：原width32表达性见证、结构化四格正控与332参数不共享局部神经候选分开。
-- [重新设计首批CPU合同](INNOVATION2-R2-REDESIGN-PLAN.md)：table正控/local神经模型各真实/null，单bit最终监督、每项800更新、浅轮99%验收目标。
-- [重新设计首批结果](INNOVATION2-R2-REDESIGN-RESULTS.md)：正控100%、神经候选96.68%，null约50%；候选仍未达99%合同，批次已关闭。
-- [两初始化诊断计划](INNOVATION2-R2-DIAGNOSTIC-PLAN.md)与[结果](INNOVATION2-R2-DIAGNOSTIC-RESULTS.md)：相同模型/预算新面板96.67%/92.74%，DEV错误在TRAIN已见完整签名上；无旧TEST重放或升轮。
-- [局部四通道计划](INNOVATION2-R2-VECTOR-PLAN.md)与[结果](INNOVATION2-R2-VECTOR-RESULTS.md)：557参数vector85.99%，同期scalar96.95%，扩宽未改善本次学习；四项各800步后关闭。
-- [高轮6/8轮合同](INNOVATION2-HIGH-ROUND-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-RESULTS.md)：停止低轮诊断，四项各800步，6轮50.02%/8轮50.26%，未超常量准确率基线。
-- [远程6轮数据规模合同](INNOVATION2-DATA-SCALE-PLAN.md)与[结果](INNOVATION2-DATA-SCALE-RESULTS.md)：4096/65536嵌套TRAIN、固定持出/8192更新/32次DEV选模；A6000实测TEST50.2060%/50.1068%，四exit0，增数据未解决当前候选学习失败。
-- [六轮MLP对照计划](INNOVATION2-HIGH-ROUND-MLP-PLAN.md)与[结果](INNOVATION2-HIGH-ROUND-MLP-RESULTS.md)：A6000四项各8192更新，unrolled49.72%/MLP49.76%，null约50.1%；MLP训练损失下降但DEV恶化，无泛化突破，批次关闭。
-- [六轮MLP数据与计算六项方案](INNOVATION2-MLP-DATA-COMPUTE-PLAN.md)与[结果](INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md)：A65536/8192更新TEST50.1160%，B262144/8192与C262144/32768均50.2106%；六exit0/98304更新，无泛化信号，批次关闭。
-- [六轮公开可逆坐标计划](INNOVATION2-PUBLIC-COORDINATE-PLAN.md)与[结果](INNOVATION2-PUBLIC-COORDINATE-RESULTS.md)：同MLP参数/初态、公开输入变换；原始TEST50.15%/坐标50.23%，DEV均约49.5%，四项8192更新后关闭，无泛化信号。
-- [AN与Fix本地论文阅读](AN-FIX-PAPER-READING.md)：生成伪迹/机制对照与固定查询预算分配；区分创新1关联和创新2非等价任务，不据此声称高轮位预测。
-- [创新2文献复核（2026-10-22）](INNOVATION2-LITERATURE-20261022.md)：输出预测证据矩阵、整块/单bit监督差异、逐层学习条件和未执行候选。
-- [logic16 GPU试验](INNOVATION2-LOGIC-GPU-RESULTS.md)：r3正控49.72%，停止后三项，执行与文件核验闭环。
-- [结构接线诊断](INNOVATION2-STRUCTURE-DIAGNOSTIC.md)：人工任务aligned100%/random48.44%，不是密码结果。
-- [公开结构＋未知参数学习](INNOVATION2-STRUCTURED-SIMON.md)：simon-structure候选、软/硬指标与未执行探针。
-- [重建与实际验收](REBUILD.md)：旧项目归档、真实检查、没有执行的项目。
+- **2026-11-06 integral-scale：设计与计划，不是已执行科学结果。** [设计规格](superpowers/specs/2026-11-06-innovation2-integral-scale-design.md) · [实现计划](superpowers/plans/2026-11-06-innovation2-integral-scale.md) · [简版方案说明](../result/20261106-integral-scale-proposal/index.html)。该方案报告记录计划待审阅、实现/真实工程尚未开始，不能将历史数字当作本方案新结果。
+- [已有创新2结果简版总览](../result/innovation2-index.html)与[文字摘要](../result/innovation2-summary.md)：只读取已保存结果，保留各分册来源和限制。
+- [分裂消去简明说明](../result/20261106-split-cancel-explained/index.html)：历史保存结果的解释，不是新增实验。
+- [Superpowers 规格与计划](superpowers/)保持原位；计划文档本身不构成实验完成或新增运行授权。
+
+## 历史档案
+
+历史文档已实际移至 [archive 索引](archive/README.md)；[manifest-final.json](archive/manifest-final.json)提供两轮共98份文件的总 old→new 映射、迁移前后大小与 SHA256，以及按原位置解析的相对链接扫描。[manifest.json](archive/manifest.json)仅为第一轮80份迁移的冻结快照。
+历史正文、保留合同和冻结的 `result/`、`validation/`、`runs/` 产物不随归档重写；历史正文、旧报告及未维护入口中的旧路径**不自动跳转**，须按原位置解析后查总清单；来源 JSON 内部旧 record 路径未重写。归档不更新历史结论、不恢复历史权限。

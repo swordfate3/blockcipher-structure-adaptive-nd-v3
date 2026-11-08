@@ -1,0 +1,3727 @@
+{
+  "schema": "docs-path-archive-final-v1",
+  "scope": "Documentation-only second round; all historical bytes preserved, no scientific execution.",
+  "path_base": "repository root /workspace",
+  "input_reference": {
+    "path": "docs/archive/manifest.json",
+    "size_bytes": 160057,
+    "sha256": "cd0c44d93e37fb241e0036b3e407a62cb7b5e5404d7faa00d0d397aa695f2960"
+  },
+  "count": 98,
+  "counts": {
+    "round1": 80,
+    "round2": 18,
+    "categories": {
+      "reference": 4,
+      "innovation2": 74,
+      "engineering": 2,
+      "guides": 6,
+      "provenance": 12
+    },
+    "docs_root_exact_set": [
+      "README.md",
+      "archive",
+      "superpowers"
+    ]
+  },
+  "mapping": [
+    {
+      "old_path": "docs/AN-FIX-PAPER-READING.md",
+      "new_path": "docs/archive/reference/AN-FIX-PAPER-READING.md",
+      "category": "reference",
+      "before": {
+        "path": "docs/AN-FIX-PAPER-READING.md",
+        "size_bytes": 9984,
+        "sha256": "b94f41468dad7868ccc6624e0979c5afd0fe8b9cae54b7207575071aaad1a393"
+      },
+      "after": {
+        "path": "docs/archive/reference/AN-FIX-PAPER-READING.md",
+        "size_bytes": 9984,
+        "sha256": "b94f41468dad7868ccc6624e0979c5afd0fe8b9cae54b7207575071aaad1a393"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "size_bytes": 3391,
+        "sha256": "bfe7ee33b8e551e1fc0eed560efb7547fff227e347bfede7da4fbf6f4cab919d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "size_bytes": 3391,
+        "sha256": "bfe7ee33b8e551e1fc0eed560efb7547fff227e347bfede7da4fbf6f4cab919d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "size_bytes": 5345,
+        "sha256": "2e56b26d7c41451961d0fa040155bb71e728afcce243d371b351328f79a75576"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "size_bytes": 5345,
+        "sha256": "2e56b26d7c41451961d0fa040155bb71e728afcce243d371b351328f79a75576"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "size_bytes": 4519,
+        "sha256": "84a8a48ac7963a5d7f8911bca504daf89696f16811efa39c138f68983f5961c3"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "size_bytes": 4519,
+        "sha256": "84a8a48ac7963a5d7f8911bca504daf89696f16811efa39c138f68983f5961c3"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "size_bytes": 6725,
+        "sha256": "6fb3a5efe9f36a2c80db92a50ee125227bcc2e969ef383feb69c81aa29aa21bd"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "size_bytes": 6725,
+        "sha256": "6fb3a5efe9f36a2c80db92a50ee125227bcc2e969ef383feb69c81aa29aa21bd"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "size_bytes": 9203,
+        "sha256": "113966bba03583678b90b9599e07c139f063e60fc250fc8e41c6e07939d95927"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "size_bytes": 9203,
+        "sha256": "113966bba03583678b90b9599e07c139f063e60fc250fc8e41c6e07939d95927"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "size_bytes": 8236,
+        "sha256": "a25662704e4c1abdad907585c16905b58b3f5f0946b0e0a9edcea7c2604e612c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "size_bytes": 8236,
+        "sha256": "a25662704e4c1abdad907585c16905b58b3f5f0946b0e0a9edcea7c2604e612c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-DATA-SCALE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-DATA-SCALE-PLAN.md",
+        "size_bytes": 3542,
+        "sha256": "2f8df1201a53573c2135eb86f3503d2614a5b61e329a7b4d3227b664bd6cd166"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+        "size_bytes": 3542,
+        "sha256": "2f8df1201a53573c2135eb86f3503d2614a5b61e329a7b4d3227b664bd6cd166"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-DATA-SCALE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "size_bytes": 7697,
+        "sha256": "8b9566298891edfe502ff1cdc1782d795782ee30b6c7aadb2ab072e99d6a8293"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "size_bytes": 7697,
+        "sha256": "8b9566298891edfe502ff1cdc1782d795782ee30b6c7aadb2ab072e99d6a8293"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-FINAL-LOW-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-FINAL-LOW-PLAN.md",
+        "size_bytes": 4393,
+        "sha256": "529f77f3a55d916108b20454fd39add9259e174aa509836b1eec053c67d6aa01"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-PLAN.md",
+        "size_bytes": 4393,
+        "sha256": "529f77f3a55d916108b20454fd39add9259e174aa509836b1eec053c67d6aa01"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-FINAL-LOW-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "size_bytes": 6687,
+        "sha256": "8404bdbd04d66104a61c2dbb7ebba5dc9b809e732c49e14f051d1d2cbc5683f4"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "size_bytes": 6687,
+        "sha256": "8404bdbd04d66104a61c2dbb7ebba5dc9b809e732c49e14f051d1d2cbc5683f4"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-FIRST-GPU-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "size_bytes": 4535,
+        "sha256": "062f5318a20e6a0e41fa865d1259cc6d4fccd579cabe5dbf0b030f9065fce44c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "size_bytes": 4535,
+        "sha256": "062f5318a20e6a0e41fa865d1259cc6d4fccd579cabe5dbf0b030f9065fce44c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "size_bytes": 5143,
+        "sha256": "52b72a1d5a5fe47f54f8c91ce3f9413a799b1627716dadc4def0d90bb2b3d9ca"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "size_bytes": 5143,
+        "sha256": "52b72a1d5a5fe47f54f8c91ce3f9413a799b1627716dadc4def0d90bb2b3d9ca"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "size_bytes": 8619,
+        "sha256": "673bd890085dc99703d6380e03b94a96d1b5c8d897b139470367b3fc1dabd85d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "size_bytes": 8619,
+        "sha256": "673bd890085dc99703d6380e03b94a96d1b5c8d897b139470367b3fc1dabd85d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-HIGH-ROUND-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "size_bytes": 3482,
+        "sha256": "48befc0b43315ca950ff353f60ebf975f700dc9f64e4222a7b83de5a24624d8a"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "size_bytes": 3482,
+        "sha256": "48befc0b43315ca950ff353f60ebf975f700dc9f64e4222a7b83de5a24624d8a"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-HIGH-ROUND-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "size_bytes": 6097,
+        "sha256": "c488e1cfce6bd6a4e2a3a3249297d0f389ce08300409a6fa9489b386d09a4bf6"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "size_bytes": 6097,
+        "sha256": "c488e1cfce6bd6a4e2a3a3249297d0f389ce08300409a6fa9489b386d09a4bf6"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "size_bytes": 5771,
+        "sha256": "ed374c0bb89d0b723e007efa25dd68973ce131c242a4426ce40bd7f154a77ba6"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "size_bytes": 5771,
+        "sha256": "ed374c0bb89d0b723e007efa25dd68973ce131c242a4426ce40bd7f154a77ba6"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "size_bytes": 7377,
+        "sha256": "c3ff65df9b037f4cdaac16fc4146d26fc1c15cc2e07064867671becb99985b9c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "size_bytes": 7377,
+        "sha256": "c3ff65df9b037f4cdaac16fc4146d26fc1c15cc2e07064867671becb99985b9c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "size_bytes": 8495,
+        "sha256": "26c105883756d0ece1d478b99ef5f9f54ffddd08b773428aea0e6a492a4dd0e5"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "size_bytes": 8495,
+        "sha256": "26c105883756d0ece1d478b99ef5f9f54ffddd08b773428aea0e6a492a4dd0e5"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "size_bytes": 6048,
+        "sha256": "2a791ca0757acc661330977b63327bb2c666de1044b3689bf27180af91ee7828"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "size_bytes": 6048,
+        "sha256": "2a791ca0757acc661330977b63327bb2c666de1044b3689bf27180af91ee7828"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "size_bytes": 2965,
+        "sha256": "3390b3d698bff378851eacd0cc67add38bd3691a8bde70bfb8ccda966f33e59c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "size_bytes": 2965,
+        "sha256": "3390b3d698bff378851eacd0cc67add38bd3691a8bde70bfb8ccda966f33e59c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "size_bytes": 6148,
+        "sha256": "c0bc853defc989529b4f53263ec5a53ab7e1b478c11dfa0015ff2ca24dfdb37d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "size_bytes": 6148,
+        "sha256": "c0bc853defc989529b4f53263ec5a53ab7e1b478c11dfa0015ff2ca24dfdb37d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "size_bytes": 7787,
+        "sha256": "1b4dfa59e2595727652c5e09f7cf3afeb9610b171b3a065b61418aa41e49da7a"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "size_bytes": 7787,
+        "sha256": "1b4dfa59e2595727652c5e09f7cf3afeb9610b171b3a065b61418aa41e49da7a"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "size_bytes": 5189,
+        "sha256": "c99c1f521c3ea2906848aec0598cc06ccc43214d9923e42eeea88c5189320035"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "size_bytes": 5189,
+        "sha256": "c99c1f521c3ea2906848aec0598cc06ccc43214d9923e42eeea88c5189320035"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "size_bytes": 4314,
+        "sha256": "64ea6fde0b26073f3aa3baa694e6f69e4a8f5299cdf4225a2eafad850cf8ccb7"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "size_bytes": 4314,
+        "sha256": "64ea6fde0b26073f3aa3baa694e6f69e4a8f5299cdf4225a2eafad850cf8ccb7"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+      "new_path": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+      "category": "reference",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "size_bytes": 7649,
+        "sha256": "2a3575f537ddfea3fdf3328a8cff068e0f3132eaa5654e813fe8e0f9b190464e"
+      },
+      "after": {
+        "path": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "size_bytes": 7649,
+        "sha256": "2a3575f537ddfea3fdf3328a8cff068e0f3132eaa5654e813fe8e0f9b190464e"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+      "new_path": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+      "category": "reference",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "size_bytes": 12073,
+        "sha256": "c17cd2d13ed23462752678689f5d3fa0bd505f462d5613ef8081437d15c90348"
+      },
+      "after": {
+        "path": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "size_bytes": 12073,
+        "sha256": "c17cd2d13ed23462752678689f5d3fa0bd505f462d5613ef8081437d15c90348"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "size_bytes": 5270,
+        "sha256": "8a0cdecc2fad91f96c22b3cb3256b31ad9657f160e8c0993eb055b628d077725"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "size_bytes": 5270,
+        "sha256": "8a0cdecc2fad91f96c22b3cb3256b31ad9657f160e8c0993eb055b628d077725"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "size_bytes": 5774,
+        "sha256": "00f90a03fdae309524693d7748b5cc2863214731f23db1660342de78823b4972"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "size_bytes": 5774,
+        "sha256": "00f90a03fdae309524693d7748b5cc2863214731f23db1660342de78823b4972"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "size_bytes": 3206,
+        "sha256": "62835566f2bc1279833f1579393918f68da1e606299fa72f113665607f14e357"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "size_bytes": 3206,
+        "sha256": "62835566f2bc1279833f1579393918f68da1e606299fa72f113665607f14e357"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "size_bytes": 6017,
+        "sha256": "7932ea76a85a7ed9601745626ff5afa382fb82d25a1bd70daea53c3e5eb89b7e"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "size_bytes": 6017,
+        "sha256": "7932ea76a85a7ed9601745626ff5afa382fb82d25a1bd70daea53c3e5eb89b7e"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "size_bytes": 4368,
+        "sha256": "a08e3ef379cc09eea88ad09efe6a40337e3c52deef377b885b7055513ff1e286"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "size_bytes": 4368,
+        "sha256": "a08e3ef379cc09eea88ad09efe6a40337e3c52deef377b885b7055513ff1e286"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "size_bytes": 7246,
+        "sha256": "2b1bacb734924d841df072a6bc94ef9ac5d57c0181214ea921e3bd289d074590"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "size_bytes": 7246,
+        "sha256": "2b1bacb734924d841df072a6bc94ef9ac5d57c0181214ea921e3bd289d074590"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-LEARNING-RATE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-LEARNING-RATE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-LEARNING-RATE-PLAN.md",
+        "size_bytes": 5050,
+        "sha256": "66e1987cabefba67a9d042c82817be5dc4ab571295c5f51fc6801f2eb5d4ca7e"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-LEARNING-RATE-PLAN.md",
+        "size_bytes": 5050,
+        "sha256": "66e1987cabefba67a9d042c82817be5dc4ab571295c5f51fc6801f2eb5d4ca7e"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "size_bytes": 4741,
+        "sha256": "5084257ff0d7de61b0e7cc66277b59d9915147106fea64f8029c874362cdb3c1"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "size_bytes": 4741,
+        "sha256": "5084257ff0d7de61b0e7cc66277b59d9915147106fea64f8029c874362cdb3c1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-LINEAR-FEASIBILITY.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "size_bytes": 8102,
+        "sha256": "6f9a411d49b54c10bb09fa8dd6bafc04fe37792e93627fa795fa7c1b6360bfbe"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "size_bytes": 8102,
+        "sha256": "6f9a411d49b54c10bb09fa8dd6bafc04fe37792e93627fa795fa7c1b6360bfbe"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-LITERATURE-20261022.md",
+      "new_path": "docs/archive/reference/INNOVATION2-LITERATURE-20261022.md",
+      "category": "reference",
+      "before": {
+        "path": "docs/INNOVATION2-LITERATURE-20261022.md",
+        "size_bytes": 21693,
+        "sha256": "224f9e1eb6ee186957f53a5fd3034144fed196f5c5bbe82f87b2aa42755688c1"
+      },
+      "after": {
+        "path": "docs/archive/reference/INNOVATION2-LITERATURE-20261022.md",
+        "size_bytes": 21693,
+        "sha256": "224f9e1eb6ee186957f53a5fd3034144fed196f5c5bbe82f87b2aa42755688c1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-LOGIC-GPU-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-LOGIC-GPU-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "size_bytes": 4747,
+        "sha256": "192a1e9ea40443e3bb5251fca9b825bf97ac8c7b5fadd050db764c58caea6611"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "size_bytes": 4747,
+        "sha256": "192a1e9ea40443e3bb5251fca9b825bf97ac8c7b5fadd050db764c58caea6611"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "size_bytes": 5718,
+        "sha256": "1a0da7f53a0e14e66dbbdb2653d4473b5570abfff19004af1c688c28c126859d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "size_bytes": 5718,
+        "sha256": "1a0da7f53a0e14e66dbbdb2653d4473b5570abfff19004af1c688c28c126859d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "size_bytes": 7816,
+        "sha256": "f9e4ce11498f360deefd99742dae6c0003fcde326509b153d7ca56fd4b4f94f1"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "size_bytes": 7816,
+        "sha256": "f9e4ce11498f360deefd99742dae6c0003fcde326509b153d7ca56fd4b4f94f1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-MULTICYCLE-EXECUTION.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-EXECUTION.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "size_bytes": 10683,
+        "sha256": "ac0cbe36d4160ecf9ae8b339647cd8e8cf94eff930997e37152277e3de77d066"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "size_bytes": 10683,
+        "sha256": "ac0cbe36d4160ecf9ae8b339647cd8e8cf94eff930997e37152277e3de77d066"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-MULTICYCLE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-MULTICYCLE-RESULTS.md",
+        "size_bytes": 19690,
+        "sha256": "d1796232e9c2d1127e1bafd9143b27dbb2436ba9f97f388c56df97538e1a4211"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-RESULTS.md",
+        "size_bytes": 19690,
+        "sha256": "d1796232e9c2d1127e1bafd9143b27dbb2436ba9f97f388c56df97538e1a4211"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "size_bytes": 30117,
+        "sha256": "35b78f94c385059473e7f2793b9446b2783d290799bccd760486bfc7d84f828c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "size_bytes": 30117,
+        "sha256": "35b78f94c385059473e7f2793b9446b2783d290799bccd760486bfc7d84f828c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "size_bytes": 3589,
+        "sha256": "f296c09c6fcc1acc24ca4e3bf278a88cfde19788373b274739d40751688437b0"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "size_bytes": 3589,
+        "sha256": "f296c09c6fcc1acc24ca4e3bf278a88cfde19788373b274739d40751688437b0"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "size_bytes": 4812,
+        "sha256": "0ce9229b57f8c748e749882fd6565bfd53603a021f5aff41b0fbda268fe9e9f1"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "size_bytes": 4812,
+        "sha256": "0ce9229b57f8c748e749882fd6565bfd53603a021f5aff41b0fbda268fe9e9f1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "size_bytes": 6354,
+        "sha256": "109f2faeb5d6da7b86ffdbf13571952f1eb988ab4fef394faad5312d5fe31141"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "size_bytes": 6354,
+        "sha256": "109f2faeb5d6da7b86ffdbf13571952f1eb988ab4fef394faad5312d5fe31141"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+        "size_bytes": 3943,
+        "sha256": "25cc2b2d4c19802a3f6567c795a60f97835a5562c554ec1edbdb83738afadd1d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+        "size_bytes": 3943,
+        "sha256": "25cc2b2d4c19802a3f6567c795a60f97835a5562c554ec1edbdb83738afadd1d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "size_bytes": 5276,
+        "sha256": "9ea8ceb243ec73e5f7e2b20b04da594f30205cfdd46e362d070ffb39cf69e26e"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "size_bytes": 5276,
+        "sha256": "9ea8ceb243ec73e5f7e2b20b04da594f30205cfdd46e362d070ffb39cf69e26e"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "size_bytes": 4330,
+        "sha256": "03fc90b33ee4416c9cf30ad9ed3155309816e42455d304fdd515e2eaa73405f9"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "size_bytes": 4330,
+        "sha256": "03fc90b33ee4416c9cf30ad9ed3155309816e42455d304fdd515e2eaa73405f9"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "size_bytes": 6589,
+        "sha256": "e4ee4a0d0cf84c99b7df84256b4faf849a2d4108215e2124f4991bbb9222bcf1"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "size_bytes": 6589,
+        "sha256": "e4ee4a0d0cf84c99b7df84256b4faf849a2d4108215e2124f4991bbb9222bcf1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "size_bytes": 3483,
+        "sha256": "506ef62a3ff9136a1c70a4bf942ac907a21d14ccb915b36f9186deaec4a39967"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "size_bytes": 3483,
+        "sha256": "506ef62a3ff9136a1c70a4bf942ac907a21d14ccb915b36f9186deaec4a39967"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "size_bytes": 5371,
+        "sha256": "516b2a159aca6a974e14afbe714689035ee5d8ce6f257b967f445ede03da7fed"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "size_bytes": 5371,
+        "sha256": "516b2a159aca6a974e14afbe714689035ee5d8ce6f257b967f445ede03da7fed"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "size_bytes": 4552,
+        "sha256": "853a5a5a6611c788608fd178c4d3cb8a21341a21f3b093fdc01ced11925297fd"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "size_bytes": 4552,
+        "sha256": "853a5a5a6611c788608fd178c4d3cb8a21341a21f3b093fdc01ced11925297fd"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "size_bytes": 6448,
+        "sha256": "6d5463f4b54dec898a543ff789b3fab725b2fc0d11435f0b6a755df2d740cd86"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "size_bytes": 6448,
+        "sha256": "6d5463f4b54dec898a543ff789b3fab725b2fc0d11435f0b6a755df2d740cd86"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "size_bytes": 5918,
+        "sha256": "d66e19658f0d6812678571ae33fb6d23b237a0fe7d8d3e135792ee046bd53d37"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "size_bytes": 5918,
+        "sha256": "d66e19658f0d6812678571ae33fb6d23b237a0fe7d8d3e135792ee046bd53d37"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "size_bytes": 6431,
+        "sha256": "5536bca6a5d2e6abbab70e7e43e731a0bd616974b7846181be78cdfb912f5d08"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "size_bytes": 6431,
+        "sha256": "5536bca6a5d2e6abbab70e7e43e731a0bd616974b7846181be78cdfb912f5d08"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "size_bytes": 4058,
+        "sha256": "0af72b6a86f1d0334a60d101f7dcfdb83fb48a2c74351c7488d05dd04d3a21f9"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "size_bytes": 4058,
+        "sha256": "0af72b6a86f1d0334a60d101f7dcfdb83fb48a2c74351c7488d05dd04d3a21f9"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "size_bytes": 8683,
+        "sha256": "3a770c1dcfde406fda5f988ffede0ed461f4e8e14c5e37a87bcccbc17696baf1"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "size_bytes": 8683,
+        "sha256": "3a770c1dcfde406fda5f988ffede0ed461f4e8e14c5e37a87bcccbc17696baf1"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-REDESIGN-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "size_bytes": 5205,
+        "sha256": "5f8c53e74f0b84965ca7be78f3133cb376f41ea750ea25dd1aa6d32f1bac242a"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "size_bytes": 5205,
+        "sha256": "5f8c53e74f0b84965ca7be78f3133cb376f41ea750ea25dd1aa6d32f1bac242a"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "size_bytes": 8701,
+        "sha256": "8b1eae7a3fdd3f66cf8cdecc56c9ab71a671e9f1e7de2e5feaa1512987005db8"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "size_bytes": 8701,
+        "sha256": "8b1eae7a3fdd3f66cf8cdecc56c9ab71a671e9f1e7de2e5feaa1512987005db8"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-VECTOR-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-VECTOR-PLAN.md",
+        "size_bytes": 3948,
+        "sha256": "13bf7ca9deb491c88c2b31458e7b23b9e96d18bae3dbf9b412f1ca5227de8867"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+        "size_bytes": 3948,
+        "sha256": "13bf7ca9deb491c88c2b31458e7b23b9e96d18bae3dbf9b412f1ca5227de8867"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-R2-VECTOR-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "size_bytes": 7773,
+        "sha256": "7d40ed56716c4a1d98c0b96eadd2cb847538384f6155ca90bcbadc04079b19ac"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "size_bytes": 7773,
+        "sha256": "7d40ed56716c4a1d98c0b96eadd2cb847538384f6155ca90bcbadc04079b19ac"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "size_bytes": 6843,
+        "sha256": "9227bbbcbc50305b2bba5605079e85e521c8a9c7152aaed27aa3afe17f2e2e6c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "size_bytes": 6843,
+        "sha256": "9227bbbcbc50305b2bba5605079e85e521c8a9c7152aaed27aa3afe17f2e2e6c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "size_bytes": 8449,
+        "sha256": "9a93ed8940ff1e6d903e84be70c241ce034bcc618acf5c0ae3682a8f3373efb6"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "size_bytes": 8449,
+        "sha256": "9a93ed8940ff1e6d903e84be70c241ce034bcc618acf5c0ae3682a8f3373efb6"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "size_bytes": 4423,
+        "sha256": "22953225d59f11a415351eef8bb48e1fd293558cd49e717cee1d9e30f5e22902"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "size_bytes": 4423,
+        "sha256": "22953225d59f11a415351eef8bb48e1fd293558cd49e717cee1d9e30f5e22902"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "size_bytes": 7962,
+        "sha256": "d5c30c1e56fd8b9344cebe71a957807dc2d18bf481b8150f9966e3e2fa73a8c5"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "size_bytes": 7962,
+        "sha256": "d5c30c1e56fd8b9344cebe71a957807dc2d18bf481b8150f9966e3e2fa73a8c5"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "size_bytes": 8819,
+        "sha256": "26616bd659a345b14a68a86ea44db0d597060ede5a01dbfb3851b6a2b9368010"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "size_bytes": 8819,
+        "sha256": "26616bd659a345b14a68a86ea44db0d597060ede5a01dbfb3851b6a2b9368010"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "size_bytes": 12510,
+        "sha256": "dfa3faa72f6716b1284be67922ca227c1304af7acde0b9ccaa0157db0a5a6938"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "size_bytes": 12510,
+        "sha256": "dfa3faa72f6716b1284be67922ca227c1304af7acde0b9ccaa0157db0a5a6938"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "size_bytes": 6731,
+        "sha256": "648b9a1f68cbcf2df7f1a3d069305a07a27d99eabe69695dfee6483ba1056c5d"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "size_bytes": 6731,
+        "sha256": "648b9a1f68cbcf2df7f1a3d069305a07a27d99eabe69695dfee6483ba1056c5d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "size_bytes": 5097,
+        "sha256": "96371289dbc9045c7df92917c1c58f2477d6347c149251c26e25610151403e8c"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "size_bytes": 5097,
+        "sha256": "96371289dbc9045c7df92917c1c58f2477d6347c149251c26e25610151403e8c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-STRUCTURED-SIMON.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURED-SIMON.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-STRUCTURED-SIMON.md",
+        "size_bytes": 6561,
+        "sha256": "47b35ea28d1f5f395c47874934da1fe89a95f9d027b79fb4a30264f0a24c27d4"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-STRUCTURED-SIMON.md",
+        "size_bytes": 6561,
+        "sha256": "47b35ea28d1f5f395c47874934da1fe89a95f9d027b79fb4a30264f0a24c27d4"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "size_bytes": 10290,
+        "sha256": "7034c5985423118d88eeb58f5e0d0a9ce94674517c463aa07ef4943805ab1084"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "size_bytes": 10290,
+        "sha256": "7034c5985423118d88eeb58f5e0d0a9ce94674517c463aa07ef4943805ab1084"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "size_bytes": 3657,
+        "sha256": "33822326d697eb476450b0c7ce1658ba5662af647989af62726fd8d462400383"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "size_bytes": 3657,
+        "sha256": "33822326d697eb476450b0c7ce1658ba5662af647989af62726fd8d462400383"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "size_bytes": 5803,
+        "sha256": "9751b1582dab5f4ee51fc12100cc44b69af5965d67c7dc1ba0d500ee7c60b5a3"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "size_bytes": 5803,
+        "sha256": "9751b1582dab5f4ee51fc12100cc44b69af5965d67c7dc1ba0d500ee7c60b5a3"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "size_bytes": 6141,
+        "sha256": "38b539cba2998b20b43d5412c6de588c8a680541e82ef34000903df6c5ac4cdb"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "size_bytes": 6141,
+        "sha256": "38b539cba2998b20b43d5412c6de588c8a680541e82ef34000903df6c5ac4cdb"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "size_bytes": 7163,
+        "sha256": "92d246fdb0c20c9853b5225390a0d844c75e2251e947ad289483ed192b009c93"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "size_bytes": 7163,
+        "sha256": "92d246fdb0c20c9853b5225390a0d844c75e2251e947ad289483ed192b009c93"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED-RESULTS.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-RESULTS.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED-RESULTS.md",
+        "size_bytes": 4464,
+        "sha256": "033b19b25921f377617e07e2a2a6c5785d814e8039cb7445243a16517b87eb23"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED-RESULTS.md",
+        "size_bytes": 4464,
+        "sha256": "033b19b25921f377617e07e2a2a6c5785d814e8039cb7445243a16517b87eb23"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-UNROLLED.md",
+      "new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+      "category": "innovation2",
+      "before": {
+        "path": "docs/INNOVATION2-UNROLLED.md",
+        "size_bytes": 4236,
+        "sha256": "9ff2aec3189eb5dd26f40437e0555dcefed59a8b1c01513ef4f22b9f8341e9e6"
+      },
+      "after": {
+        "path": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+        "size_bytes": 4236,
+        "sha256": "9ff2aec3189eb5dd26f40437e0555dcefed59a8b1c01513ef4f22b9f8341e9e6"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/REBUILD.md",
+      "new_path": "docs/archive/engineering/REBUILD.md",
+      "category": "engineering",
+      "before": {
+        "path": "docs/REBUILD.md",
+        "size_bytes": 4253,
+        "sha256": "cbf7105cb019566e633631a5605d2b2a187e6518a24dd5459a34d9c3fc0dbfdd"
+      },
+      "after": {
+        "path": "docs/archive/engineering/REBUILD.md",
+        "size_bytes": 4253,
+        "sha256": "cbf7105cb019566e633631a5605d2b2a187e6518a24dd5459a34d9c3fc0dbfdd"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/WINDOWS-VALIDATION.md",
+      "new_path": "docs/archive/engineering/WINDOWS-VALIDATION.md",
+      "category": "engineering",
+      "before": {
+        "path": "docs/WINDOWS-VALIDATION.md",
+        "size_bytes": 2217,
+        "sha256": "5d84c63e429f276c1c563940a71a0f7c9f9355eba3f236dc3aa5a965fce16179"
+      },
+      "after": {
+        "path": "docs/archive/engineering/WINDOWS-VALIDATION.md",
+        "size_bytes": 2217,
+        "sha256": "5d84c63e429f276c1c563940a71a0f7c9f9355eba3f236dc3aa5a965fce16179"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/BACKEND-BOUNDARIES.md",
+      "new_path": "docs/archive/guides/BACKEND-BOUNDARIES.md",
+      "before": {
+        "path": "docs/BACKEND-BOUNDARIES.md",
+        "size_bytes": 6019,
+        "sha256": "04ba7d4995066b71c2a20d2b5bcd874e7c7b149c780c95450b473483f95ffc7a"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/BACKEND-BOUNDARIES.md",
+        "size_bytes": 6019,
+        "sha256": "04ba7d4995066b71c2a20d2b5bcd874e7c7b149c780c95450b473483f95ffc7a"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION1-TRAINING.md",
+      "new_path": "docs/archive/guides/INNOVATION1-TRAINING.md",
+      "before": {
+        "path": "docs/INNOVATION1-TRAINING.md",
+        "size_bytes": 3488,
+        "sha256": "e0feeb99b0f18565b4483661ae85e6bcac90efc7901526a4cce1f086fad89fa0"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/INNOVATION1-TRAINING.md",
+        "size_bytes": 3488,
+        "sha256": "e0feeb99b0f18565b4483661ae85e6bcac90efc7901526a4cce1f086fad89fa0"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+      "new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+      "before": {
+        "path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "size_bytes": 43509,
+        "sha256": "a8a19a7ab1632cb990f88e1086ec3163270b17e014953d955d19d4c1a0c4e21d"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "size_bytes": 43509,
+        "sha256": "a8a19a7ab1632cb990f88e1086ec3163270b17e014953d955d19d4c1a0c4e21d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-KERNEL-INTEGRAL.md",
+      "new_path": "docs/archive/guides/INNOVATION2-KERNEL-INTEGRAL.md",
+      "before": {
+        "path": "docs/INNOVATION2-KERNEL-INTEGRAL.md",
+        "size_bytes": 7216,
+        "sha256": "166e8e81656c1ee3748cc6dcdfb011c97c37e7ed8f670f6b6bc772b4df4cce17"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/INNOVATION2-KERNEL-INTEGRAL.md",
+        "size_bytes": 7216,
+        "sha256": "166e8e81656c1ee3748cc6dcdfb011c97c37e7ed8f670f6b6bc772b4df4cce17"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-PREDICTION.md",
+      "new_path": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+      "before": {
+        "path": "docs/INNOVATION2-PREDICTION.md",
+        "size_bytes": 5987,
+        "sha256": "5b835d3d69d386138e844059bffcbf5ae5fdf43cd8b427363e316b6fea21ab76"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+        "size_bytes": 5987,
+        "sha256": "5b835d3d69d386138e844059bffcbf5ae5fdf43cd8b427363e316b6fea21ab76"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/INNOVATION2-SPLIT-CANCEL.md",
+      "new_path": "docs/archive/guides/INNOVATION2-SPLIT-CANCEL.md",
+      "before": {
+        "path": "docs/INNOVATION2-SPLIT-CANCEL.md",
+        "size_bytes": 12602,
+        "sha256": "30db1902ff707bb1264b928fb9760249b6a01bd3eb98298257353f00c818bc40"
+      },
+      "category": "guides",
+      "after": {
+        "path": "docs/archive/guides/INNOVATION2-SPLIT-CANCEL.md",
+        "size_bytes": 12602,
+        "sha256": "30db1902ff707bb1264b928fb9760249b6a01bd3eb98298257353f00c818bc40"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-conv.json",
+      "new_path": "docs/archive/provenance/provenance-conv.json",
+      "before": {
+        "path": "docs/provenance-conv.json",
+        "size_bytes": 1535,
+        "sha256": "cc8a2a826a04bba23ac1f81d1c301d00f222797e4f4a959dd47d7654e7d1124f"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-conv.json",
+        "size_bytes": 1535,
+        "sha256": "cc8a2a826a04bba23ac1f81d1c301d00f222797e4f4a959dd47d7654e7d1124f"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-data.json",
+      "new_path": "docs/archive/provenance/provenance-data.json",
+      "before": {
+        "path": "docs/provenance-data.json",
+        "size_bytes": 4428,
+        "sha256": "3afde1e8aeb7d52036cfbb05e38edcb6560f438219d9a15ca308b78c4da99700"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-data.json",
+        "size_bytes": 4428,
+        "sha256": "3afde1e8aeb7d52036cfbb05e38edcb6560f438219d9a15ca308b78c4da99700"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-linear.json",
+      "new_path": "docs/archive/provenance/provenance-linear.json",
+      "before": {
+        "path": "docs/provenance-linear.json",
+        "size_bytes": 2329,
+        "sha256": "ea00bf8fd077aed6c65c043b89a00e2fd4f25c4849f50c691e94a691325cb422"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-linear.json",
+        "size_bytes": 2329,
+        "sha256": "ea00bf8fd077aed6c65c043b89a00e2fd4f25c4849f50c691e94a691325cb422"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-logic.json",
+      "new_path": "docs/archive/provenance/provenance-logic.json",
+      "before": {
+        "path": "docs/provenance-logic.json",
+        "size_bytes": 1498,
+        "sha256": "1844a4892895612ca4940814b7fe1bf619a6785c401596d084b00af8da75288d"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-logic.json",
+        "size_bytes": 1498,
+        "sha256": "1844a4892895612ca4940814b7fe1bf619a6785c401596d084b00af8da75288d"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-models.json",
+      "new_path": "docs/archive/provenance/provenance-models.json",
+      "before": {
+        "path": "docs/provenance-models.json",
+        "size_bytes": 2154,
+        "sha256": "31528a52f5a1114e2d11369d8f0044360396257de1529e08aa9359c95d0371d2"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-models.json",
+        "size_bytes": 2154,
+        "sha256": "31528a52f5a1114e2d11369d8f0044360396257de1529e08aa9359c95d0371d2"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-prediction.json",
+      "new_path": "docs/archive/provenance/provenance-prediction.json",
+      "before": {
+        "path": "docs/provenance-prediction.json",
+        "size_bytes": 2598,
+        "sha256": "413a7c8094850a7f5ec6c5d6b19fad530bcf57d1e05e9768f58362640869c45c"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-prediction.json",
+        "size_bytes": 2598,
+        "sha256": "413a7c8094850a7f5ec6c5d6b19fad530bcf57d1e05e9768f58362640869c45c"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-structure.json",
+      "new_path": "docs/archive/provenance/provenance-structure.json",
+      "before": {
+        "path": "docs/provenance-structure.json",
+        "size_bytes": 1868,
+        "sha256": "43567e9c82054bd9a4575d46a22870983437c1cdbb59027698c776c7f94666ec"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-structure.json",
+        "size_bytes": 1868,
+        "sha256": "43567e9c82054bd9a4575d46a22870983437c1cdbb59027698c776c7f94666ec"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-structured-simon.json",
+      "new_path": "docs/archive/provenance/provenance-structured-simon.json",
+      "before": {
+        "path": "docs/provenance-structured-simon.json",
+        "size_bytes": 1455,
+        "sha256": "a120f2369b4b5a101c7a82bb5edcaf96ed2da3b48b8c4cc235fe4b4718a17b15"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-structured-simon.json",
+        "size_bytes": 1455,
+        "sha256": "a120f2369b4b5a101c7a82bb5edcaf96ed2da3b48b8c4cc235fe4b4718a17b15"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-two-round.json",
+      "new_path": "docs/archive/provenance/provenance-two-round.json",
+      "before": {
+        "path": "docs/provenance-two-round.json",
+        "size_bytes": 1932,
+        "sha256": "ba52ede0c493565b090f058d1385ec7cb102eda7f6d35138126065bf211e2da6"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-two-round.json",
+        "size_bytes": 1932,
+        "sha256": "ba52ede0c493565b090f058d1385ec7cb102eda7f6d35138126065bf211e2da6"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-unrolled.json",
+      "new_path": "docs/archive/provenance/provenance-unrolled.json",
+      "before": {
+        "path": "docs/provenance-unrolled.json",
+        "size_bytes": 2000,
+        "sha256": "d4ede547c815d497c38eed7869a62cf1760690d3280f1fe22040cbad0b4be768"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-unrolled.json",
+        "size_bytes": 2000,
+        "sha256": "d4ede547c815d497c38eed7869a62cf1760690d3280f1fe22040cbad0b4be768"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance-vector.json",
+      "new_path": "docs/archive/provenance/provenance-vector.json",
+      "before": {
+        "path": "docs/provenance-vector.json",
+        "size_bytes": 1697,
+        "sha256": "cfc139fc629998ac6e5121c9867fcc8dc747ee507d8bf7000396b65aa8b05129"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance-vector.json",
+        "size_bytes": 1697,
+        "sha256": "cfc139fc629998ac6e5121c9867fcc8dc747ee507d8bf7000396b65aa8b05129"
+      },
+      "content_unchanged": true
+    },
+    {
+      "old_path": "docs/provenance.json",
+      "new_path": "docs/archive/provenance/provenance.json",
+      "before": {
+        "path": "docs/provenance.json",
+        "size_bytes": 3503,
+        "sha256": "1d499beea4d8d7ee5bff7e17d047601a853403f6deae72817d27a3c38d7d0a76"
+      },
+      "category": "provenance",
+      "after": {
+        "path": "docs/archive/provenance/provenance.json",
+        "size_bytes": 3503,
+        "sha256": "1d499beea4d8d7ee5bff7e17d047601a853403f6deae72817d27a3c38d7d0a76"
+      },
+      "content_unchanged": true
+    }
+  ],
+  "path_index": {
+    "docs/AN-FIX-PAPER-READING.md": "docs/archive/reference/AN-FIX-PAPER-READING.md",
+    "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+    "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+    "docs/INNOVATION2-CIPHER-EXPRESSION-PLAN.md": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+    "docs/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+    "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+    "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+    "docs/INNOVATION2-DATA-SCALE-PLAN.md": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+    "docs/INNOVATION2-DATA-SCALE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-RESULTS.md",
+    "docs/INNOVATION2-FINAL-LOW-PLAN.md": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-PLAN.md",
+    "docs/INNOVATION2-FINAL-LOW-RESULTS.md": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+    "docs/INNOVATION2-FIRST-GPU-RESULTS.md": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+    "docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+    "docs/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+    "docs/INNOVATION2-HIGH-ROUND-PLAN.md": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+    "docs/INNOVATION2-HIGH-ROUND-RESULTS.md": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+    "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+    "docs/INNOVATION2-INTEGRAL-MITER-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+    "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+    "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+    "docs/INNOVATION2-LEARNING-RATE-PLAN.md": "docs/archive/innovation2/INNOVATION2-LEARNING-RATE-PLAN.md",
+    "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+    "docs/INNOVATION2-LINEAR-FEASIBILITY.md": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+    "docs/INNOVATION2-LITERATURE-20261022.md": "docs/archive/reference/INNOVATION2-LITERATURE-20261022.md",
+    "docs/INNOVATION2-LOGIC-GPU-RESULTS.md": "docs/archive/innovation2/INNOVATION2-LOGIC-GPU-RESULTS.md",
+    "docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+    "docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+    "docs/INNOVATION2-MULTICYCLE-EXECUTION.md": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-EXECUTION.md",
+    "docs/INNOVATION2-MULTICYCLE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-RESULTS.md",
+    "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+    "docs/INNOVATION2-NONZERO-BACKGROUND-PLAN.md": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+    "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+    "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+    "docs/INNOVATION2-PARITY-CORRELATION-PREPARATION.md": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+    "docs/INNOVATION2-PARITY-CORRELATION-RESULTS.md": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+    "docs/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+    "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+    "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+    "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+    "docs/INNOVATION2-PLAINTEXT-XOR-PLAN.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+    "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+    "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+    "docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+    "docs/INNOVATION2-R2-DIAGNOSTIC-PLAN.md": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+    "docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+    "docs/INNOVATION2-R2-REDESIGN-PLAN.md": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+    "docs/INNOVATION2-R2-REDESIGN-RESULTS.md": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+    "docs/INNOVATION2-R2-VECTOR-PLAN.md": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+    "docs/INNOVATION2-R2-VECTOR-RESULTS.md": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-RESULTS.md",
+    "docs/INNOVATION2-STRUCTURE-DIAGNOSTIC.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+    "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+    "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+    "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+    "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+    "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+    "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+    "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+    "docs/INNOVATION2-STRUCTURED-SIMON.md": "docs/archive/innovation2/INNOVATION2-STRUCTURED-SIMON.md",
+    "docs/INNOVATION2-TWO-ROUND-REDESIGN.md": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+    "docs/INNOVATION2-UNROLLED-LOCAL-PLAN.md": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+    "docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+    "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+    "docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+    "docs/INNOVATION2-UNROLLED-RESULTS.md": "docs/archive/innovation2/INNOVATION2-UNROLLED-RESULTS.md",
+    "docs/INNOVATION2-UNROLLED.md": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+    "docs/REBUILD.md": "docs/archive/engineering/REBUILD.md",
+    "docs/WINDOWS-VALIDATION.md": "docs/archive/engineering/WINDOWS-VALIDATION.md",
+    "docs/BACKEND-BOUNDARIES.md": "docs/archive/guides/BACKEND-BOUNDARIES.md",
+    "docs/INNOVATION1-TRAINING.md": "docs/archive/guides/INNOVATION1-TRAINING.md",
+    "docs/INNOVATION2-CURRENT-STATE.md": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+    "docs/INNOVATION2-KERNEL-INTEGRAL.md": "docs/archive/guides/INNOVATION2-KERNEL-INTEGRAL.md",
+    "docs/INNOVATION2-PREDICTION.md": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+    "docs/INNOVATION2-SPLIT-CANCEL.md": "docs/archive/guides/INNOVATION2-SPLIT-CANCEL.md",
+    "docs/provenance-conv.json": "docs/archive/provenance/provenance-conv.json",
+    "docs/provenance-data.json": "docs/archive/provenance/provenance-data.json",
+    "docs/provenance-linear.json": "docs/archive/provenance/provenance-linear.json",
+    "docs/provenance-logic.json": "docs/archive/provenance/provenance-logic.json",
+    "docs/provenance-models.json": "docs/archive/provenance/provenance-models.json",
+    "docs/provenance-prediction.json": "docs/archive/provenance/provenance-prediction.json",
+    "docs/provenance-structure.json": "docs/archive/provenance/provenance-structure.json",
+    "docs/provenance-structured-simon.json": "docs/archive/provenance/provenance-structured-simon.json",
+    "docs/provenance-two-round.json": "docs/archive/provenance/provenance-two-round.json",
+    "docs/provenance-unrolled.json": "docs/archive/provenance/provenance-unrolled.json",
+    "docs/provenance-vector.json": "docs/archive/provenance/provenance-vector.json",
+    "docs/provenance.json": "docs/archive/provenance/provenance.json"
+  },
+  "all_moved_content_unchanged": true,
+  "maintenance": {
+    "README.md": {
+      "before": {
+        "path": "README.md",
+        "size_bytes": 19581,
+        "sha256": "a34bcddf3529327ca7bdbaad6ce561e913983442e9f458f962f76ed851e1d2b5"
+      },
+      "replacements": [
+        {
+          "old": "docs/INNOVATION1-TRAINING.md",
+          "new": "docs/archive/guides/INNOVATION1-TRAINING.md",
+          "count": 1
+        },
+        {
+          "old": "docs/INNOVATION2-CURRENT-STATE.md",
+          "new": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+          "count": 1
+        },
+        {
+          "old": "docs/INNOVATION2-PREDICTION.md",
+          "new": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": "README.md",
+        "size_bytes": 19626,
+        "sha256": "ad4b546598e3799d6034414879baa1fbc595cc3a95453a6aa4cae085d71319b4"
+      }
+    },
+    "ARCHITECTURE.md": {
+      "before": {
+        "path": "ARCHITECTURE.md",
+        "size_bytes": 10765,
+        "sha256": "b041d58aa067c1333f421993eee7dac290ec12162db758a29030dcaf06422f4e"
+      },
+      "replacements": [
+        {
+          "old": "docs/BACKEND-BOUNDARIES.md",
+          "new": "docs/archive/guides/BACKEND-BOUNDARIES.md",
+          "count": 1
+        },
+        {
+          "old": "docs/INNOVATION2-KERNEL-INTEGRAL.md",
+          "new": "docs/archive/guides/INNOVATION2-KERNEL-INTEGRAL.md",
+          "count": 1
+        },
+        {
+          "old": "docs/INNOVATION2-SPLIT-CANCEL.md",
+          "new": "docs/archive/guides/INNOVATION2-SPLIT-CANCEL.md",
+          "count": 1
+        },
+        {
+          "old": "docs/provenance.json",
+          "new": "docs/archive/provenance/provenance.json",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": "ARCHITECTURE.md",
+        "size_bytes": 10829,
+        "sha256": "57d6836639666ebe1a456d5c5a23668a51c5277d4aac845ddaf1c939c266b8a3"
+      }
+    },
+    "AGENTS.md": {
+      "before": {
+        "path": "AGENTS.md",
+        "size_bytes": 9510,
+        "sha256": "d423ec9dfd1f1d61cc47d90273ed86654a2dec3803a24e076b527cc32ace40b0"
+      },
+      "replacements": [
+        {
+          "old": "docs/provenance.json",
+          "new": "docs/archive/provenance/provenance.json",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": "AGENTS.md",
+        "size_bytes": 9529,
+        "sha256": "788ac2ace9e1e1ca3e2265a9d856c13f83c694376aba7c8976e57e5c7e3e76e8"
+      }
+    },
+    ".pi/skills/cipher-research-workflow/SKILL.md": {
+      "before": {
+        "path": ".pi/skills/cipher-research-workflow/SKILL.md",
+        "size_bytes": 8641,
+        "sha256": "fbee541ad44f9dc306a87b50caeaa8283ca8d8408adf917ebb0b0f449d64e081"
+      },
+      "replacements": [
+        {
+          "old": "docs/INNOVATION2-CURRENT-STATE.md",
+          "new": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": ".pi/skills/cipher-research-workflow/SKILL.md",
+        "size_bytes": 8656,
+        "sha256": "6efc6a5f6b762d41956d5d0b18d8834bf696703acc7cd76d574b95e4443a9956"
+      }
+    },
+    ".pi/skills/cipher-experiment-development/SKILL.md": {
+      "before": {
+        "path": ".pi/skills/cipher-experiment-development/SKILL.md",
+        "size_bytes": 3397,
+        "sha256": "03bff5e1838297707571aa3d93e1253a55fbb30f960d6ecdc40435b3d7e9493b"
+      },
+      "replacements": [
+        {
+          "old": "docs/INNOVATION2-PREDICTION.md",
+          "new": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+          "count": 1
+        },
+        {
+          "old": "docs/INNOVATION2-FIRST-GPU-RESULTS.md",
+          "new": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": ".pi/skills/cipher-experiment-development/SKILL.md",
+        "size_bytes": 3432,
+        "sha256": "906e89d6b569429518791fd9489024888a2fe191c2d3430bc10ac12cdd0e5db5"
+      }
+    },
+    "docs/README.md": {
+      "before": {
+        "path": "docs/README.md",
+        "size_bytes": 2055,
+        "sha256": "712a4a467565f98052dd63dcaac5a63fded7416c6c3d7897dfb8a4ce1782fb13"
+      },
+      "replacements": [
+        {
+          "old": "(BACKEND-BOUNDARIES.md)",
+          "new": "(archive/guides/BACKEND-BOUNDARIES.md)",
+          "count": 1
+        },
+        {
+          "old": "(INNOVATION1-TRAINING.md)",
+          "new": "(archive/guides/INNOVATION1-TRAINING.md)",
+          "count": 1
+        },
+        {
+          "old": "(INNOVATION2-CURRENT-STATE.md)",
+          "new": "(archive/guides/INNOVATION2-CURRENT-STATE.md)",
+          "count": 1
+        },
+        {
+          "old": "(INNOVATION2-KERNEL-INTEGRAL.md)",
+          "new": "(archive/guides/INNOVATION2-KERNEL-INTEGRAL.md)",
+          "count": 1
+        },
+        {
+          "old": "(INNOVATION2-PREDICTION.md)",
+          "new": "(archive/guides/INNOVATION2-PREDICTION.md)",
+          "count": 1
+        },
+        {
+          "old": "(INNOVATION2-SPLIT-CANCEL.md)",
+          "new": "(archive/guides/INNOVATION2-SPLIT-CANCEL.md)",
+          "count": 1
+        },
+        {
+          "old": "(provenance.json)",
+          "new": "(archive/provenance/provenance.json)",
+          "count": 1
+        },
+        {
+          "old": "其余 `provenance*.json` 同样保留在本目录。",
+          "new": "其余 `provenance*.json` 同样位于 [archive/provenance/](archive/provenance/)。",
+          "count": 1
+        },
+        {
+          "old": "## 使用与边界",
+          "new": "docs 根目录仅保留本导航、`superpowers/` 与 `archive/`。指南归档只是存放位置调整，不等于停用；下列使用与边界文档仍可阅读。\n\n## 使用与边界",
+          "count": 1
+        },
+        {
+          "old": "[manifest.json](archive/manifest.json)提供全部 old→new 路径、迁移前后大小与 SHA256，以及原文相对链接扫描。",
+          "new": "[manifest-final.json](archive/manifest-final.json)提供两轮共98份文件的总 old→new 映射、迁移前后大小与 SHA256，以及按原位置解析的相对链接扫描。[manifest.json](archive/manifest.json)仅为第一轮80份迁移的冻结快照。",
+          "count": 1
+        },
+        {
+          "old": "旧报告与 skills 中的旧路径**不自动跳转**，按清单查找。",
+          "new": "历史正文、旧报告及未维护入口中的旧路径**不自动跳转**，须按原位置解析后查总清单；来源 JSON 内部旧 record 路径未重写。",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": "docs/README.md",
+        "size_bytes": 2582,
+        "sha256": "4d1ba88ebb05153b3984e6fb7aa8cad865b3ddc0da7e236738e1c3b6e6059528"
+      }
+    },
+    "docs/archive/README.md": {
+      "before": {
+        "path": "docs/archive/README.md",
+        "size_bytes": 8284,
+        "sha256": "cad563dd54ef95a7548c140d8028d077ded9a438e923905b64d6bd10dacac500"
+      },
+      "replacements": [
+        {
+          "old": "# 历史文档档案\n\n这里保存从 docs 根目录实际迁移的历史文档，正文逐字节不改；历史计划和许可不代表当前已执行或重新获准。\n\n[当前文档导航](../README.md) · [old→new 映射与 SHA256 清单](manifest.json)\n\n旧报告、skills、保留合同及历史正文中的旧路径不自动跳转，也不创建根目录 stub 或 symlink。\n查找时先按原文旧位置解析相对路径，再在 manifest 的 `path_index` 中将旧仓库路径映射为新路径；片段锚点原样保留。\nmanifest 同时列出历史正文相对链接扫描；扫描只核路径，不保证历史缺失文件或锚点可用，未声称旧链全部修复。\n冻结的 result/、runs/、既存 validation/ 与来源记录不重写。\n例如 skills 的 `docs/INNOVATION2-FIRST-GPU-RESULTS.md` 旧引用可按清单定位到下方创新2档案。\n\n",
+          "new": "# 文档档案与指南索引\n\n这里保存从 docs 根目录实际迁移的98份文件，正文逐字节不改；历史计划和许可不代表当前已执行或重新获准。**guides/ 中6份指南仍可阅读，归档位置不等于停用。**\n\n[当前文档导航](../README.md) · [总 old→new 映射与 SHA256 清单（98份）](manifest-final.json) · [第一轮冻结快照（80份，不是总映射）](manifest.json)\n\n两轮合并后的完整映射以 `manifest-final.json` 的 `path_index` 为准；旧 `manifest.json` 保持原字节，只记录第一轮独立迁移，不代表本轮最终布局。\n旧报告、Superpowers、历史指南及正文中的旧路径不自动跳转，也不创建根目录 stub 或 symlink。\n查找时先按原文旧位置解析相对路径，再在总清单的 `path_index` 中将旧仓库路径映射为新路径；查询串和片段锚点原样保留。\n总清单扫描历史 Markdown 相对链接只核路径，不保证历史缺失文件或锚点可用，未声称旧链全部修复。\n来源 JSON 内部旧 record 路径和其他引用未重写；旧 docs 路径查总映射，其他路径仍按其原有语义解析。\n冻结的 result/、runs/、既存 validation/ 与历史原文不重写；仅指定活跃入口精确维护迁移路径。\n\n## 使用与边界指南（6份，仍可阅读）\n\n- [BACKEND-BOUNDARIES.md](guides/BACKEND-BOUNDARIES.md)\n- [INNOVATION1-TRAINING.md](guides/INNOVATION1-TRAINING.md)\n- [INNOVATION2-CURRENT-STATE.md](guides/INNOVATION2-CURRENT-STATE.md)\n- [INNOVATION2-KERNEL-INTEGRAL.md](guides/INNOVATION2-KERNEL-INTEGRAL.md)\n- [INNOVATION2-PREDICTION.md](guides/INNOVATION2-PREDICTION.md)\n- [INNOVATION2-SPLIT-CANCEL.md](guides/INNOVATION2-SPLIT-CANCEL.md)\n\n## 来源记录（12份，内部引用保持原字节）\n\n- [provenance-conv.json](provenance/provenance-conv.json)\n- [provenance-data.json](provenance/provenance-data.json)\n- [provenance-linear.json](provenance/provenance-linear.json)\n- [provenance-logic.json](provenance/provenance-logic.json)\n- [provenance-models.json](provenance/provenance-models.json)\n- [provenance-prediction.json](provenance/provenance-prediction.json)\n- [provenance-structure.json](provenance/provenance-structure.json)\n- [provenance-structured-simon.json](provenance/provenance-structured-simon.json)\n- [provenance-two-round.json](provenance/provenance-two-round.json)\n- [provenance-unrolled.json](provenance/provenance-unrolled.json)\n- [provenance-vector.json](provenance/provenance-vector.json)\n- [provenance.json](provenance/provenance.json)\n\n",
+          "count": 1
+        }
+      ],
+      "after": {
+        "path": "docs/archive/README.md",
+        "size_bytes": 9970,
+        "sha256": "24b7e5de86021709b4ec3c5c10f2b5e6d9cd6ebfc4fd52d6042bba9e6c7f26df"
+      }
+    }
+  },
+  "superpowers": {
+    "before": [
+      {
+        "path": "docs/superpowers/plans/2026-11-02-innovation2-integral-multicycle.md",
+        "size_bytes": 17268,
+        "sha256": "a376fdc441660c4950e892342d8f8e25c914f321f9775c436fd68a740ecd8ab5"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-02-innovation2-neural-multicycle.md",
+        "size_bytes": 21488,
+        "sha256": "954af6c3883ae5877acc827a12d417a07675ce90201a41cf53a912528299688d"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-04-innovation2-kernel-integral.md",
+        "size_bytes": 12077,
+        "sha256": "5e7451d225d0c1ed3a1f6719eb49966c8c5d7f0301d2168e533a537fd944a0f6"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-05-innovation2-split-cancel.md",
+        "size_bytes": 16657,
+        "sha256": "f3c3cd37537c8a76b174fa2180aeb36a3cd88a754c0aa2c76715e1a7f5c6b2d0"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-06-innovation2-integral-scale.md",
+        "size_bytes": 15268,
+        "sha256": "a5064e985e568eb75342645b20c1fc76ad374a088ee89c84349aa3a6e7be947b"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "size_bytes": 30575,
+        "sha256": "52dae7cea680cef0c47d3d6362706f93567a0eb63a220c83d6e1e7e40fea6ea4"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-04-innovation2-kernel-integral-design.md",
+        "size_bytes": 19470,
+        "sha256": "55a61d95a8669ab2c47ae11a6a3df989fdd725f9c73c1d34e4cbfc681e3235aa"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-05-innovation2-split-cancel-design.md",
+        "size_bytes": 18452,
+        "sha256": "7c4d0e09973621849b1feafa0baa80f0804af61404ae15b6329008cfdff511c1"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-06-innovation2-integral-scale-design.md",
+        "size_bytes": 18966,
+        "sha256": "f1304f3110796b375f1ab671f7e235a2bd0f242fd6e72e521de9419341e2b046"
+      }
+    ],
+    "after": [
+      {
+        "path": "docs/superpowers/plans/2026-11-02-innovation2-integral-multicycle.md",
+        "size_bytes": 17268,
+        "sha256": "a376fdc441660c4950e892342d8f8e25c914f321f9775c436fd68a740ecd8ab5"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-02-innovation2-neural-multicycle.md",
+        "size_bytes": 21488,
+        "sha256": "954af6c3883ae5877acc827a12d417a07675ce90201a41cf53a912528299688d"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-04-innovation2-kernel-integral.md",
+        "size_bytes": 12077,
+        "sha256": "5e7451d225d0c1ed3a1f6719eb49966c8c5d7f0301d2168e533a537fd944a0f6"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-05-innovation2-split-cancel.md",
+        "size_bytes": 16657,
+        "sha256": "f3c3cd37537c8a76b174fa2180aeb36a3cd88a754c0aa2c76715e1a7f5c6b2d0"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-11-06-innovation2-integral-scale.md",
+        "size_bytes": 15268,
+        "sha256": "a5064e985e568eb75342645b20c1fc76ad374a088ee89c84349aa3a6e7be947b"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "size_bytes": 30575,
+        "sha256": "52dae7cea680cef0c47d3d6362706f93567a0eb63a220c83d6e1e7e40fea6ea4"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-04-innovation2-kernel-integral-design.md",
+        "size_bytes": 19470,
+        "sha256": "55a61d95a8669ab2c47ae11a6a3df989fdd725f9c73c1d34e4cbfc681e3235aa"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-05-innovation2-split-cancel-design.md",
+        "size_bytes": 18452,
+        "sha256": "7c4d0e09973621849b1feafa0baa80f0804af61404ae15b6329008cfdff511c1"
+      },
+      {
+        "path": "docs/superpowers/specs/2026-11-06-innovation2-integral-scale-design.md",
+        "size_bytes": 18966,
+        "sha256": "f1304f3110796b375f1ab671f7e235a2bd0f242fd6e72e521de9419341e2b046"
+      }
+    ]
+  },
+  "legacy_link_policy": {
+    "automatic_redirects": false,
+    "stubs_or_symlinks_created": false,
+    "historical_originals_rewritten": false,
+    "lookup": "Resolve against original old_path parent, then apply merged path_index; preserve queries/fragments. No guarantee for missing historical files or anchors.",
+    "provenance_internal_record_paths_rewritten": false,
+    "provenance_note": "All 12 JSON files retain original bytes including old record paths and other internal references. Map old repository docs paths through path_index; other paths retain their original semantics.",
+    "old_manifest": "manifest.json is the unchanged first-round snapshot only; manifest-final.json is the total 98-entry mapping."
+  },
+  "archived_relative_link_scan": {
+    "method": "Syntactic Markdown inline/reference definitions and HTML href/src scan; file path existence only, no renderer/network/anchor validation. Bare code paths not exhaustive.",
+    "all_old_links_fixed": false,
+    "summary": {
+      "old_base_lookup_required": 81,
+      "valid_same_target": 60
+    },
+    "count": 141,
+    "links": [
+      {
+        "source_old_path": "docs/AN-FIX-PAPER-READING.md",
+        "source_new_path": "docs/archive/reference/AN-FIX-PAPER-READING.md",
+        "line": 146,
+        "relative_link": "INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/reference/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-DATA-SCALE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-DATA-SCALE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "line": 4,
+        "relative_link": "INNOVATION2-FINAL-LOW-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-FINAL-LOW-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-HIGH-ROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "line": 7,
+        "relative_link": "INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "line": 8,
+        "relative_link": "INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "line": 7,
+        "relative_link": "INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "line": 7,
+        "relative_link": "INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "source_new_path": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/reference/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "line": 13,
+        "relative_link": "INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "line": 46,
+        "relative_link": "INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "line": 8,
+        "relative_link": "INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-LEARNING-RATE-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-LEARNING-RATE-PLAN.md",
+        "line": 6,
+        "relative_link": "INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-LINEAR-FEASIBILITY.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-LITERATURE-20261022.md",
+        "source_new_path": "docs/archive/reference/INNOVATION2-LITERATURE-20261022.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/reference/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "line": 18,
+        "relative_link": "INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "line": 11,
+        "relative_link": "superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "resolved_from_original_location": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "mapped_expected_target": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-EXECUTION.md",
+        "line": 12,
+        "relative_link": "superpowers/specs/2026-11-02-innovation2-multicycle-design.md#7-预测证据统计与确认比较族",
+        "resolved_from_original_location": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "mapped_expected_target": "docs/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/superpowers/specs/2026-11-02-innovation2-multicycle-design.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-MULTICYCLE-ROADMAP-PROPOSAL.md",
+        "line": 50,
+        "relative_link": "INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PREPARATION.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "line": 13,
+        "relative_link": "INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-R2-REDESIGN-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "line": 20,
+        "relative_link": "INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "line": 20,
+        "relative_link": "provenance-two-round.json",
+        "resolved_from_original_location": "docs/provenance-two-round.json",
+        "mapped_expected_target": "docs/archive/provenance/provenance-two-round.json",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/provenance-two-round.json",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-R2-VECTOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-VECTOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "line": 7,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "line": 12,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "line": 92,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "line": 8,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "line": 9,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "line": 49,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "line": 15,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "line": 77,
+        "relative_link": "INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-DESIGN.md",
+        "line": 3,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "line": 4,
+        "relative_link": "INNOVATION2-R2-REDESIGN-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "line": 15,
+        "relative_link": "INNOVATION2-FINAL-LOW-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "line": 4,
+        "relative_link": "INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-UNROLLED-RESULTS.md",
+        "source_new_path": "docs/archive/innovation2/INNOVATION2-UNROLLED-RESULTS.md",
+        "line": 10,
+        "relative_link": "INNOVATION2-UNROLLED.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+        "archive_relative_target_exists": true,
+        "status": "valid_same_target"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-NONZERO-BACKGROUND-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 5,
+        "relative_link": "INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-NONZERO-BACKGROUND-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 13,
+        "relative_link": "INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PLAINTEXT-SUBSPACE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 13,
+        "relative_link": "INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PLAINTEXT-SUBSPACE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 21,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 21,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CIPHER-EXPRESSION-LOW-ROUND-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 29,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CIPHER-EXPRESSION-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 29,
+        "relative_link": "INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CIPHER-EXPRESSION-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 37,
+        "relative_link": "INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-LITERATURE-BRIDGE.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 37,
+        "relative_link": "INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-BITDP-TOY-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 45,
+        "relative_link": "INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-DIVERSITY-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 45,
+        "relative_link": "INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-DIVERSITY-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 46,
+        "relative_link": "INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-MITER-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 46,
+        "relative_link": "INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-MITER-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 52,
+        "relative_link": "INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-PAIR-SCAN-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 52,
+        "relative_link": "INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-PAIR-SCAN-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 58,
+        "relative_link": "INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-KEY-MITER-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 58,
+        "relative_link": "INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-KEY-MITER-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 66,
+        "relative_link": "INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-CYCLE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 66,
+        "relative_link": "INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-CYCLE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 77,
+        "relative_link": "INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-FRONTIER-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 77,
+        "relative_link": "INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-FRONTIER-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 87,
+        "relative_link": "INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-METHOD-REVIEW.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 87,
+        "relative_link": "INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-SIX-CHECK-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 87,
+        "relative_link": "INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-INTEGRAL-SIX-CHECK-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 98,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTOR-R5-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 98,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTOR-R5-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 108,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTOR-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 108,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 120,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTORS-VALIDATION.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 120,
+        "relative_link": "INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-VECTORS-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 129,
+        "relative_link": "INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CONV-STRUCTURE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 130,
+        "relative_link": "INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-CONV-STRUCTURE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 141,
+        "relative_link": "INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-UNROLLED-OPTIMIZATION-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 142,
+        "relative_link": "INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-UNROLLED-OPTIMIZATION-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 152,
+        "relative_link": "INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 152,
+        "relative_link": "INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PARITY-CORRELATION-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 162,
+        "relative_link": "INNOVATION2-LINEAR-FEASIBILITY.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-LINEAR-FEASIBILITY.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 162,
+        "relative_link": "INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-LINEAR-FEASIBILITY-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 172,
+        "relative_link": "INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-MLP-DATA-COMPUTE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 173,
+        "relative_link": "INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-MLP-DATA-COMPUTE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 184,
+        "relative_link": "INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PUBLIC-COORDINATE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 185,
+        "relative_link": "INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PUBLIC-COORDINATE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 196,
+        "relative_link": "INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-HIGH-ROUND-MLP-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 197,
+        "relative_link": "INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-HIGH-ROUND-MLP-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 207,
+        "relative_link": "INNOVATION2-DATA-SCALE-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-DATA-SCALE-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-DATA-SCALE-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 208,
+        "relative_link": "INNOVATION2-DATA-SCALE-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-DATA-SCALE-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 218,
+        "relative_link": "INNOVATION2-HIGH-ROUND-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-HIGH-ROUND-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 218,
+        "relative_link": "INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-HIGH-ROUND-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 227,
+        "relative_link": "INNOVATION2-R2-VECTOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-VECTOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-VECTOR-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 228,
+        "relative_link": "INNOVATION2-R2-VECTOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-VECTOR-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 237,
+        "relative_link": "INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-DIAGNOSTIC-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 238,
+        "relative_link": "INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-DIAGNOSTIC-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 247,
+        "relative_link": "INNOVATION2-R2-REDESIGN-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-REDESIGN-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 249,
+        "relative_link": "INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-R2-REDESIGN-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 258,
+        "relative_link": "INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-TWO-ROUND-REDESIGN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 269,
+        "relative_link": "INNOVATION2-FINAL-LOW-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-FINAL-LOW-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 278,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PLAINTEXT-XOR-PANEL-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 287,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PLAINTEXT-XOR-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 288,
+        "relative_link": "INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "resolved_from_original_location": "docs/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-PLAINTEXT-XOR-PLAN.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 294,
+        "relative_link": "INNOVATION2-LITERATURE-20261022.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LITERATURE-20261022.md",
+        "mapped_expected_target": "docs/archive/reference/INNOVATION2-LITERATURE-20261022.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-LITERATURE-20261022.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 305,
+        "relative_link": "INNOVATION2-UNROLLED.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-UNROLLED.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 306,
+        "relative_link": "INNOVATION2-UNROLLED-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-UNROLLED-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 309,
+        "relative_link": "INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-UNROLLED-LOCAL-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 331,
+        "relative_link": "INNOVATION2-FIRST-GPU-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 334,
+        "relative_link": "INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURE-DIAGNOSTIC.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 336,
+        "relative_link": "INNOVATION2-STRUCTURED-SIMON.md",
+        "resolved_from_original_location": "docs/INNOVATION2-STRUCTURED-SIMON.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-STRUCTURED-SIMON.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-STRUCTURED-SIMON.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-CURRENT-STATE.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-CURRENT-STATE.md",
+        "line": 381,
+        "relative_link": "INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-LOGIC-GPU-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-KERNEL-INTEGRAL.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-KERNEL-INTEGRAL.md",
+        "line": 68,
+        "relative_link": "../result/20261104-innovation2-kernel-integral-cycle/report.md",
+        "resolved_from_original_location": "result/20261104-innovation2-kernel-integral-cycle/report.md",
+        "mapped_expected_target": "result/20261104-innovation2-kernel-integral-cycle/report.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/result/20261104-innovation2-kernel-integral-cycle/report.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PREDICTION.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+        "line": 71,
+        "relative_link": "INNOVATION2-FIRST-GPU-RESULTS.md",
+        "resolved_from_original_location": "docs/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "mapped_expected_target": "docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/INNOVATION2-FIRST-GPU-RESULTS.md",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      },
+      {
+        "source_old_path": "docs/INNOVATION2-PREDICTION.md",
+        "source_new_path": "docs/archive/guides/INNOVATION2-PREDICTION.md",
+        "line": 96,
+        "relative_link": "provenance-prediction.json",
+        "resolved_from_original_location": "docs/provenance-prediction.json",
+        "mapped_expected_target": "docs/archive/provenance/provenance-prediction.json",
+        "mapped_target_exists": true,
+        "resolved_from_archive_location": "docs/archive/guides/provenance-prediction.json",
+        "archive_relative_target_exists": false,
+        "status": "old_base_lookup_required"
+      }
+    ]
+  },
+  "verification_evidence_directory": "validation/docs-archive-final-20261106T142322Z",
+  "baseline_reference": {
+    "path": "validation/docs-archive-final-20261106T142322Z/baseline.json",
+    "size_bytes": 3161770,
+    "sha256": "471ad124a451b4573b94bf6093bf0b962a2bd69b2ae19bdb0e4297acf662fbb3"
+  }
+}

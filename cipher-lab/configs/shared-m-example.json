@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "method": "shared-m-four-task-v1",
+  "model": {
+    "stem_width": 96,
+    "channels": 96,
+    "norm_groups": 8,
+    "suffix_kernels": [
+      3,
+      5,
+      7,
+      9,
+      11
+    ],
+    "head_hidden": 64,
+    "router_hidden": 16
+  },
+  "training": {
+    "train": 2,
+    "dev": 2,
+    "test": 2,
+    "batch_size": 2,
+    "epochs": 1,
+    "learning_rate": 0.001,
+    "init_seed": 0,
+    "sample_seed": 1,
+    "shuffle_seed": 4294967295
+  },
+  "tasks": [
+    {
+      "cipher": "SIMECK",
+      "rounds": 16,
+      "difference": 64
+    },
+    {
+      "cipher": "PRESENT",
+      "rounds": 7,
+      "difference": 13631488
+    },
+    {
+      "cipher": "SIMON",
+      "rounds": 13,
+      "difference": 64
+    },
+    {
+      "cipher": "SKINNY",
+      "rounds": 8,
+      "difference": 8192
+    }
+  ]
+}

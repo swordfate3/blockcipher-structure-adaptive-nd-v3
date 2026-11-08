@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cipher-lab"
+version = "0.1.0"
+description = "Independent CPU-only integral empirical experiment backend"
+requires-python = ">=3.12"
+dependencies = ["torch>=2.6", "numpy>=2.0"]
+
+[project.scripts]
+cipher-lab = "cipher_lab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cipher_lab", "cipher_lab.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+mypy_path = "src"

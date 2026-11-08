@@ -1,4 +1,7 @@
 /backups/
+/papers/
+/result/
+/.learnings/.lock
 /.rebuild/
 /.pi-attachments/
 /.venv/

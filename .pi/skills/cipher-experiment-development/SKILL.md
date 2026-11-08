@@ -19,8 +19,8 @@ description: 开发、测试或解释本项目密码实验后端时使用，包�
   四任务SIMECK64r16Δ40/PRESENT80r7ΔD00000/SIMON64r13Δ40/SKINNY64r8Δ2000。
 - 创新2：输入明文、输出单bit，不能把创新1分类准确率混作位预测。两分支来源/指标分开报告。
   支持full/support输入、direct/public-residual（SIMON1..4轮）与null对照；support是保守依赖集合。
-  `configs/innovation2/`五份已完成一次GPU对照，不是smoke或重跑授权；合同见`docs/INNOVATION2-PREDICTION.md`，
-  结果见`docs/INNOVATION2-FIRST-GPU-RESULTS.md`（r3有信号、r4近随机，仅单key/seed）。
+  `configs/innovation2/`五份已完成一次GPU对照，不是smoke或重跑授权；合同见`docs/archive/guides/INNOVATION2-PREDICTION.md`，
+  结果见`docs/archive/innovation2/INNOVATION2-FIRST-GPU-RESULTS.md`（r3有信号、r4近随机，仅单key/seed）。
 - 模型与密码算法不依赖训练或CLI；禁止import backup/旧运行包。必要算法提取记录commit/原路径/SHA/修改。
 
 ## 开发闭环

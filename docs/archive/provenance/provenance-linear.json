@@ -1,0 +1,28 @@
+{
+  "implementation": "src/cipher_experiments/representations/simon_linear.py",
+  "purpose": "Label-free public SIMON64 quadratic Walsh spectra and bounded backward linear paths, not a key-recovery or cipher-evaluation API",
+  "basis": "Original local implementation from public Feistel recurrence and finite Boolean Fourier expansion; existing simon_cone.py used for MSB wiring conventions, not historical weights or key values",
+  "reading": [
+    {
+      "url": "https://eprint.iacr.org/2015/285.pdf",
+      "title": "Improved Linear Trails for the Block Cipher Simon",
+      "scope": "Partial extracted text: linear trails/hulls and key-dependence motivation, no author code, no reproduced attack or copied coefficients"
+    },
+    {
+      "url": "https://arxiv.org/html/2501.00817",
+      "title": "Hardness of Learning Fixed Parities with Neural Networks",
+      "scope": "Abstract/introduction only; conditional parity/one-hidden-layer/perturbed-GD results not applied as proof about this project's Adam/BCE/SIMON"
+    }
+  ],
+  "secrets": "No key values, key_seed, real intermediate states, actual ciphertext labels or historical solution weights used by compiler; round-key coordinates only symbolic public wiring",
+  "limits": "Exact local spectra within active-variable cap; truncated beam paths are not complete hulls or actual fixed-key correlations and provide no lower/upper bound for omitted terms",
+  "parity_statistics": {
+    "implementation": "src/cipher_experiments/parity_statistics.py",
+    "basis": "Original standard-library integer sign products, MSB mask conversion and two-half fixed-dictionary summary; Hoeffding union-bound arithmetic, not external code extraction",
+    "boundary": "Only caller-supplied plaintexts/labels/masks; no key or cipher evaluator, no automatic label generation/fit/DEV/TEST access",
+    "plan": "docs/INNOVATION2-PARITY-CORRELATION-PLAN.md",
+    "status": "Synthetic engineering passed; after explicit confirmation one CPU65536TRAIN real/null fixed-dictionary measurement completed, no model fitting/DEV/TEST/GPU; see INNOVATION2-PARITY-CORRELATION-RESULTS.md"
+  },
+  "plan": "docs/INNOVATION2-LINEAR-FEASIBILITY.md",
+  "engineering_only": "No production training/config/model integration, scientific label fitting, GPU, SSH, install, commit or push in this preparation"
+}

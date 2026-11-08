@@ -10,7 +10,7 @@ description: 推进本项目密码研究、比较网络架构、设计实验或�
 本skill负责研究决策、候选比较、预算和证据交接；不实现训练器、审批服务或远程编排。
 开发归[开发skill](../cipher-experiment-development/SKILL.md)，发布/远端/取回归[Git流程](../cipher-git-result-workflow/SKILL.md)。
 先读[规则](../../../AGENTS.md)、[架构](../../../ARCHITECTURE.md)、[决策](../../../DECISIONS.md)、[README](../../../README.md)。
-创新2再读[当前状态](../../../docs/INNOVATION2-CURRENT-STATE.md)和与本问题相关的实际结果，不把历史提案当已执行。
+创新2再读[当前状态](../../../docs/archive/guides/INNOVATION2-CURRENT-STATE.md)和与本问题相关的实际结果，不把历史提案当已执行。
 路径以本SKILL.md所在目录解析。显式入口：`/skill:cipher-research-workflow <目标>`；新增后在Pi中`/reload`。
 这是Agent操作规程，不是权限沙箱、后台守护进程或保证自动恢复的插件。当前用户指令优先，读取记录不恢复授权。
 

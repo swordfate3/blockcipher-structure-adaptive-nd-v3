@@ -1,0 +1,234 @@
+{
+  "schema": 1,
+  "extractions": [
+    {
+      "source_path": "/workspace/src/cipher_experiments/integral_linear.py",
+      "source_sha256": "7fd87a1d0f2df631aa85956970fcf8ab729b0c1fb92bdbfc31472d8d7ecd8186",
+      "destination": "src/cipher_lab/integral/linear.py",
+      "algorithms": [
+        "canonical full RREF",
+        "GF(2) kernel",
+        "coefficient-space intersection"
+      ],
+      "changes": [
+        "Independent module with no old-package imports or compatibility wrappers.",
+        "Widths 1..2080, default 2080; iterable canonical_basis/kernel inputs; removed legacy 4096-row cap.",
+        "survivor_basis implements the needed full-2080 discovery-span/screen-kernel intersection directly; no legacy restrict_basis wrapper.",
+        "Added complete frozen-basis confirmation with eager validation of both inputs; omitted unrelated high-only/membership APIs."
+      ],
+      "validation": "tests/test_integral_math.py: literal RREF fixtures, independent exhaustive small truth tables, full-2080 boundaries, intersections and invalid inputs; no real cipher calls"
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/representations/simon_suffix.py",
+      "source_sha256": "ed07c1e7ce7ebe8c0274687f64e145304b6a638d8629ec8b902e02f1d897cc6a",
+      "destination": "src/cipher_lab/integral/observables.py",
+      "algorithms": [
+        "64 unit/2016 lexicographic distinct-pair term order",
+        "MSB0 observable packing"
+      ],
+      "changes": [
+        "Only public observable ordering/packing referenced; no suffix, cipher or symbolic-key logic extracted.",
+        "New aggregate_words evaluates every term pointwise on explicit 64-bit words, then XORs full observations.",
+        "No imports, calls, caching decorators or compatibility interfaces from the old package."
+      ],
+      "validation": "tests/test_integral_math.py: all 64 units and 2016 pairs, literal nonlinear counterexamples, zero/max words, generators and strict integer boundaries"
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/simon.py",
+      "source_sha256": "994418a2f4d6736500d20bd79216548c333e953f5c60c1d611f42e9ae2052de5",
+      "destination": "src/cipher_lab/ciphers/simon.py",
+      "algorithms": [
+        "SIMON64/128 z3 round-key schedule",
+        "32-bit SIMON round function and high-x/low-y block packing"
+      ],
+      "changes": [
+        "Independent standard-library batch implementation; no old imports, state traces, NumPy or additional dependencies.",
+        "Accept four low-word-first uint32 key words instead of a packed uint128; schedule once per batch, return only complete ciphertext blocks.",
+        "Strict tuple/uint32/uint64 validation, 1..44 rounds and 1..65536 blocks; private sampling and resource accounting remain outside the cipher."
+      ],
+      "validation": "Static source review only. No KAT, encrypt_many call or real encryption performed. tests/test_collection.py injects fake oracles and replaces production encrypt_many with an assertion-only no-call guard; fake tests do not establish SIMON correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/simeck64.py",
+      "source_sha256": "47a677704f84cd6438bd4d3e290ca39c0ac5ef345f97909170002783cefba249",
+      "destination": "src/cipher_lab/ciphers/simeck.py",
+      "algorithms": [
+        "SIMECK64/128 fixed Z1 schedule",
+        "high-left/low-right 32-bit round function"
+      ],
+      "changes": [
+        "Independent implementation with no old imports, compatibility API, state traces or scientific runtime execution.",
+        "Standard-library batch encrypt_many(points,key_words,rounds) signature: uint64 blocks, low-first uint32 key words, strict argument ranges; schedule once per batch.",
+        "Production runtime and KAT are intentionally untested; test fixtures poison all production encrypt_many entrypoints."
+      ],
+      "validation": "Static algorithm source review only; no real cipher/KAT executed. tests/test_training_data.py uses finite private-byte fixtures, capture-only fake oracles and production-call poison; tests/test_bundles.py uses artificial tensors/hostile NPZs. These engineering checks do not establish cipher correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/present80.py",
+      "source_sha256": "e7e76d5627ec2e819d9f190571442eafa0146c21d84326b82982d4edfbe14b66",
+      "destination": "src/cipher_lab/ciphers/present.py",
+      "algorithms": [
+        "PRESENT-80 S-box/permutation",
+        "80-bit key schedule and final reduced-round whitening"
+      ],
+      "changes": [
+        "Independent implementation with no old imports, compatibility API, state traces or scientific runtime execution.",
+        "Standard-library batch encrypt_many(points,key_words,rounds) signature: uint64 blocks, low-first uint32 key words, strict argument ranges; schedule once per batch.",
+        "Production runtime and KAT are intentionally untested; test fixtures poison all production encrypt_many entrypoints."
+      ],
+      "validation": "Static algorithm source review only; no real cipher/KAT executed. tests/test_training_data.py uses finite private-byte fixtures, capture-only fake oracles and production-call poison; tests/test_bundles.py uses artificial tensors/hostile NPZs. These engineering checks do not establish cipher correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/skinny64.py",
+      "source_sha256": "06ff9f11e276b6fcb5a22ea19792cef2de4ce436f83eb7cc9ef83090e39dd768",
+      "destination": "src/cipher_lab/ciphers/skinny.py",
+      "algorithms": [
+        "SKINNY-64/64 S-box, TK permutation, round constants",
+        "row-major MS-nibble-first shift rows and mix columns"
+      ],
+      "changes": [
+        "Independent implementation with no old imports, compatibility API, state traces or scientific runtime execution.",
+        "Standard-library batch encrypt_many(points,key_words,rounds) signature: uint64 blocks, low-first uint32 key words, strict argument ranges; schedule once per batch.",
+        "Production runtime and KAT are intentionally untested; test fixtures poison all production encrypt_many entrypoints."
+      ],
+      "validation": "Static algorithm source review only; no real cipher/KAT executed. tests/test_training_data.py uses finite private-byte fixtures, capture-only fake oracles and production-call poison; tests/test_bundles.py uses artificial tensors/hostile NPZs. These engineering checks do not establish cipher correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/data/prediction.py",
+      "source_sha256": "2520694213b26344588d5497eac9e3f61e997dac27a2de48b135a828b8b0cb71",
+      "destination": "src/cipher_lab/data/prediction.py",
+      "algorithms": [
+        "globally unique full-block public plaintexts",
+        "MSB0 single-ciphertext-bit targets"
+      ],
+      "changes": [
+        "Independent implementation with no old imports, compatibility API, state traces or scientific runtime execution.",
+        "Public sample seed generates only plaintexts; fixed key and null bits use injected private bytes, never recoverable public key/null seeds.",
+        "Constructor prebuilds all public splits and collects TRAIN/DEV only; TEST labels require explicit permission, are cached once and failed domains cannot retry.",
+        "Tensor copies prevent alias mutation. Meter alone reserves real blocks/null draws before private operations; no I/O or model dependency."
+      ],
+      "validation": "Static algorithm source review only; no real cipher/KAT executed. tests/test_training_data.py uses finite private-byte fixtures, capture-only fake oracles and production-call poison; tests/test_bundles.py uses artificial tensors/hostile NPZs. These engineering checks do not establish cipher correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/data/differential.py",
+      "source_sha256": "680e43ee72c66f7f75806c25eb423f2658cb67cfd05cca1eacb3905ed0e69186",
+      "destination": "src/cipher_lab/data/differential.py",
+      "algorithms": [
+        "balanced four-pair groups",
+        "positive XOR difference and independently sampled negative plaintext encryption"
+      ],
+      "changes": [
+        "Independent implementation with no old imports, compatibility API, state traces or scientific runtime execution.",
+        "Private fresh group keys replace legacy public-seed-derived key material; duplicate keys retried at most 128 times per group.",
+        "Prebuild every task/split; exact eight-block same-key oracle call per four-pair group, balanced labels shuffled by separate public stream.",
+        "CPU float32 [B,4,2,64]/[B,1]; TaskSpec identity retained, public13 is not serialized or generated here."
+      ],
+      "validation": "Static algorithm source review only; no real cipher/KAT executed. tests/test_training_data.py uses finite private-byte fixtures, capture-only fake oracles and production-call poison; tests/test_bundles.py uses artificial tensors/hostile NPZs. These engineering checks do not establish cipher correctness."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/models/mlp.py",
+      "source_sha256": "6e6d7cb67618293f5638b677fc61a9b020e74af493a77b1e98b6ac974903ad8f",
+      "destination": "src/cipher_lab/models/mlp.py",
+      "algorithms": [
+        "64-to-two-equal-ReLU-hidden-layers single-logit MLP"
+      ],
+      "changes": [
+        "Consume Task1 MLPSpec; remove input_width and legacy constructor defaults. Dense finite binary float32 inputs, no training/data/cipher imports."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/models/shared_m/components.py",
+      "source_sha256": "152c1642e5f652de32a09b2b6cc097c57d336d58ce8120649ac046d1b08ea141",
+      "destination": "src/cipher_lab/models/shared_m/components.py",
+      "algorithms": [
+        "local/word/nibble geometry stem with pre-GroupNorm relation projection",
+        "shared residual suffix",
+        "pair nonlinear residual plus linear pooled readout"
+      ],
+      "changes": [
+        "Task1 SharedMSpec only; retain relation-zero initialization and pair-before-average nonlinear head; output [N,1]. No group-head option."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/models/shared_m/system.py",
+      "source_sha256": "c0640e2b7907be833a56a963f6c83edb4e5f62e61b886918912cd9587906a272",
+      "destination": "src/cipher_lab/models/shared_m/system.py",
+      "algorithms": [
+        "three same-initial-main-network stems",
+        "public top2 weighted mixture followed by shared suffix/readout"
+      ],
+      "changes": [
+        "New SharedM(spec).forward(bits,public,*,rounds) with [N,1] output. Single view only; no dual fusion, legacy config, forced routing, noise, auxiliary output or penalty API."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/models/shared_m/router.py",
+      "source_sha256": "1d5f1071e973798afbc2f64632c00f94001cb8fe75dd8a27a959f5cc36bc5dfa",
+      "destination": "src/cipher_lab/models/shared_m/router.py",
+      "algorithms": [
+        "public13 MLP gate",
+        "stable descending top2 with selected-score softmax"
+      ],
+      "changes": [
+        "Learned path only, router_hidden from Task1 SharedMSpec; no fixed/constant/noise/forced modes, no sample or rounds inputs."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/representations/neighborhoods.py",
+      "source_sha256": "d649ed698f773f506264c059a2294145ade6b35ab55e4aedc7d1833657de3370",
+      "destination": "src/cipher_lab/representations/neighborhoods.py",
+      "algorithms": [
+        "64x9 local/word/nibble index tables",
+        "zero-sentinel aligned neighborhood/relation gather"
+      ],
+      "changes": [
+        "Extracted unchanged as pure Torch public geometry; no old-package imports."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/representations/input.py",
+      "source_sha256": "18452f8eb4bb9300d52d88b6662b791f6cfb22fb88cbaff9b12af2f8e787eb4d",
+      "destination": "src/cipher_lab/representations/input.py",
+      "algorithms": [
+        "single canonical pair/XOR view",
+        "public Feistel two-word relation channel"
+      ],
+      "changes": [
+        "Single/relation only; remove raw/dual/flat-compat interfaces. Public rounds passed explicitly only to the key-free representation; no cipher adapter import."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/tasks.py",
+      "source_sha256": "f131a22a9a2b44945d54df342eaa45d209edd307f5017c4ef4e1f9deace97002",
+      "destination": "src/cipher_lab/representations/tasks.py",
+      "algorithms": [
+        "13 normalized public structural features",
+        "exact four-card whitelist"
+      ],
+      "changes": [
+        "Family names/key/block limits come from Task1 TASK_FAMILIES; representation owns only geometry constants. No duplicate round/difference task declarations. Reject nonfloating/nonfinite/non-strided/malformed/near-cards."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_path": "/workspace/src/cipher_experiments/ciphers/skinny_adapter.py",
+      "source_sha256": "5cb4a29822d6e5197926f0943659ae627ea249417bdca8f6bc24326aa16517d2",
+      "destination": "src/cipher_lab/representations/input.py",
+      "algorithms": [
+        "MSB0 nibble packing",
+        "inverse MixColumns/ShiftRows",
+        "public round constant removal and lower-half inverse Sbox"
+      ],
+      "changes": [
+        "Move key-free transform to representations, accepting rounds:int 1..32; replace fixed range(7) by range(rounds-1) public constant recurrence. Never invert secret key or top-half Sbox. r8 mathematical transform unchanged. No production cipher imports or calls."
+      ],
+      "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    }
+  ]
+}

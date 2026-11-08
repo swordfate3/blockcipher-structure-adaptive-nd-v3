@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "method": "bit-prediction-v1",
+  "model": {
+    "hidden_width": 32
+  },
+  "training": {
+    "train": 2,
+    "dev": 2,
+    "test": 2,
+    "batch_size": 2,
+    "epochs": 1,
+    "learning_rate": 0.001,
+    "init_seed": 0,
+    "sample_seed": 1,
+    "shuffle_seed": 4294967295
+  },
+  "rounds": 13,
+  "target_bit": 63,
+  "label_mode": "cipher"
+}
