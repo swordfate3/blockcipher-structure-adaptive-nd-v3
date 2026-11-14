@@ -219,7 +219,11 @@ def fake_application(recipe: Any, policy: Any, owner: Any, root: Path,
     evidence = dict(pid=9,gpu_uuid=settings.gpu_uuid,pci_bus_id=settings.gpu_pci,
                     logical_device=0,evidence='cuda-current-context',
                     luid='0100000000000000',device_node_mask=1)
-    ready = dict(python='3.9.synthetic',tensorflow='2.5.synthetic',model=MODEL_SPEC,
+    # Test-only READY injection; no real provider/runtime is loaded here.
+    gate_case = json.loads(os.environ['SPECK_TEST_VERSION_GATE']) if (
+        'SPECK_TEST_VERSION_GATE' in os.environ) else None
+    ready = dict(python='3.9.13',tensorflow=(gate_case['tensorflow'] if gate_case
+                 else '2.10.0'),model=MODEL_SPEC,
                  weights_sha256=settings.weights_sha256,gpu=evidence,allocator_mib=8192)
     stream = io.BytesIO()
     for frame in (wire.Frame(wire.READY,0,0,json.dumps(ready).encode()),
@@ -305,8 +309,38 @@ def fake_application(recipe: Any, policy: Any, owner: Any, root: Path,
         SPECK_STUDY_CLOSE_DEADLINE=str(10**12+28800),SPECK_STUDY_CONTROL_ROOT=str(root),
         SPECK_STUDY_REQUEST_HANDLE='1',SPECK_STUDY_ACK_HANDLE='2',
         SPECK_STUDY_PROVIDER_MANIFEST=str(root/'fake-provider-manifest'))
+    # Exercise the REAL assembly's nested r0 gate with no scientific stage.
+    # Unlike the ordinary synthetic chain, this mode calls resources.r0 itself;
+    # fake formal_r0 is the only reachable KAT hook and records every attempt.
+    formal_calls: list[object] = []
+    if gate_case is not None:
+        def fake_formal_r0(value: Any) -> bool:
+            formal_calls.append(value)
+            return bool(gate_case['formal_result'])
+        def gate_assemble(*args: Any) -> tuple[None, Any]:
+            resources, teacher = args[-2:]
+            def invoke() -> None:
+                result = resources.formal_r0(None)
+                assert result is gate_case['expected_result']
+                assert len(formal_calls) == gate_case['expected_calls']
+                assert resources.r0 is not None
+                events.append('gate-checked')
+                resources.begin_closing()
+                teacher.close()
+                owner.finalize({'status':'SUCCEEDED','summary':{
+                    'backend_identity':'speck-study','scientific_validation':False,
+                    'reason':'FAKE_VERSION_GATE','test':None,'dev':None}})
+                resources.acknowledge_closing()
+            return None, invoke
+        setattr(application,'formal_r0',fake_formal_r0)
+        setattr(application,'assemble',gate_assemble)
     # install_fake_application saved the production callable before replacing CLI
     native_application(synthetic,policy,owner,root,run_id,settings)
+    if gate_case is not None:
+        assert 'gate-checked' in events
+        assert 'provider-retired' in events and events[-1] == 'ack'
+        assert 'tensorflow' not in sys.modules
+        return
     assert 'independent-created-slot' in events and 'resume' in events
     assert events.index('suspended') < events.index('independent-created-slot')
     assert events.index('independent-created-slot') < events.index('resume')

@@ -230,7 +230,10 @@ def run_application(recipe: SpeckStudyRecipe, policy: Policy, owner: Any,
             ready = client.ready
             if (ready['weights_sha256'] != settings.weights_sha256
                     or not ready['python'].startswith('3.9.')
-                    or not ready['tensorflow'].startswith('2.5.')
+                    # Freeze the observed existing runtime, not a version family.
+                    # READY reports provider tf.__version__; H5 compatibility is
+                    # still an in-window R0 requirement, never inferred here.
+                    or ready['tensorflow'] != '2.10.0'
                     or not str(torch.__version__).startswith('2.7.')
                     or str(torch.version.cuda) != '11.8'):
                 return False
