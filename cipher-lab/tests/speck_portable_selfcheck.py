@@ -1,5 +1,8 @@
 # ruff: noqa: UP007, UP045
-"""Stdlib launcher + NumPy-only synthetic selfcheck, Python 3.9 syntax safe.
+"""Stdlib launcher + synthetic selfcheck, Python 3.9 syntax safe.
+
+Provider uses only a tiny test array adapter: NO NumPy runtime/DLL bootstrap.
+Main's existing fake application still uses CPU NumPy under its own guards.
 
 Examples (root MUST be new, exclusively owned by this invocation):
   python -B tests/speck_portable_selfcheck.py --mode main --rootowned <new-path>
@@ -25,7 +28,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,9 +38,10 @@ SCOPE = 'synthetic-only; formal R0 compatibility NOT verified'
 class Traps(importlib.abc.MetaPathFinder):
     """Each interpreter installs this BEFORE any project/NumPy import."""
 
-    def __init__(self, *, check_only: bool = False) -> None:
+    def __init__(self, *, check_only: bool = False, deny_numpy: bool = False) -> None:
         self.violations = 0
         self.check_only = check_only
+        self.deny_numpy = deny_numpy
 
     def forbidden(self, *args: Any, **kwargs: Any) -> Any:
         self.violations += 1
@@ -48,6 +52,7 @@ class Traps(importlib.abc.MetaPathFinder):
         if (top in ('pytest', 'torch', 'tensorflow', 'keras', 'h5py', 'psutil', 'pynvml')
                 or fullname == 'cipher_lab.ciphers'
                 or fullname.startswith(('cipher_lab.ciphers.', 'cipher_lab.training.'))
+                or (self.deny_numpy and top == 'numpy')
                 or (self.check_only and (top == 'numpy' or fullname in (
                     'cipher_lab.artifacts', 'cipher_lab.execution')))):
             self.forbidden()
@@ -225,6 +230,54 @@ class FakeTF:
         return layer
 
 
+class ManualByteArray:
+    """Only the byte reshape contract used by production points_to_bits."""
+
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def reshape(self, rows: int, width: int) -> ManualByteArray:
+        assert rows == -1 and width == 8 and len(self.payload) % 8 == 0
+        return self
+
+
+class ManualBitRow(list[int]):
+    def tolist(self) -> list[int]:
+        return list(self)
+
+
+def manual_points_to_bits(convert: Any, payload: bytes) -> list[ManualBitRow]:
+    """Scoped test-only NumPy API; never imports/initializes the real package.
+
+    Intentionally tiny, NOT a replacement NumPy library. The production function
+    still checks packed points before frombuffer and selects reshape/axis/dtype.
+    A local fake module exists only for that synchronous call, then is removed.
+    """
+    assert not any(n == 'numpy' or n.startswith('numpy.') for n in sys.modules)
+    fake = ModuleType('numpy')
+    marker = object()
+
+    def frombuffer(raw: bytes, dtype: Any) -> ManualByteArray:
+        assert type(raw) is bytes and dtype is marker
+        return ManualByteArray(raw)
+
+    def unpackbits(array: ManualByteArray, axis: int) -> list[ManualBitRow]:
+        assert axis == 1
+        return [ManualBitRow((byte >> shift) & 1 for byte in array.payload[start:start+8]
+                             for shift in range(7, -1, -1))
+                for start in range(0, len(array.payload), 8)]
+
+    fake.uint8 = marker  # type: ignore[attr-defined]
+    fake.frombuffer = frombuffer  # type: ignore[attr-defined]
+    fake.unpackbits = unpackbits  # type: ignore[attr-defined]
+    sys.modules['numpy'] = fake
+    try:
+        result: list[ManualBitRow] = convert(payload)
+        return result
+    finally:
+        assert sys.modules.pop('numpy') is fake
+
+
 def provider_cases() -> int:
     from cipher_lab.speck_study import teacher_protocol as wire
     from cipher_lab.speck_study.teacher_network import make_official_teacher, points_to_bits
@@ -249,8 +302,10 @@ def provider_cases() -> int:
         ('Activation', ('relu',), {}), ('Dense', (1,), dict(regular, activation='sigmoid'))]
     assert tf.calls == expected
     point = 0x8001400280048008
-    assert points_to_bits(wire.pack_points([point]))[0].tolist() == [
-        int(x) for x in f'{point:064b}']
+    # Asymmetric multirow inputs catch row stride, endian and MSB order errors.
+    points = [point, 0, (1 << 64) - 1, 1, 1 << 63]
+    bits = manual_points_to_bits(points_to_bits, wire.pack_points(points))
+    assert [row.tolist() for row in bits] == [[int(x) for x in f'{p:064b}'] for p in points]
     assert wire.unpack_reply(wire.pack_reply([0., .5, .75, 1.]), 4) == (
         (0., .5, .75, 1.), (0, 0, 1, 1))
     checks = 3
@@ -340,8 +395,7 @@ def worker_provider(root: Path, traps: Traps) -> int:
 
     def fake_main(attestor: Any) -> int:
         assert callable(attestor)  # not called: would access actual CUDA/native
-        importlib.import_module('numpy')
-        importlib.import_module('numpy.random')
+        traps.deny_numpy = True
         traps.finish_entropy()
         result[0] = provider_cases()
         return 0
@@ -356,7 +410,8 @@ def worker_provider(root: Path, traps: Traps) -> int:
     bootstrap.SourceOnly = GuardedSourceOnly
     # Exercise the actual frozen provider entry, not an argparse usage exit2.
     assert bootstrap.teacher(path, ROOT / 'src', []) == 0
-    assert result[0] >= 20 and traps.violations == 0
+    assert result[0] == 20 and traps.violations == 0
+    assert not any(n == 'numpy' or n.startswith('numpy.') for n in sys.modules)
     for name, module in tuple(sys.modules.items()):
         if name == 'cipher_lab' or name.startswith('cipher_lab.'):
             assert isinstance(module.__loader__, GuardedSourceOnly), name
@@ -386,7 +441,7 @@ def main() -> int:
         raise ValueError('rootowned symlink forbidden')
     if args.worker:
         assert root.is_dir() and (root / 'owned.json').is_file()
-        traps = Traps(check_only=args.worker == 'check')
+        traps = Traps(check_only=args.worker == 'check', deny_numpy=args.worker != 'chain')
         traps.install()
         checks = {'check': worker_check, 'chain': worker_chain,
                   'provider': worker_provider}[args.worker](root, traps)

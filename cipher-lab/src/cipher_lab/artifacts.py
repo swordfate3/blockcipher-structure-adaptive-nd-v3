@@ -466,7 +466,8 @@ class RunStore:
         fd: int | None = None
         try:
             _path(temporary)
-            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+            fd = os.open(temporary, flags, 0o600)
             made = True
             self._write_all(fd, content)
             os.close(fd)
@@ -545,7 +546,7 @@ class RunStore:
         try:
             self._target(target)
             self._space(len(content))
-            flags = os.O_WRONLY | os.O_APPEND
+            flags = os.O_WRONLY | os.O_APPEND | getattr(os, "O_BINARY", 0)
             if not target.exists():
                 flags |= os.O_CREAT | os.O_EXCL
             fd = os.open(target, flags, 0o600)

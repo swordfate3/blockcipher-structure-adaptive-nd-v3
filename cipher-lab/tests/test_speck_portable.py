@@ -32,8 +32,9 @@ def test_portable_owned_guarded_entry(mode: str, tmp_path: Path) -> None:
     assert not list(owned.rglob('*.pyc'))
     assert not list(owned.rglob('.pytest_cache'))
     if mode == 'provider':
-        assert summary['checks'] >= 20
+        assert summary['checks'] == 22
     else:
+        assert summary['checks'] == 8
         saved = json.loads((owned / 'out/data/portable-fake/run.json').read_text())
         assert saved['environment']['python_implementation'] == 'CPython'
     again = subprocess.run(
@@ -67,13 +68,13 @@ runpy.run_path(sys.argv[0], run_name='__main__')
     assert summary['synthetic_environment_identity'] == {'os': 'Windows', 'architecture': 'AMD64'}
 
 
-@pytest.mark.parametrize('module', ['pytest', 'torch', 'tensorflow', 'h5py',
-                                   'cipher_lab.ciphers.speck'])
+@pytest.mark.parametrize('module', ['numpy', 'numpy.random', 'pytest', 'torch',
+                                   'tensorflow', 'h5py', 'cipher_lab.ciphers.speck'])
 def test_import_gate_precedes_project_and_science(module: str, tmp_path: Path) -> None:
     script = '''
 import importlib, runpy, sys
 ns = runpy.run_path(sys.argv[1], run_name='portable_import_gate_test')
-trap = ns['Traps']()
+trap = ns['Traps'](deny_numpy=True)
 trap.install()
 sys.path.insert(0, str(ns['ROOT'] / 'src'))
 try:
@@ -90,6 +91,8 @@ assert 'numpy' not in sys.modules
 
 
 @pytest.mark.parametrize('call', ['ctypes.CDLL("never-load")',
+                                 'ctypes.WinDLL("never-load")',
+                                 'ctypes.windll.LoadLibrary("never-load")',
                                  'subprocess.run(["never-start"])',
                                  'os.urandom(8)', 'secrets.token_bytes(8)'])
 def test_native_process_and_entropy_traps(call: str, tmp_path: Path) -> None:
@@ -110,3 +113,59 @@ else:
                             cwd=tmp_path, capture_output=True, text=True, timeout=5)
     assert result.returncode == 0, result.stderr
 
+
+
+def test_provider_does_not_bootstrap_numpy_native_runtime(tmp_path: Path) -> None:
+    """Reproduce NumPy1.21 Windows distributor WinDLL bootstrap without a DLL."""
+    script = '''
+import ctypes, importlib.abc, runpy, sys
+from pathlib import Path
+ns = runpy.run_path(sys.argv[1], run_name='portable_numpy_bootstrap_test')
+trap = ns['Traps']()
+trap.install()
+class WindowsNumpyBootstrap(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.')[0] == 'numpy':
+            ctypes.WinDLL('NEVER-LOAD-numpy-distributor')
+sys.meta_path.insert(0, WindowsNumpyBootstrap())
+assert ns['worker_provider'](Path(sys.argv[2]), trap) == 22
+assert trap.violations == 0
+assert not any(n == 'numpy' or n.startswith('numpy.') for n in sys.modules)
+'''
+    result = subprocess.run([sys.executable, '-B', '-c', script, str(ENTRY), str(tmp_path)],
+                            cwd=ROOT, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_provider_manual_array_strict_shape_and_cleanup(tmp_path: Path) -> None:
+    script = '''
+import runpy, sys
+ns = runpy.run_path(sys.argv[1], run_name='portable_manual_array_test')
+trap = ns['Traps'](deny_numpy=True)
+trap.install()
+trap.finish_entropy()
+sys.path.insert(0, str(ns['ROOT'] / 'src'))
+from cipher_lab.speck_study.teacher_network import points_to_bits
+from cipher_lab.speck_study.teacher_protocol import ProtocolError
+convert = lambda raw: ns['manual_points_to_bits'](points_to_bits, raw)
+for raw in (b'', b'x', bytes(7), bytes(9)):
+    try:
+        convert(raw)
+    except ProtocolError:
+        pass
+    else:
+        raise AssertionError('bad packed rows accepted')
+    assert 'numpy' not in sys.modules
+assert convert(bytes(8))[0].tolist() == [0] * 64
+assert 'numpy' not in sys.modules
+try:
+    ns['ManualByteArray'](bytes(8)).reshape(-1, 4)
+except AssertionError:
+    pass
+else:
+    raise AssertionError('wrong stride accepted')
+assert trap.violations == 0
+'''
+    result = subprocess.run([sys.executable, '-B', '-c', script, str(ENTRY)],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=5)
+    assert result.returncode == 0, result.stderr
