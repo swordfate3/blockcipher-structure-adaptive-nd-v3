@@ -217,3 +217,85 @@ rm -r -- "$cache_dir"
 
 包元数据只发现 src/cipher_lab；当前 SIMON 适配器仅用标准库。干净源码副本与本地回环报告 HTTP
 可用于工程验收，不能代表 wheel 安装、新机器/Windows、真实密码正确性或科学实验已验证。
+
+## SPECK论文复现→绝对位预测（Task5B native接线，待审查/现场门禁）
+
+本发布候选以Git HEAD的既有积分/位预测/shared-M接口为基线，仅接入下述SPECK方法；
+不包含历史dirty中的Fourier/feature/frontier/residual/search入口。source-only wrapper仅服务SPECK，
+不是旧方法的通用启动入口。候选测试仅人工/fake，不授予科学权限。
+
+新增正式方法 `speck-fourier-paper-prediction-v1`，唯一backend为显式
+`--backend speck-study`。`configs/speck-study-paper.json` 与
+`configs/speck-study-example.json` **都是完整正式规模、完全相同的固定配方**；example不是
+小规模科学试跑，不允许CLI隐式缩样本、demo替代或通过参数覆盖门槛。
+目前已实现Windows独立父Job/CPU-RSS/DXGI观测、child原owner及trusted py39 provider装配；
+**只通过本机fake工程验证，尚未完成独立review、主控fresh和Windows现场门禁，不得科学release**。
+非Windows/直接未监督child仍由原owner保存STOPPED/ENVIRONMENT_BLOCKED；现场任一身份、
+测量、runtime或保存证明失败仍停止，不以fake测试宣称GPU就绪。
+
+```sh
+# 已实现入口：仅静态检查；不claim、不读机器、不import科学包、不写产物。
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src /workspace/.venv/bin/python -m cipher_lab.cli check \
+  --config configs/speck-study-paper.json --policy /absolute/path/study-policy.json
+```
+
+策略仍是schema2完整11字段，正式算术预算real_blocks至少541000512（批准policy542000000的
+差额不可花）、forward_rows至少1161000000、null_words/optimizer_updates均0；
+wall28800、CPU仅记录而非单核8h门控、RSS32GiB、output4GiB（内含64MiB终态reserve）。
+`check`报告全部四项fit、teacher分项及UUID+PCI要求，但不证明策略尚有效、GPU可用或获准运行。
+本新study的CPU规则不修改旧Meter默认 `enforce_cpu=True`；新native显式使用False，但没有现场生效证据。
+
+窄Python3.10兼容只覆盖明确主源码闭包，pyproject仍要求Python>=3.12，**不宣称整包/旧方法支持3.10**。
+独立provider源码闭包以Python3.9语法为目标；本机静态检查不是Windows或实际3.10/3.9执行证据。
+主入口冻结源码字节后compile，不执行项目pyc，闭包外project import拒绝：
+
+```sh
+# 仅生成hash清单，不等于发布核验/授权；须与独立审查的Git清单逐项比对。
+python -B tools/speck-study/source.py freeze /absolute/path/main-sources.json src
+python -B tools/speck-study/source.py run /absolute/path/main-sources.json src check \
+  --config configs/speck-study-paper.json --policy /absolute/path/study-policy.json
+# 同一次freeze另生成main-sources.json.provider.json / .bootstrap.json / .package.json。
+# 四份清单均须独立核Git身份；provider不得导入main config/execution。
+```
+
+以下是**未执行的Windows正式入口模板，非科学release许可**；必须先通过review/fresh与现场synthetic。
+主Python须3.10、provider须3.9；root预建且专属，四份manifest及工具身份需独立核验。
+一旦正式启动，统一原始Windows QPC origin在首次Torch/TF初始化之前冻结，不是开发预探。
+路径、GPU UUID/PCI和解释器必须来自现场独立核验；不能把GPU序号1当logical1：
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE='1'; $env:PYTHONPATH='src'
+python -B tools/speck-study/source.py run G:\lxy\main-sources.json src run `
+  --config configs/speck-study-paper.json --policy G:\lxy\study-policy.json `
+  --root G:\lxy\fresh-study-output --id fresh-id --backend speck-study `
+  --teacher-python G:\absolute\py39gpu_new\python.exe `
+  --teacher-weights G:\lxy\official\core\net8_small.h5 `
+  --weights-revision 96344da116ff624be30f503038b22f26c7f7f693 `
+  --weights-sha256 15c58fff86855e882be1f977e42006761eeb5b9af28739d7a7fc8f44834902c0 `
+  --gpu-uuid GPU-00000000-0000-0000-0000-000000000000 --gpu-pci 0000:00:00.0 `
+  --source-manifest G:\lxy\main-sources.json
+```
+
+所有运行参数只属新方法，`check`与旧方法拒绝它们；路径/固定revision/SHA只做元数据验证，
+正式native仅在父Job登记/独立资源监督已建立后读取并加载权重；不把有效参数当现场证明。公开权重只可从官方
+`YuanYufeiISCAS/FourierNeuralDistinguishers`上述固定revision取得，禁止纳入本Git；本地仅hash raw asset，
+从未H5 load。来源/许可缺口见 `docs/provenance.json`；快照未找到LICENSE，不猜测授予许可。
+
+**观测和关闭信任边界**：每PID独立线程实际查询DXGI LOCAL CurrentUsage，CPU-only的0也须实测。
+父以Job、独立handle创建时间、完整adapter/node inventory、tick/TTL及物理UUID/PCI→LUID核验；
+证据类别`dxgi-self-per-process+parent-luid`，不等同NVML或完全独立监测，不用allocator替actual。
+首次frame有固定5s bootstrap期限，缺测显式unknown且不能科学准入；后续TTL1.5s，PID重用、
+错GPU/错LUID/CPU身份、失联立即fail closed。父自身不入自锁Job但纳GPU/RSS/CPU合计，不cuInit。
+R需main Torch与teacher TF均context已绑定；teacher close/reaped且父注销后才B。
+只向主child继承两个manual-reset request/ACK event，显式handle_list及close_fds=True。
+child不可逆停科学→单owner保存→requested ACK；父独立严格saved/config/全package/source/modelcodec、
+exit/reap/Jobempty及receipt读回核验。缺证、迟到、partialsave/kill回收不证实均UNKNOWN。
+Windows保存沿file-fsync+replace+target长度/SHA读回，namespace_powerloss=UNVERIFIED；不承诺断电耐久。
+本机没有实际验证Windows/DLL/COM/TF/H5/CUDA/生产RSS/真实显存或8h可完成性。
+真实22轮KAT及CPU/GPU公开对照hook仅允许正式8h origin之后，由StudyData账≤256/实现、合计≤512；
+本地开发从未调用真实完整加密/KAT，仅literal单轮与fake公开输出。
+
+R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`有界binary（**不是NumPy NPZ，
+不可np.load**）；含公开cipherpairs/Y/float32概率/hardlabels，无私有key/PT。结果仍仅在原生
+`data/<id>`、`models/<id>`、`result/<id>`及专属监督目录，owner/registeredSHA/严格JSON模型身份不降级。
+工程fake闭环不是科研结果，不产生新的key/seed/阈值或许可。

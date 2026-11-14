@@ -586,11 +586,30 @@ class RunStore:
             raise ArtifactError("INVALID_CONTENT")
         if type(replace) is not bool:
             raise ArtifactError("INVALID_STATE")
-        if replace and name != "best":
+        if replace and name not in ("best", "A-best", "B-best"):
             raise ArtifactError("OCCUPIED")
         if self._root / "models" / self._run_id not in self._dirs:
             raise ArtifactError("OWNERSHIP_LOST")
         return self._write_artifact(ref, content, replace=replace)
+
+    def read_model(self, ref: str, expected_sha256: str, max_bytes: int) -> bytes:
+        """Read a committed model through this live owner, never a memory fallback.
+
+        Canonical metadata must still belong to this owner. The bounded reader
+        checks registration, path/symlinks, declared size and SHA before decoding.
+        A failed read seals this writer just like a failed artifact write.
+        """
+        self._running()
+        try:
+            _ref(ref)
+            if not ref.startswith("model/"):
+                raise ArtifactError("INVALID_REFERENCE")
+            self._target(self._data / "run.json")
+            return read_binary(self._root, self._run_id, ref, expected_sha256, max_bytes)
+        except (OSError, ArtifactError) as error:
+            reason = str(error) if isinstance(error, ArtifactError) else "READ_FAILED"
+            self._failed(reason)
+            raise ArtifactError(reason) from None
 
     def _write_artifact(self, ref: str, content: bytes, *, replace: bool = False) -> str:
         artifacts = dict(_mapping(self._record["artifacts"]))

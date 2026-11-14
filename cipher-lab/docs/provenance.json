@@ -229,6 +229,36 @@
         "Move key-free transform to representations, accepting rounds:int 1..32; replace fixed range(7) by range(rounds-1) public constant recurrence. Never invert secret key or top-half Sbox. r8 mathematical transform unchanged. No production cipher imports or calls."
       ],
       "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
+    },
+    {
+      "source_repository": "https://github.com/YuanYufeiISCAS/FourierNeuralDistinguishers",
+      "revision": "96344da116ff624be30f503038b22f26c7f7f693",
+      "source_files": {
+        "core/speck.py": "ae56ee46aceea635062dfb178114f860d096f8ba1db393e522b6bb8c293628ab",
+        "core/net.py": "5971229cbb618b0b278a8b0db599d8f2ed82269336d966e1b75dd7cdb6954ccb",
+        "core/FourierAlg.ipynb": "2e950942cc2195806cc8019a1e8a048ccdea00de6bd8eed15c8dd5348a2a7e93"
+      },
+      "asset_metadata": {
+        "path": "core/net8_small.h5",
+        "sha256": "15c58fff86855e882be1f977e42006761eeb5b9af28739d7a7fc8f44834902c0",
+        "bytes": 227880,
+        "operation": "raw bytes hash only; no H5 parsing/loading/execution; not included in Git"
+      },
+      "paper": "Yuan/Wu/Zhang/Wu, Fourier Analysis of Neural Distinguishers, ToSC 2026(1)441–467, DOI 10.46586/tosc.v2026.i1.441-467; Eq4 p451 twelve terms, not Table5",
+      "destination": [
+        "src/cipher_lab/ciphers/speck.py",
+        "src/cipher_lab/ciphers/speck_tensor.py",
+        "src/cipher_lab/speck_study/teacher_network.py",
+        "src/cipher_lab/speck_study/paper.py",
+        "src/cipher_lab/speck_study/search.py"
+      ],
+      "changes": [
+        "Independent bounded arithmetic/network/protocol implementation; source/notebook read, never imported/executed.",
+        "All first-seven-layer prefixes, strict bucket >.005, coefficient abs>.05; tie0 main and fixed tie1 descriptive.",
+        "Only fake full-cipher/teacher tests; real KAT reserved for formal R0 after shared origin."
+      ],
+      "license_status": "No LICENSE found in reviewed snapshot maxdepth2 (Task1 evidence); no permission inferred. Attribution/technical provenance is not a license grant; publication permission remains unresolved.",
+      "validation": "Task1-4 engineering reports; Task5B concrete Windows parent/child/provider assembly and separate runtime/provider/bootstrap/full-package source manifests, fake-only guards and strict saved-model checks. DXGI self-per-process+parent-luid is not independent NVML. No actual Windows/py39/py310/DLL/COM/TF/H5/CUDA/RSS/cipher validation or scientific release."
     }
   ]
 }

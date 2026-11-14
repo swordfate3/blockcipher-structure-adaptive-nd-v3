@@ -12,7 +12,7 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from cipher_lab.config import Policy
@@ -38,7 +38,7 @@ class Stopped(Exception):
 
 
 def _utc_now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,7 +82,8 @@ class Meter:
     """
 
     def __init__(self, policy: Policy, clocks: Clocks,
-                 rss_bytes: Callable[[], int]) -> None:
+                 rss_bytes: Callable[[], int], *, enforce_cpu: bool = True) -> None:
+        self._enforce_cpu = enforce_cpu
         self._policy = policy
         self._clocks = clocks
         self._rss_bytes = rss_bytes
@@ -92,7 +93,9 @@ class Meter:
         self._start_wall, self._start_cpu = wall, cpu
         self._wall_elapsed = self._cpu_elapsed = 0.0
         self._rss: int | None = None
-        self._deadline = datetime.fromisoformat(policy.deadline_utc)
+        self._deadline = datetime.fromisoformat(
+            policy.deadline_utc[:-1] + "+00:00"
+            if policy.deadline_utc.endswith("Z") else policy.deadline_utc)
 
     def _sample_clocks(self) -> tuple[float, float, datetime]:
         try:
@@ -115,7 +118,7 @@ class Meter:
             raise Stopped("DEADLINE")
         if elapsed_wall >= self._policy.wall_seconds:
             raise Stopped("WALL_LIMIT")
-        if elapsed_cpu >= self._policy.cpu_seconds:
+        if self._enforce_cpu and elapsed_cpu >= self._policy.cpu_seconds:
             raise Stopped("CPU_LIMIT")
         try:
             rss = self._rss_bytes()

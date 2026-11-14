@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
 
+from cipher_lab.speck_study_config import METHOD, SpeckStudyRecipe
 from cipher_lab.training_config import (
     PredictionRecipe,
     SharedMRecipe,
@@ -47,7 +48,7 @@ def _deadline(value: object) -> None:
     ) is None:
         raise ValueError("deadline_utc: expected UTC timestamp with Z or +00:00")
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
     except ValueError:
         raise ValueError("deadline_utc: invalid UTC timestamp") from None
     if parsed.utcoffset() != timedelta(0):
@@ -205,12 +206,16 @@ def load_recipe(path: Path) -> Recipe:
     return _parse_recipe(_load(path))
 
 
-def load_experiment(path: Path) -> Recipe | PredictionRecipe | SharedMRecipe:
+def load_experiment(
+    path: Path,
+) -> Recipe | PredictionRecipe | SharedMRecipe | SpeckStudyRecipe:
     """Read strict JSON exactly once, then explicitly dispatch by public method."""
     value = _load(path)
     if not isinstance(value, dict):
         raise ValueError("experiment: expected object")
     method = value.get("method")
+    if method == METHOD:
+        return SpeckStudyRecipe.parse(value)
     if method == _METHOD:
         return _parse_recipe(value)
     if method == "bit-prediction-v1":

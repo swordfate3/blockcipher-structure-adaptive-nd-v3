@@ -10,11 +10,22 @@ from pathlib import Path
 from typing import cast
 
 from cipher_lab.config import Policy, Recipe, load_experiment, load_policy
+from cipher_lab.speck_study_config import SpeckStudyRecipe, estimate_study
+from cipher_lab.speck_study_launch import LaunchSettings
 from cipher_lab.training_config import PredictionRecipe, SharedMRecipe
 
 
-def _estimate(recipe: Recipe | PredictionRecipe | SharedMRecipe) -> dict[str, object]:
+def _estimate(
+    recipe: Recipe | PredictionRecipe | SharedMRecipe | SpeckStudyRecipe,
+) -> dict[str, object]:
     """Static counts, not scientific execution or resource/time prediction."""
+    if isinstance(recipe, SpeckStudyRecipe):
+        study_counts = estimate_study(recipe)
+        return dict(study_counts, planned_real_blocks=study_counts['real_blocks'],
+                    planned_null_words=0, planned_optimizer_updates=0,
+                    planned_forward_rows=study_counts['teacher_rows'],
+                    basis='One fixed R -> conditional B study; recipe is not authorization.',
+                    gpu_binding=recipe.gpu_binding, cpu_rule=recipe.cpu_rule)
     if isinstance(recipe, (PredictionRecipe, SharedMRecipe)):
         training = recipe.training
         rows = training.train + training.dev + training.test
@@ -101,15 +112,20 @@ def _public_exit(status: str, *, report_status: str, backend: str,
     return code
 
 
-def _run(recipe: Recipe | PredictionRecipe | SharedMRecipe, policy: Policy, root: Path, run_id: str,
-         backend: str) -> int:
+def _needs_models(recipe: object) -> bool:
+    return isinstance(recipe, (PredictionRecipe, SharedMRecipe, SpeckStudyRecipe))
+
+
+def _run(recipe: Recipe | PredictionRecipe | SharedMRecipe | SpeckStudyRecipe,
+         policy: Policy, root: Path, run_id: str,
+         backend: str, *, study: LaunchSettings | None = None) -> int:
     # Claim precedes production imports/randomness/resource probes. Never reopen
     # an occupied owner or infer a root from historical cwd artifacts.
     from cipher_lab.artifacts import ArtifactError, RunStore
 
     try:
         store = RunStore.claim(root, run_id, output_bytes=policy.output_bytes,
-                               needs_models=not isinstance(recipe, Recipe))
+                               needs_models=_needs_models(recipe))
     except Exception:
         return _public_exit("UNKNOWN", report_status="NOT_ATTEMPTED", backend=backend,
                             reason="CLAIM_FAILED", exit_code=2)
@@ -122,6 +138,22 @@ def _run(recipe: Recipe | PredictionRecipe | SharedMRecipe, policy: Policy, root
     except Exception:
         # Storage owns failure sealing; no finalize retry on a potentially sealed owner.
         return _saved_report(store, root, run_id, backend, reason="SETUP_SAVE_FAILED")
+
+    if isinstance(recipe, SpeckStudyRecipe):
+        application_failed = False
+        try:
+            from cipher_lab.speck_study.application import run_application
+
+            if study is None:
+                raise ValueError('missing launch settings')
+            run_application(recipe, policy, store, root, run_id, study)
+        except ArtifactError:
+            application_failed = True
+        except Exception:
+            # Started application owns terminal; never fabricate saved success.
+            application_failed = True
+        code = _saved_report(store, root, run_id, backend)
+        return 7 if application_failed else code
 
     stopped_type: type[Stopped] | None = None
     meter: Meter | None = None
@@ -247,7 +279,8 @@ def _saved_report(store: object, root: Path, run_id: str, backend: str,
     summary = cast(dict[str, object], saved["summary"])
     saved_backend = summary.get("backend_identity")
     backend = (saved_backend if isinstance(saved_backend, str)
-               and saved_backend in ("demo", "simon", "ciphers", "UNVERIFIED") else "UNVERIFIED")
+               and saved_backend in ("demo", "simon", "ciphers", "speck-study", "UNVERIFIED")
+               else "UNVERIFIED")
     status = saved.get("status")
     if status not in ("SUCCEEDED", "STOPPED", "FAILED", "ALARM"):
         return _public_exit("UNKNOWN", report_status="NOT_ATTEMPTED", backend=backend,
@@ -266,6 +299,10 @@ def _saved_report(store: object, root: Path, run_id: str, backend: str,
             from cipher_lab.integral.report import render_report
 
             files = render_report(saved)
+        elif method in ("speck-fourier-paper-prediction-v1", "speck-fourier-synthetic-v1"):
+            from cipher_lab.speck_study.report import render_report as render_study_report
+
+            files = render_study_report(saved)
         else:
             # Missing/unknown saved evidence is not an integral method identity.
             return _public_exit(str(status), report_status="FAILED", backend=backend,
@@ -292,7 +329,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--policy", type=Path, required=True)
     run.add_argument("--root", type=Path, required=True)
     run.add_argument("--id", required=True)
-    run.add_argument("--backend", choices=("demo", "simon", "ciphers"), required=True)
+    run.add_argument("--backend", choices=("demo", "simon", "ciphers", "speck-study"),
+                     required=True)
+    for flag in ("teacher-python", "teacher-weights", "source-manifest"):
+        run.add_argument("--" + flag, type=Path)
+    for flag in ("weights-revision", "weights-sha256", "gpu-uuid", "gpu-pci"):
+        run.add_argument("--" + flag)
     evaluate = commands.add_parser("evaluate", help="evaluate explicit saved files only",
                                    allow_abbrev=False)
     evaluate.add_argument("--checkpoint", type=Path, required=True)
@@ -318,14 +360,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("cipher-lab: invalid or unreadable settings", file=sys.stderr)
         return 2
     if args.command == "run":
-        allowed = ("demo", "ciphers") if isinstance(recipe, SharedMRecipe) else ("demo", "simon")
+        allowed: tuple[str, ...]
+        runtime = (args.teacher_python, args.teacher_weights, args.weights_revision,
+                   args.weights_sha256, args.gpu_uuid, args.gpu_pci, args.source_manifest)
+        study = None
+        if isinstance(recipe, SpeckStudyRecipe):
+            allowed = ("speck-study",)
+            try:
+                if recipe.synthetic or any(v is None for v in runtime):
+                    raise ValueError('formal launch settings required')
+                study = LaunchSettings(*runtime)
+            except (OSError, ValueError):
+                print("cipher-lab: invalid study launch settings", file=sys.stderr)
+                return 2
+        elif any(v is not None for v in runtime):
+            print("cipher-lab: invalid method/runtime combination", file=sys.stderr)
+            return 2
+        else:
+            allowed = (("demo", "ciphers") if isinstance(recipe, SharedMRecipe)
+                       else ("demo", "simon"))
         if args.backend not in allowed:
             print("cipher-lab: invalid method/backend combination", file=sys.stderr)
             return 2
-        return _run(recipe, policy, args.root, args.id, args.backend)
+        if isinstance(recipe, SpeckStudyRecipe) and study is not None:
+            import os
+            if os.name == 'nt' and os.environ.get('SPECK_STUDY_NATIVE') != '1':
+                from cipher_lab.speck_study.native_parent import launch_native
+                args.native_argv = list(sys.argv[1:] if argv is None else argv)
+                try:
+                    return launch_native(args,recipe,policy,study)
+                except Exception:
+                    return _public_exit('UNKNOWN',report_status='NOT_ATTEMPTED',
+                                        backend='speck-study',reason='ENVIRONMENT_BLOCKED')
+        return _run(recipe, policy, args.root, args.id, args.backend, study=study)
     estimate = _estimate(recipe)
     print(json.dumps({
-        "device": "cpu",
+        "device": ("gpu-uuid-and-pci-required" if isinstance(recipe, SpeckStudyRecipe) else "cpu"),
         "recipe": recipe.to_dict(),
         "policy": policy.to_dict(),
         "estimate": estimate,
