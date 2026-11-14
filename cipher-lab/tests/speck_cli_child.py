@@ -27,6 +27,9 @@ class Guard(importlib.abc.MetaPathFinder):
         return None
 
 
+# TEST ONLY: select the fake child assembly BEFORE CLI dispatch on Windows.
+# This is not a native-parent attestation and must never be used by production.
+os.environ['SPECK_STUDY_NATIVE'] = '1'
 setattr(ctypes,'CDLL',forbidden)
 setattr(ctypes,'WinDLL',forbidden)
 guard = Guard()
@@ -72,6 +75,9 @@ native_application: Any = None
 original_source_only = bootstrap.SourceOnly
 class GuardedSourceOnly(original_source_only):  # type: ignore[valid-type,misc]
     def exec_module(self, module: Any) -> None:
+        # Test the pre-dispatch marker even on Linux (which skips the Windows
+        # parent branch). No inherited harness flag may stand in for this step.
+        assert os.environ.get('SPECK_STUDY_NATIVE') == '1'
         guard.find_spec(module.__name__)
         super().exec_module(module)
         if module.__name__ == 'cipher_lab.cli':
@@ -90,6 +96,15 @@ def install_fake_application() -> None:
         module = importlib.import_module(name)
         assert isinstance(module.__loader__,GuardedSourceOnly)
 
+    # Explicit synthetic identity, NOT a claim about this host. platform.system
+    # may launch `ver` on Windows, conflicting with this child's subprocess trap.
+    # Keep production _environment_identity untouched outside this fake driver.
+    setattr(artifacts, '_environment_identity', lambda: {
+        'python_implementation': {'cpython': 'CPython', 'pypy': 'PyPy'}.get(
+            sys.implementation.name, sys.implementation.name),
+        'python_version': '.'.join(str(v) for v in sys.version_info[:3]),
+        'os': 'Windows', 'architecture': 'AMD64',
+    })
     setattr(artifacts,'uuid4',lambda: UUID(int=1))
     setattr(execution,'production_rss_bytes',forbidden)
     global native_application
