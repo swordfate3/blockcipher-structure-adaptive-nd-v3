@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from cipher_lab.execution import Meter
-from cipher_lab.platform_resources.gpu import GpuBinding
+from cipher_lab.platform_resources.gpu import GpuBinding, GpuError
 
 _CODES = frozenset({'GPU_UNVERIFIED', 'GPU_LIMIT', 'RSS_UNAVAILABLE', 'RSS_LIMIT',
                     'CPU_UNAVAILABLE', 'CLOCK_UNAVAILABLE', 'PROCESS_UNVERIFIED',
@@ -31,6 +31,25 @@ class ResourceStop(RuntimeError):
             raise ValueError('unknown resource reason')
         self.reason = reason
         super().__init__(reason)
+
+
+def error_codes(error: BaseException) -> list[str]:
+    """Public allowlist only: never str/repr/type-name an unknown exception."""
+    result: list[str] = []
+    seen: set[int] = set()
+    while error is not None and id(error) not in seen and len(result) < 8:
+        seen.add(id(error))
+        code = error.reason if type(error) is ResourceStop else 'UNEXPECTED_ERROR'
+        if type(error) is GpuError:
+            code = 'GPU_UNVERIFIED'
+        result.append(code if type(code) is str and code in _CODES else 'UNEXPECTED_ERROR')
+        following = error.__cause__
+        if following is None and not error.__suppress_context__:
+            following = error.__context__
+        if following is None:
+            break
+        error = following
+    return result
 
 
 def directory_bytes(root: Path) -> int:
@@ -307,8 +326,11 @@ class Supervisor:
     """
     def __init__(self, resources: StudyResources, *,
                  request_closing: Callable[[], None] | None = None,
-                 closing_acknowledged: Callable[[], bool] | None = None) -> None:
+                 closing_acknowledged: Callable[[], bool] | None = None,
+                 before_cleanup: Callable[[BaseException], None] | None = None) -> None:
         self.resources = resources
+        self.before_cleanup = before_cleanup
+        self.cleanup_errors: list[BaseException] = []
         self.request_closing = request_closing
         self.closing_acknowledged = closing_acknowledged
         self.closing_requested = False
@@ -329,7 +351,17 @@ class Supervisor:
                 self.resources.tree.dispose()
             except BaseException as fallback:
                 errors.append(fallback)
+        self.cleanup_errors.extend(errors)
         return errors
+
+    def notify_failure(self, error: BaseException) -> None:
+        if self.error is None:
+            self.error = error
+        if self.before_cleanup is not None:
+            try:
+                self.before_cleanup(self.error)
+            except BaseException:
+                pass  # diagnostics MUST NOT prevent termination
 
     def tick(self) -> None:
         try:
@@ -345,7 +377,7 @@ class Supervisor:
                         # Contract: bounded nonblocking IPC signal, no wait for ack.
                         self.request_closing()
         except BaseException as error:
-            self.error = error
+            self.notify_failure(error)
             self.cleanup_tree()
             raise
 
@@ -393,8 +425,8 @@ class Supervisor:
                     or self.closing_acknowledged() is not True)):
                 raise ResourceStop('CLEANUP_UNKNOWN')
             self.complete = True
-        except BaseException:
-            self.error = ResourceStop('FINALIZE_FAILED')
+        except BaseException as error:
+            self.notify_failure(error)
             self.cleanup_tree()
             raise
         finally:

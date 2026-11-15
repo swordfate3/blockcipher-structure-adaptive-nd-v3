@@ -298,7 +298,11 @@ def test_strict_parent_terminal_requires_source_policy_and_registered_codec(
 
 @pytest.mark.parametrize('fault',['none','constructorblocked','unrequestedACK','missingACK',
                                   'termjobthrow','reapfail','lateclock','wronggpu',
-                                  'missingpublisher','stale','partialsave'])
+                                  'missingpublisher','stale','partialsave','supervisorafteradopt',
+                                  'controlfailure','publisherfailure','latewrite','downgradefail','finalwritefail',
+                                  'stderr-open','stderr-write','stderr-start','stderr-join',
+                                  'clockrollback','clockrollback-origin',
+                                  'finalreadfail','cleanupbase','clocknan','stopwritefail'])
 def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fault: str,
 ) -> None:
@@ -312,7 +316,26 @@ def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
     from cipher_lab.speck_study.gpu_telemetry import TelemetryPublisher
     from cipher_lab.speck_study.native_session import OwnedTree
     events: list[str] = []
+    inherited_stderr = fault.startswith('stderr-')
+    successful = fault == 'none' or inherited_stderr
+    spawn_options: list[dict[str, Any]] = []
+    stderr_attempts: list[str] = []
     now = [100.]
+    supervisors: list[Any] = []
+    servers: list[Any] = []
+    from cipher_lab.speck_study.native_control import ControlServer, write_diagnostic
+    from cipher_lab.speck_study.resources import Supervisor
+    original_supervisor, original_server = Supervisor, ControlServer
+    def capture_supervisor(*a: Any, **kw: Any) -> Any:
+        obj = original_supervisor(*a, **kw)
+        supervisors.append(obj)
+        return obj
+    def capture_server(*a: Any, **kw: Any) -> Any:
+        obj = original_server(*a, **kw)
+        servers.append(obj)
+        return obj
+    monkeypatch.setattr(parent, 'Supervisor', capture_supervisor)
+    monkeypatch.setattr(parent, 'ControlServer', capture_server)
     active: list[int] = []
     channel = SimpleNamespace(requested_value=False,ack_value=False)
     def requested() -> bool:
@@ -357,12 +380,19 @@ def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
             if fault != 'missingpublisher':
                 publisher.publish_once()
         def exited(self, handle: int) -> bool:
+            if handle == 2:
+                events.append('retained-exit-query')
             return handle not in active
         def close_handle(self, handle: int) -> None:
             events.append('handle-closed')
             if handle == 99:
                 active.clear()
         def kill_job(self, job: int) -> None:
+            if fault == 'supervisorafteradopt':
+                from cipher_lab.speck_study.native_control import read_message
+                saved = read_message(control/'parent-stop.json')
+                assert saved['first_cause']['code'] == 'GPU_UNVERIFIED'
+                assert saved['first_cause']['stage'] == 'control-adopt-provider'
             events.append('termjob')
             active.clear()
             if fault == 'termjobthrow':
@@ -379,6 +409,23 @@ def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
         polls = 0
         def poll(self) -> int | None:
             self.polls += 1
+            from cipher_lab.speck_study.resources import ResourceStop
+            if fault in ('supervisorafteradopt', 'stopwritefail'):
+                servers[0].on_stage('control-adopt-provider')
+                def fail(**kw: Any) -> None:
+                    raise ResourceStop('GPU_UNVERIFIED')
+                supervisors[0].resources.check = fail
+                with pytest.raises(ResourceStop):
+                    supervisors[0].tick()
+                return None
+            if fault == 'controlfailure':
+                servers[0].error = KeyboardInterrupt('DO-NOT-SAVE')
+                return None
+            if fault == 'publisherfailure':
+                raise ResourceStop('RSS_LIMIT')
+            if fault == 'clocknan':
+                now[0] = float('nan')
+                raise ResourceStop('CLOCK_UNAVAILABLE')
             if fault == 'constructorblocked' and self.polls == 1:
                 # No child cooperative call; parent deadline independently kills.
                 now[0] = 28900.
@@ -413,7 +460,52 @@ def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
             active.clear()
             self.returncode = 1
     process = Process()
-    monkeypatch.setattr('subprocess.Popen',lambda *args,**kwargs: process)
+    def popen(*args: Any, **kwargs: Any) -> Any:
+        spawn_options.append(kwargs)
+        return process
+    monkeypatch.setattr('subprocess.Popen', popen)
+    if inherited_stderr:
+        original_open = Path.open
+        original_start = threading.Thread.start
+        original_join = threading.Thread.join
+        class BrokenLog:
+            def __enter__(self) -> Any:
+                return self
+            def __exit__(self, *args: Any) -> None:
+                pass
+            def write(self, block: bytes) -> None:
+                stderr_attempts.append('write')
+                raise OSError('PRIVATE-DO-NOT-SAVE')
+        def log_open(path: Path, *a: Any, **kw: Any) -> Any:
+            if path.name == 'main-stderr.log':
+                stderr_attempts.append('open')
+                if fault == 'stderr-open':
+                    raise OSError('PRIVATE-DO-NOT-SAVE')
+                return BrokenLog()
+            return original_open(path, *a, **kw)
+        def thread_start(thread: threading.Thread) -> None:
+            if thread.name == 'main-stderr' and fault == 'stderr-start':
+                stderr_attempts.append('start')
+                raise RuntimeError('PRIVATE-DO-NOT-SAVE')
+            original_start(thread)
+        def thread_join(thread: threading.Thread, timeout: float | None = None) -> None:
+            if thread.name == 'main-stderr' and fault == 'stderr-join':
+                stderr_attempts.append('join')
+                raise RuntimeError('PRIVATE-DO-NOT-SAVE')
+            original_join(thread, timeout)
+        # A pre-existing stream sentinel must not be read/closed by the parent.
+        class InheritedStream:
+            def read(self, count: int) -> bytes:
+                stderr_attempts.append('pipe-read')
+                return b'x'
+            def close(self) -> None:
+                stderr_attempts.append('pipe-close')
+                raise AssertionError('parent must not own inherited stderr')
+        setattr(process, 'stderr', InheritedStream())
+        monkeypatch.setattr(Path, 'open', log_open)
+        monkeypatch.setattr(threading.Thread, 'start', thread_start)
+        monkeypatch.setattr(threading.Thread, 'join', thread_join)
+
     monkeypatch.setattr(parent,'os',SimpleNamespace(name='nt',environ=os.environ))
     monkeypatch.setattr(parent,'EventPair',Pair)
     monkeypatch.setattr(parent,'WindowsJob',lambda: WindowsJob(API()))
@@ -445,17 +537,81 @@ def test_actual_parent_launch_fake_job_cleanup_fault_matrix(
                 super().close()
                 now[0] = 28900.
         monkeypatch.setattr(parent,'EventPair',LatePair)
+    if fault == 'cleanupbase':
+        class BrokenPair(Pair):
+            def close(self) -> None:
+                super().close()
+                raise KeyboardInterrupt('DO-NOT-SAVE')
+        monkeypatch.setattr(parent, 'EventPair', BrokenPair)
+    if fault in ('clockrollback', 'clockrollback-origin'):
+        class ClockPair(Pair):
+            def close(self) -> None:
+                super().close()
+                supervisors[0].resources.last_wall = 900.
+                now[0] = 1000.
+        monkeypatch.setattr(parent, 'EventPair', ClockPair)
+        def rollback_write(path: Path, value: dict[str, Any]) -> None:
+            write_diagnostic(path, value)
+            if path.name == 'parent-final.json' and value['status'] == 'COMPLETE':
+                now[0] = 99. if fault == 'clockrollback-origin' else 999.
+        monkeypatch.setattr(parent, 'write_diagnostic', rollback_write)
+    if fault in ('latewrite', 'downgradefail'):
+        def late_write(path: Path, value: dict[str, Any]) -> None:
+            if (fault == 'downgradefail' and path.name == 'parent-final.json'
+                    and value['status'] == 'UNKNOWN'):
+                raise OSError('DO-NOT-SAVE')
+            write_diagnostic(path, value)
+            if path.name == 'parent-final.json':
+                now[0] = 28900.
+        monkeypatch.setattr(parent, 'write_diagnostic', late_write)
+    if fault in ('finalwritefail', 'finalreadfail', 'stopwritefail'):
+        original_write = write_diagnostic
+        def broken_write(path: Path, value: dict[str, Any]) -> None:
+            if (path.name == 'parent-stop.json' and fault == 'stopwritefail'
+                    or path.name == 'parent-final.json' and fault != 'stopwritefail'):
+                if fault == 'finalreadfail':
+                    original_write(path, value)
+                raise KeyboardInterrupt('DO-NOT-SAVE')
+            original_write(path, value)
+        monkeypatch.setattr(parent, 'write_diagnostic', broken_write)
     args = SimpleNamespace(root=tmp_path,id='fake',native_argv=['run'])
     settings = SimpleNamespace(gpu_uuid='GPU-one',gpu_pci='0000:02:00.0')
     code = parent.launch_native(args,SimpleNamespace(),SimpleNamespace(),settings)
     from cipher_lab.speck_study.native_control import read_message
-    record = read_message(control/'parent-final.json')
-    assert code == (0 if fault == 'none' else 7)
-    assert record['status'] == ('COMPLETE' if fault == 'none' else 'UNKNOWN')
+    record: dict[str, Any]
+    if fault in ('finalwritefail', 'finalreadfail', 'downgradefail', 'clockrollback',
+                 'clockrollback-origin'):
+        assert not (control/'parent-final.json').exists()
+        record = {'status': 'UNKNOWN'}
+    else:
+        record = read_message(control/'parent-final.json')
+        assert b'DO-NOT-SAVE' not in (control/'parent-final.json').read_bytes()
+    if fault == 'supervisorafteradopt':
+        assert record['diagnostics']['errors']['supervisor']['code'] == 'GPU_UNVERIFIED'
+        assert record['diagnostics']['errors']['parent']['code'] == 'GPU_UNVERIFIED'
+    if fault == 'controlfailure':
+        assert record['diagnostics']['errors']['control']['code'] == 'UNEXPECTED_ERROR'
+    if fault == 'cleanupbase':
+        assert record['diagnostics']['errors']['cleanup']['code'] == 'UNEXPECTED_ERROR'
+    if fault == 'stopwritefail':
+        assert record['diagnostics']['diagnostic_write_failed'] is True
+    if inherited_stderr:
+        assert record['reap_evidence'] == {'exited_pids': [2], 'job_empty': True}
+        assert stderr_attempts == []
+        assert len(spawn_options) == 1 and 'stderr' not in spawn_options[0]
+        assert not (control/'main-stderr.log').exists()
+    if fault in ('clockrollback', 'clockrollback-origin'):
+        stop = read_message(control/'parent-stop.json')
+        assert stop['errors']['finalize']['code'] == 'CLOCK_UNAVAILABLE'
+        assert events.index('wait') < events.index('retained-exit-query')
+    assert code == (0 if successful else 7)
+    assert record['status'] == ('COMPLETE' if successful else 'UNKNOWN')
     assert events.index('assign') < events.index('resume')
     assert 'wait' in events and 'termjob' in events and 'events-closed' in events
     assert not active
-    assert not any(t.name in ('dxgi-telemetry','study-control','study-resource-supervisor')
+    assert 'retained-exit-query' in events
+    assert not any(t.name in ('dxgi-telemetry','study-control','study-resource-supervisor',
+                             'main-stderr')
                    for t in threading.enumerate())
 
 

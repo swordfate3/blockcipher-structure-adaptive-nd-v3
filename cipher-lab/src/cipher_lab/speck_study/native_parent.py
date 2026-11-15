@@ -10,6 +10,7 @@ import math
 import os
 import re
 import sys
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -25,14 +26,67 @@ from cipher_lab.speck_study.gpu_telemetry import (
     current_process_identity,
     windows_monotonic,
 )
-from cipher_lab.speck_study.native_control import ControlServer, read_message, write_message
+from cipher_lab.speck_study.native_control import (
+    ControlServer,
+    read_message,
+    write_diagnostic,
+)
 from cipher_lab.speck_study.native_session import LockedGpu, OwnedTree
 from cipher_lab.speck_study.resources import (
     ResourceStop,
     StudyResources,
     Supervisor,
     directory_bytes,
+    error_codes,
 )
+
+_STAGES = frozenset({'parent-setup', 'parent-origin', 'parent-telemetry', 'parent-spawn',
+                     'parent-monitor', 'parent-finish', 'parent-cleanup', 'parent-final',
+                     'control-check', 'control-closing', 'control-expect-provider',
+                     'control-adopt-provider', 'control-verify', 'control-provider-reaped'})
+_SOURCES = frozenset({'parent', 'supervisor', 'resource', 'control', 'publisher',
+                      'cleanup', 'finalize'})
+
+
+class StopDiagnostics:
+    """Small parent-owned diagnostic, never scientific owner or raw IPC logger."""
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.source_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        self.stage = 'parent-setup'
+        self.first_cause: dict[str, Any] | None = None
+        self.errors: dict[str, Any] = {}
+        self.write_failed = False
+        self.cleanup_codes: list[str] = []
+        self.lock = threading.RLock()
+
+    def set_stage(self, stage: str) -> None:
+        with self.lock:
+            if stage in _STAGES:
+                self.stage = stage
+
+    def snapshot(self) -> dict[str, Any]:
+        with self.lock:
+            return dict(parent_source_sha256=self.source_sha256, first_cause=self.first_cause,
+                        last_stage=self.stage,
+                        errors=dict(self.errors), cleanup_codes=list(self.cleanup_codes),
+                        diagnostic_write_failed=self.write_failed)
+
+    def record(self, source: str, error: BaseException) -> None:
+        if source not in _SOURCES:
+            return
+        with self.lock:
+            codes = error_codes(error)
+            entry = dict(code=codes[0], chain=codes, stage=self.stage)
+            self.errors.setdefault(source, entry)
+            if source == 'cleanup' and codes[0] not in self.cleanup_codes:
+                self.cleanup_codes.append(codes[0])
+            if self.first_cause is None:
+                self.first_cause = dict(source=source, **entry)
+            try:
+                write_diagnostic(self.root/'parent-stop.json', self.snapshot())
+            except BaseException:
+                self.write_failed = True  # never block kill/wait on diagnostic failure
 
 
 class ParentControl:
@@ -297,17 +351,23 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
     root = args.root.resolve(strict=True)
     control = root/('supervision-'+args.id)
     control.mkdir(exist_ok=False)
+    diagnostics = StopDiagnostics(control)
     pair = job = tree = own = resources = server = supervisor = None
     process = None
     origin = None
     complete = False
     errors: list[BaseException] = []
+    parent_error: BaseException | None = None
     try:
         pair = EventPair()
         job = WindowsJob()
         pid,created = current_process_identity()
         # One formal origin BEFORE child imports Torch or provider imports TF.
+        diagnostics.set_stage('parent-origin')
         origin = windows_monotonic()
+        if type(origin) not in (int, float) or not math.isfinite(origin):
+            origin = None
+            raise ResourceStop('CLOCK_UNAVAILABLE')
         tree = OwnedTree(job,pid,created,control)
         own = TelemetryPublisher(control,tree.path('parent'),pid=pid,created=created,
                                  sample=DxgiUsage().sample)
@@ -316,6 +376,7 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
         tree.gpu = gpu
         gpu.lock = tree.lock  # one lifecycle lock; no GPU->tree inverse lock order
         tree.register(pid,created,'parent')
+        diagnostics.set_stage('parent-telemetry')
         own.publish_once()  # CPU-only 0 must be actually observed
         own.start()
         events = pair.channel
@@ -329,9 +390,12 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
         resources = ParentResources(binding,root,origin,origin+28200,origin+28800,tree,
                                    gpu=LockedGpu(tree,gpu),clock=windows_monotonic)
         control_owner = ParentControl(tree,resources,pair.channel)
-        server = ControlServer(control,control_owner.dispatch)
+        server = ControlServer(control,control_owner.dispatch,
+                               on_stage=diagnostics.set_stage,
+                               on_error=lambda error: diagnostics.record('control',error))
         supervisor = Supervisor(resources,request_closing=pair.channel.request,
-                                closing_acknowledged=pair.channel.acknowledged)
+                                closing_acknowledged=pair.channel.acknowledged,
+                                before_cleanup=lambda error: diagnostics.record('supervisor',error))
         env = os.environ.copy()
         env.update(SPECK_STUDY_NATIVE='1',SPECK_STUDY_CONTROL_ROOT=str(control),
                    SPECK_STUDY_ORIGIN=repr(origin),SPECK_STUDY_SCIENCE_DEADLINE=repr(origin+28200),
@@ -355,13 +419,23 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
         def registered(p: int, c: int) -> None:
             tree.register(p,c,'main')
             control_owner.main_pid = p
+        diagnostics.set_stage('parent-spawn')
         with tree.lock:
             process = job.spawn(command,env=env,before_resume=registered,
                                 **pair.spawn_options())
+        diagnostics.set_stage('parent-monitor')
         while process.poll() is None:
-            own.check()
-            if server.error or supervisor.error:
-                raise ResourceStop('CLEANUP_UNKNOWN')
+            try:
+                own.check()
+            except BaseException as error:
+                diagnostics.record('publisher', ResourceStop('GPU_UNVERIFIED'))
+                raise ResourceStop('GPU_UNVERIFIED') from error
+            if server.error is not None:
+                diagnostics.record('control',server.error)
+                raise server.error
+            if supervisor.error is not None:
+                diagnostics.record('supervisor',supervisor.error)
+                raise supervisor.error
             if windows_monotonic() >= resources.close_deadline:
                 raise ResourceStop('CLOSE_DEADLINE')
             time.sleep(.05)
@@ -374,14 +448,26 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
         if not pair.channel.requested() or not pair.channel.acknowledged():
             raise ResourceStop('CLEANUP_UNKNOWN')
         supervisor.closing_requested = True
+        diagnostics.set_stage('parent-finish')
         supervisor.finish(control/'resource-receipt.json',child_exit=process.returncode,
                           child_terminal=verify_terminal(root,args.id,recipe,policy,
                                                         read_message(files['package'])))
     except BaseException as error:
+        # Preserve independent source errors before wrapper/cleanup can mask them.
+        if resources is not None and resources.failure is not None:
+            diagnostics.record('resource',resources.failure)
+        if supervisor is not None and supervisor.error is not None:
+            diagnostics.record('supervisor',supervisor.error)
+        if server is not None and server.error is not None:
+            diagnostics.record('control',server.error)
+        diagnostics.record('parent',error)
         errors.append(error)
+        parent_error = error
         if supervisor is not None:
             supervisor.complete = False
     finally:
+        # Pre-kill evidence is best effort; its own failure MUST NOT block cleanup.
+        diagnostics.set_stage('parent-cleanup')
         if job is not None:
             try:
                 job.retain_members()  # capture owned identities before async TERM
@@ -389,7 +475,16 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
                 errors.append(error)
         if supervisor is not None:
             supervisor.stop_event.set()
-            errors.extend(supervisor.cleanup_tree())
+            try:
+                errors.extend(supervisor.cleanup_tree())
+            except BaseException as error:
+                errors.append(error)
+                if job is not None:
+                    try:
+                        job.dispose(release_processes=False)
+                    except BaseException as fallback:
+                        errors.append(fallback)
+            errors.extend(supervisor.cleanup_errors)
         elif job is not None:
             try:
                 job.close()
@@ -401,8 +496,11 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
                     errors.append(fallback)
         reap_evidence: dict[str,Any] = {}
         if job is not None:
-            reap_evidence, reap_errors = reap_owned(job,process)
-            errors.extend(reap_errors)
+            try:
+                reap_evidence, reap_errors = reap_owned(job,process)
+                errors.extend(reap_errors)
+            except BaseException as error:
+                errors.append(error)
             if reap_evidence.get('job_empty') is not True:
                 errors.append(ResourceStop('CLEANUP_UNKNOWN'))
         actions = []
@@ -432,25 +530,69 @@ def launch_native(args: Any, recipe: Any, policy: Any, settings: Any) -> int:
                 errors.append(ResourceStop('CLOSE_DEADLINE'))
         except BaseException as error:
             errors.append(error)
-        complete = supervisor is not None and supervisor.complete and not errors
-        write_message(control/'parent-final.json',dict(status='COMPLETE' if complete else 'UNKNOWN',
-                      child_exit=None if process is None else process.returncode,
-                      receipt_evidence={} if supervisor is None else supervisor.receipt_evidence,
-                      reap_evidence=reap_evidence,
-                      evidence='dxgi-self-per-process+parent-luid',origin=origin,
-                      science_deadline=None if origin is None else origin+28200,
-                      close_deadline=None if origin is None else origin+28800))
-        # Receipt/final-write elapsed time is part of the SAME close window.
-        # A late/corrupt write cannot release an in-memory successful exit.
+        # Cleanup errors are secondary; never replace the saved first cause.
+        if supervisor is not None and supervisor.error is not None:
+            diagnostics.record('supervisor',supervisor.error)
+        if server is not None and server.error is not None:
+            diagnostics.record('control',server.error)
+        for cleanup_error in errors:
+            # The first caught parent error has already been recorded above.
+            if diagnostics.first_cause is None or cleanup_error is not parent_error:
+                diagnostics.record('cleanup',cleanup_error)
+        diagnostics.set_stage('parent-final')
+        complete = (supervisor is not None and supervisor.complete and not errors
+                    and not diagnostics.write_failed and diagnostics.first_cause is None)
+        # The sampler has stopped; final I/O checks must advance their OWN
+        # high-water mark, not repeatedly compare against its frozen last_wall.
+        final_wall = origin if resources is None else resources.last_wall
+        clock_regressed = False
+        def final_limits() -> None:
+            nonlocal final_wall, clock_regressed
+            now = windows_monotonic()
+            if origin is None or type(now) not in (int,float) or not math.isfinite(now):
+                raise ResourceStop('CLOCK_UNAVAILABLE')
+            if now < origin or (final_wall is not None and now < final_wall):
+                clock_regressed = True
+                raise ResourceStop('CLOCK_UNAVAILABLE')
+            if now >= origin+28800:
+                raise ResourceStop('CLOSE_DEADLINE')
+            if directory_bytes(root) > 4*2**30:
+                raise ResourceStop('OUTPUT_LIMIT')
+            final_wall = now
+        def final_record(status: str) -> dict[str, Any]:
+            return dict(status=status,
+                        child_exit=None if process is None else process.returncode,
+                        receipt_evidence={} if supervisor is None else supervisor.receipt_evidence,
+                        reap_evidence=reap_evidence, diagnostics=diagnostics.snapshot(),
+                        evidence='dxgi-self-per-process+parent-luid',origin=origin,
+                        science_deadline=None if origin is None else origin+28200,
+                        close_deadline=None if origin is None else origin+28800)
+        # Finite JSON, atomic replace and target readback. All elapsed write/read
+        # time remains in the SAME formal clock. Never release in-memory success
+        # after late/corrupt I/O. Failed UNKNOWN persistence stays explicitly unknown.
         try:
-            if (origin is None or windows_monotonic() >= origin+28800
-                    or directory_bytes(root) > 4*2**30):
-                complete = False
-        except BaseException:
+            final_limits()
+            write_diagnostic(control/'parent-final.json',
+                             final_record('COMPLETE' if complete else 'UNKNOWN'))
+            final_limits()
+        except BaseException as error:
             complete = False
+            diagnostics.record('finalize',error)
         if not complete:
-            write_message(control/'parent-final.json',dict(status='UNKNOWN',
-                          child_exit=None if process is None else process.returncode,
-                          origin=origin,reap_evidence=reap_evidence,
-                          evidence='dxgi-self-per-process+parent-luid'))
+            remove_final = clock_regressed
+            try:
+                write_diagnostic(control/'parent-final.json',final_record('UNKNOWN'))
+            except BaseException as error:
+                diagnostics.record('finalize',error)
+                remove_final = True
+            if remove_final:
+                # Retreated final clock invalidates the final even if the
+                # UNKNOWN rewrite succeeded. The independent stop marker remains.
+                # Do not leave a provisional COMPLETE after failed downgrade.
+                # If even unlink fails, saved final is untrusted: exit7 and the
+                # independently saved stop marker take precedence (never release).
+                try:
+                    (control/'parent-final.json').unlink(missing_ok=True)
+                except BaseException as unlink_error:
+                    diagnostics.record('finalize',unlink_error)
     return 0 if complete else 7

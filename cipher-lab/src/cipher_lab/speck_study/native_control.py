@@ -50,6 +50,24 @@ def write_message(path: Path, value: dict[str, Any]) -> None:
     os.replace(pending, path)
 
 
+def write_diagnostic(path: Path, value: dict[str, Any]) -> None:
+    """Same atomic finite JSON mailbox plus exact target-byte readback.
+
+    No power-loss/Windows namespace durability claim. Caller handles all failures
+    without suppressing Job termination. This does not change RPC frame policy.
+    """
+    expected = json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+    write_message(path, value)
+    actual = _read_frame_bytes(path.parent, path)
+    if len(actual) != len(expected) or hashlib.sha256(actual).digest() != hashlib.sha256(
+            expected).digest():
+        raise ResourceStop('FINALIZE_FAILED')
+
+
+_CONTROL_KINDS = frozenset({'check', 'closing', 'expect-provider', 'adopt-provider',
+                            'verify', 'provider-reaped'})
+
+
 class ControlClient:
     def __init__(self, root: Path, deadline: float, *,
                  clock: Callable[[], float] = windows_monotonic) -> None:
@@ -88,8 +106,11 @@ class ControlClient:
 
 
 class ControlServer:
-    def __init__(self, root: Path, dispatch: Callable[..., dict[str, Any]]) -> None:
+    def __init__(self, root: Path, dispatch: Callable[..., dict[str, Any]], *,
+                 on_stage: Callable[[str], None] | None = None,
+                 on_error: Callable[[BaseException], None] | None = None) -> None:
         self.root, self.dispatch = root, dispatch
+        self.on_stage, self.on_error = on_stage, on_error
         self.seq = 0
         self.digest = ''
         self.error: BaseException | None = None
@@ -109,6 +130,8 @@ class ControlServer:
                 or type(request['payload']) is not dict):
             raise ValueError('invalid control sequence')
         self.seq, self.digest = request['seq'], digest
+        if self.on_stage is not None and request['kind'] in _CONTROL_KINDS:
+            self.on_stage('control-'+request['kind'])
         result = self.dispatch(request['kind'], **request['payload'])
         write_message(self.root/'response.json', dict(seq=self.seq, ok=True, value=result))
 
@@ -119,6 +142,11 @@ class ControlServer:
                     self.poll()
                 except BaseException as error:
                     self.error = error
+                    if self.on_error is not None:
+                        try:
+                            self.on_error(error)
+                        except BaseException:
+                            pass  # preserve original error, parent still kills
                     return
         self.thread = threading.Thread(target=loop, daemon=True, name='study-control')
         self.thread.start()
