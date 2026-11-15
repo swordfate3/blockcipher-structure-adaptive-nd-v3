@@ -24,12 +24,17 @@ class LaunchSettings:
     source_manifest: Path
 
     def __post_init__(self) -> None:
+        # Same address language as platform_resources.gpu.pci, without importing
+        # machine observation here: only a zero-extended 16-bit domain is valid.
+        pci = (re.fullmatch(
+            r'(?:0000)?([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7])',
+            self.gpu_pci) if type(self.gpu_pci) is str else None)
         if (self.revision != OFFICIAL_REVISION or self.weights_sha256 != OFFICIAL_WEIGHTS_SHA256
                 or re.fullmatch(r'GPU-[a-fA-F0-9]{8}(?:-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}',
                                 self.gpu_uuid) is None
-                or re.fullmatch(r'[a-fA-F0-9]{4}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}\.[0-7]',
-                                self.gpu_pci) is None):
+                or pci is None):
             raise ValueError('invalid frozen study metadata')
+        object.__setattr__(self, 'gpu_pci', pci[1].lower())
         for path in (self.teacher_python, self.weights, self.source_manifest):
             if not path.is_absolute() or not path.is_file() or path.is_symlink():
                 raise ValueError('missing explicit launch file')

@@ -7,6 +7,9 @@ Main's existing fake application still uses CPU NumPy under its own guards.
 Examples (root MUST be new, exclusively owned by this invocation):
   python -B tests/speck_portable_selfcheck.py --mode main --rootowned <new-path>
   python -B tests/speck_portable_selfcheck.py --mode provider --rootowned <new-path>
+  python -B tests/speck_portable_selfcheck.py --mode launch-metadata --rootowned <new-path>
+      -- run <full actual cipher-lab run arguments, including --source-manifest>
+Launch-metadata only checks files exist; never reads H5, claims or launches native.
 No pytest, installation, real native parent, weights, cipher, entropy or NN.
 The driver is not a security sandbox: reviewed test code has explicit fake seams.
 """
@@ -430,12 +433,116 @@ def metadata() -> dict[str, Any]:
     return result
 
 
+def launch_metadata(root: Path, argv: list[str]) -> int:
+    """Frozen REAL CLI parse/settings, cut off at both execution dispatch seams."""
+    import contextlib
+    import dataclasses
+
+    traps = Traps(check_only=True, deny_numpy=True)
+    traps.install()
+    traps.finish_entropy()
+    # No platform.system/machine/uname/ver or native-control imports are allowed.
+    import platform
+    for name in ('system', 'machine', 'uname', 'win32_ver', 'platform', 'processor'):
+        setattr(platform, name, traps.forbidden)
+    bootstrap = load_entry('metadata_main_source', ROOT / 'tools/speck-study/source.py')
+    original = bootstrap.SourceOnly
+    captured: dict[str, Any] = {}
+    # Main production runtime is >=3.10 (dataclass slots). On provider3.9 ONLY,
+    # remove the decorator storage optimization in this guarded metadata test.
+    # Source bytes/validators are unchanged; this is NOT production3.9 support.
+    adapter = sys.version_info < (3, 10)
+    decorator = dataclasses.dataclass
+    if adapter:
+        def no_slots(*args: Any, **kwargs: Any) -> Any:
+            kwargs.pop('slots', None)
+            return decorator(*args, **kwargs)
+        dataclasses.dataclass = no_slots
+
+    def capture(recipe: Any, policy: Any, formal_root: Path, run_id: str,
+                backend: str, *, study: Any = None) -> int:
+        assert study is not None and backend == 'speck-study'
+        canonical = list(argv)
+        # argparse also accepts --gpu-pci=VALUE; preserve all other argv bytes.
+        for i, token in enumerate(canonical):
+            if token == '--gpu-pci':
+                canonical[i + 1] = study.gpu_pci
+            elif token.startswith('--gpu-pci='):
+                canonical[i] = '--gpu-pci=' + study.gpu_pci
+        captured.update(gpu_uuid=study.gpu_uuid, gpu_pci=study.gpu_pci,
+                        canonical_full_argv=canonical)
+        return 0
+
+    # CLI on Windows dispatches here before _run; this module is an explicit
+    # test double, never the real native parent, DLL, QPC or origin setup.
+    native = ModuleType('cipher_lab.speck_study.native_parent')
+    native.launch_native = lambda args, recipe, policy, study: capture(  # type: ignore[attr-defined]
+        recipe, policy, args.root, args.id, args.backend, study=study)
+
+    allowed = {'cipher_lab', 'cipher_lab.cli', 'cipher_lab.config',
+               'cipher_lab.training_config', 'cipher_lab.speck_study_config',
+               'cipher_lab.speck_study_launch'}
+
+    class MetadataSourceOnly(original):  # type: ignore[valid-type,misc]
+        def exec_module(self, module: Any) -> None:
+            traps.find_spec(module.__name__)
+            if module.__name__ not in allowed:
+                traps.forbidden()
+            super().exec_module(module)
+            if module.__name__ == 'cipher_lab.cli':
+                sys.modules[native.__name__] = native
+                module._run = capture
+
+    bootstrap.SourceOnly = MetadataSourceOnly
+    stderr = io.StringIO()
+    try:
+        # Locate frozen manifest using argparse (not a manually truncated argv).
+        options = argparse.ArgumentParser(allow_abbrev=False, add_help=False)
+        options.add_argument('--source-manifest', type=Path, required=True)
+        with contextlib.redirect_stderr(stderr):
+            try:
+                if argv[:1] != ['run']:
+                    raise ValueError('full run argv required')
+                parsed, _ = options.parse_known_args(argv)
+                code = bootstrap.main(['run', str(parsed.source_manifest),
+                                       str(ROOT / 'src'), *argv])
+            except SystemExit as error:
+                code = error.code if type(error.code) is int else 2
+            except (OSError, ValueError):
+                code = 2
+        valid = code == 0 and bool(captured)
+        code = 0 if valid else 2
+        assert traps.violations == 0
+        assert all(n in allowed or n == native.__name__ for n in sys.modules
+                   if n.startswith('cipher_lab'))
+        summary = dict(mode='launch-metadata', parse=valid, exit_code=code,
+            actual_full_argv=argv, sourceonly='cipher_lab.cli' in sys.modules,
+            claim=False, native=False, origin=False,
+            actual_interpreter=sys.executable, actual_version=sys.version,
+            py39_test_only_slots_adapter=adapter,
+            production_main_requires_py310=True,
+            counts={'real_blocks': 0, 'real_labels': 0, 'real_nn_forward': 0,
+                    'real_key_entropy': 0, 'real_native_calls': 0},
+            guards={'installed': True, 'violations': traps.violations},
+            scope='metadata-only; NOT device availability, weights hash, R0 or authorization',
+            **captured)
+        write_json(root / 'summary.json', summary)
+        (root / 'cli.stderr.log').write_text(stderr.getvalue(), encoding='utf8')
+        print(json.dumps(summary, ensure_ascii=True, sort_keys=True))
+        return code
+    finally:
+        dataclasses.dataclass = decorator
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode', required=True, choices=('main', 'provider'))
+    parser.add_argument('--mode', required=True, choices=('main', 'provider', 'launch-metadata'))
     parser.add_argument('--rootowned', required=True, type=Path)
     parser.add_argument('--worker', choices=('check', 'chain', 'provider'), help=argparse.SUPPRESS)
+    parser.add_argument('launch_argv', nargs=argparse.REMAINDER, help='-- full cipher-lab run argv')
     args = parser.parse_args()
+    if args.mode != 'launch-metadata' and args.launch_argv:
+        parser.error('launch argv requires launch-metadata mode')
     root = args.rootowned.absolute()
     if any(p.is_symlink() for p in (root, *root.parents)):
         raise ValueError('rootowned symlink forbidden')
@@ -460,6 +567,11 @@ def main() -> int:
                       TMP=str(root / 'temp'), TMPDIR=str(root / 'temp'),
                       XDG_CACHE_HOME=str(root / 'cache'),
                       PYTHONPYCACHEPREFIX=str(root / 'cache'))
+    if args.mode == 'launch-metadata':
+        argv = args.launch_argv
+        if argv[:1] == ['--']:
+            argv = argv[1:]
+        return launch_metadata(root, argv)
     launch = subprocess.run  # sole reviewed process seam: our guarded workers
     traps = Traps()
     traps.install()

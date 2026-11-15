@@ -269,3 +269,60 @@ raise SystemExit(module.main(['run',str(manifest),str(root)]+sys.argv[4:]))
         capture_output=True,text=True,timeout=15)
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)['estimate']['teacher_rows'] == 1161000000
+
+
+@pytest.mark.parametrize('raw,canonical', [
+    ('00000000:AF:00.0', '0000:af:00.0'),
+    ('0000:AF:00.0', '0000:af:00.0'),
+    ('0000af01:AB:CD.7', 'af01:ab:cd.7'),
+    ('AF01:AB:CD.7', 'af01:ab:cd.7'),
+])
+def test_launch_pci_matches_binding_normalization(
+    tmp_path: Path, raw: str, canonical: str,
+) -> None:
+    from cipher_lab.platform_resources.gpu import GpuBinding, GpuError, pci, verify_runtime
+    from cipher_lab.speck_study_launch import (
+        OFFICIAL_REVISION,
+        OFFICIAL_WEIGHTS_SHA256,
+        LaunchSettings,
+    )
+    weight = tmp_path / 'fake.h5'
+    weight.write_bytes(b'NEVER LOAD')
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text('{}')
+    uuid = 'GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5'
+    settings = LaunchSettings(Path(sys.executable).resolve(), weight, OFFICIAL_REVISION,
+                              OFFICIAL_WEIGHTS_SHA256, uuid, raw, manifest)
+    assert settings.gpu_pci == canonical == pci(raw)
+    # Same model name intentionally irrelevant: identity remains UUID AND PCI.
+    binding = GpuBinding.from_snapshot(1, [dict(index=0, model='same',
+        gpu_uuid='GPU-00000000-0000-0000-0000-000000000000', pci_bus_id='0000:01:00.0'),
+        dict(index=1, model='same', gpu_uuid=uuid, pci_bus_id=raw)])
+    assert (binding.gpu_uuid, binding.pci_bus_id) == (settings.gpu_uuid, settings.gpu_pci)
+    evidence = dict(gpu_uuid=uuid, pci_bus_id=raw, logical_device=0, pid=1,
+                    evidence='cuda-current-context')
+    verify_runtime(binding, evidence)  # pure synthetic identity comparison
+    for field, wrong in (('gpu_uuid', 'GPU-other'), ('pci_bus_id', '0000:02:00.0')):
+        with pytest.raises(GpuError):
+            verify_runtime(binding, {**evidence, field: wrong})
+
+
+@pytest.mark.parametrize('raw', [True, False, None, 0, '', 'ordinal1',
+    '10000000:AF:00.0', '00010000:AF:00.0', '00000:AF:00.0', '0000000:AF:00.0',
+    '000000000:AF:00.0', '0x000000:AF:00.0', '00000000:AF:00.8', '0000:AF:00.-1',
+    '0000:AG:00.0', '0000:AF:0.0', '0000:AF:00.00', '0000:AF:00.0\n',
+    ' 0000:AF:00.0', '0000:AF:00.0 '])
+def test_launch_pci_rejects_non_equivalent_or_malformed(tmp_path: Path, raw: object) -> None:
+    from cipher_lab.speck_study_launch import (
+        OFFICIAL_REVISION,
+        OFFICIAL_WEIGHTS_SHA256,
+        LaunchSettings,
+    )
+    weight = tmp_path / 'fake.h5'
+    weight.write_bytes(b'NEVER LOAD')
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text('{}')
+    with pytest.raises(ValueError):
+        LaunchSettings(Path(sys.executable).resolve(), weight, OFFICIAL_REVISION,
+            OFFICIAL_WEIGHTS_SHA256, 'GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5',
+            raw, manifest)  # type: ignore[arg-type]

@@ -169,3 +169,121 @@ assert trap.violations == 0
     result = subprocess.run([sys.executable, '-B', '-c', script, str(ENTRY)],
                             cwd=tmp_path, capture_output=True, text=True, timeout=5)
     assert result.returncode == 0, result.stderr
+
+
+def metadata_argv(tmp_path: Path) -> list[str]:
+    """Real proposal constants; paths are explicit local file-only fixtures."""
+    import runpy
+    source = runpy.run_path(str(ROOT / 'tools/speck-study/source.py'))
+    manifest = tmp_path / 'main.json'
+    source['freeze_all'](manifest, ROOT / 'src')
+    weights = tmp_path / 'net8_small.h5'
+    weights.write_bytes(b'METADATA FIXTURE, NEVER READ OR LOAD H5')
+    return ['run', '--config', str(ROOT / 'configs/speck-study-paper.json'),
+        '--policy', str(ROOT / 'configs/speck-study-policy.json'),
+        '--root', str(tmp_path / 'FORMAL-ROOT-MUST-NOT-EXIST'), '--id', 'speck-final-001',
+        '--backend', 'speck-study', '--teacher-python', str(Path(sys.executable).resolve()),
+        '--teacher-weights', str(weights),
+        '--weights-revision', '96344da116ff624be30f503038b22f26c7f7f693',
+        '--weights-sha256', '15c58fff86855e882be1f977e42006761eeb5b9af28739d7a7fc8f44834902c0',
+        '--gpu-uuid', 'GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5',
+        '--gpu-pci', '00000000:AF:00.0', '--source-manifest', str(manifest)]
+
+
+@pytest.mark.parametrize('pci', ['00000000:AF:00.0', '0000:AF:00.0'])
+def test_portable_launch_metadata_full_frozen_cli(pci: str, tmp_path: Path) -> None:
+    argv = metadata_argv(tmp_path)
+    argv[argv.index('--gpu-pci') + 1] = pci
+    owned = tmp_path / 'metadata'
+    result = subprocess.run([sys.executable, '-B', str(ENTRY), '--mode', 'launch-metadata',
+        '--rootowned', str(owned), '--', *argv], cwd=ROOT,
+        env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stdout + result.stderr
+    saved = json.loads(result.stdout)
+    assert saved['parse'] is True and saved['gpu_pci'] == '0000:af:00.0'
+    assert saved['gpu_uuid'] == 'GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5'
+    assert saved['actual_full_argv'] == argv
+    canonical = saved['canonical_full_argv']
+    assert canonical[canonical.index('--gpu-pci') + 1] == '0000:af:00.0'
+    assert saved['guards']['violations'] == 0
+    assert not saved['claim'] and not saved['native'] and not saved['origin']
+    assert all(count == 0 for count in saved['counts'].values())
+    assert saved['sourceonly'] is True
+    assert not (tmp_path / 'FORMAL-ROOT-MUST-NOT-EXIST').exists()
+    assert not list(tmp_path.rglob('*.pyc'))
+    assert not list((ROOT / 'src').rglob('*.pyc'))
+
+
+@pytest.mark.parametrize('flag,value', [
+    ('--gpu-pci', '00010000:AF:00.0'), ('--gpu-pci', '10000000:AF:00.0'),
+    ('--gpu-pci', '0x000000:AF:00.0'), ('--gpu-pci', '00000000:AF:00.8'),
+    ('--gpu-pci', ''), ('--teacher-python', '/missing/python'),
+    ('--teacher-weights', '/missing/weights.h5'), ('--backend', 'demo'),
+    ('--weights-revision', 'main'), ('--gpu-uuid', 'GPU-1'),
+    ('--UNRECOGNIZED', 'value'),
+])
+def test_portable_launch_metadata_negative_cli(
+    flag: str, value: str, tmp_path: Path,
+) -> None:
+    argv = metadata_argv(tmp_path)
+    if flag in argv:
+        argv[argv.index(flag) + 1] = value
+    else:
+        argv.extend([flag, value])
+    owned = tmp_path / 'metadata-negative'
+    result = subprocess.run([sys.executable, '-B', str(ENTRY), '--mode', 'launch-metadata',
+        '--rootowned', str(owned), '--', *argv], cwd=ROOT,
+        env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode == 2, result.stdout + result.stderr
+    saved = json.loads(result.stdout)
+    assert saved['parse'] is False and saved['exit_code'] == 2
+    assert saved['guards']['violations'] == 0
+    assert not saved['claim'] and not saved['native'] and not saved['origin']
+    assert not (tmp_path / 'FORMAL-ROOT-MUST-NOT-EXIST').exists()
+    assert not list(tmp_path.rglob('*.pyc'))
+
+
+@pytest.mark.parametrize('case', ['check', 'no-manifest', 'missing-manifest', 'wrong-manifest',
+                                  'windows-dispatch', 'py39-adapter'])
+def test_metadata_boundary_and_test_only_compatibility(case: str, tmp_path: Path) -> None:
+    argv = metadata_argv(tmp_path)
+    if case == 'check':
+        argv[0] = 'check'
+    elif case == 'no-manifest':
+        del argv[-2:]
+    elif case == 'missing-manifest':
+        argv[-1] = str(tmp_path / 'missing.json')
+    elif case == 'wrong-manifest':
+        Path(argv[-1]).write_text('{}')
+    # Simulate Windows dispatch without native import/probe. Also exercise the
+    # 3.9 test-only decorator adapter on this interpreter; NOT a 3.9 runtime test.
+    script = '''
+import runpy, sys
+ns = runpy.run_path(sys.argv[1], run_name='metadata_boundary_test')
+if sys.argv[2] == 'windows-dispatch':
+    import builtins
+    from types import SimpleNamespace
+    original = builtins.__import__
+    def windows_cli_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == 'os' and globals and globals.get('__name__') == 'cipher_lab.cli':
+            return SimpleNamespace(name='nt', environ=ns['os'].environ)
+        return original(name, globals, locals, fromlist, level)
+    builtins.__import__ = windows_cli_import
+elif sys.argv[2] == 'py39-adapter':
+    sys.version_info = (3, 9, 13)
+# Path must be constructed before synthetic os.name changes.
+root = ns['Path'](sys.argv[3]); root.mkdir()
+raise SystemExit(ns['launch_metadata'](root, sys.argv[4:]))
+'''
+    result = subprocess.run([sys.executable, '-B', '-c', script, str(ENTRY), case,
+        str(tmp_path / 'owned'), *argv], cwd=ROOT,
+        capture_output=True, text=True, timeout=15)
+    expected = 0 if case in ('windows-dispatch', 'py39-adapter') else 2
+    assert result.returncode == expected, result.stdout + result.stderr
+    saved = json.loads(result.stdout)
+    assert saved['parse'] is (expected == 0)
+    assert saved['py39_test_only_slots_adapter'] is (case == 'py39-adapter')
+    assert saved['guards']['violations'] == 0
+    assert not (tmp_path / 'FORMAL-ROOT-MUST-NOT-EXIST').exists()
