@@ -24,6 +24,7 @@ _REASONS = frozenset({
     "RSS_UNAVAILABLE", "CLOCK_UNAVAILABLE", "REAL_BLOCKS_LIMIT", "NULL_WORDS_LIMIT",
     "DOMAIN_REUSED", "RANDOM_UNAVAILABLE", "KEY_REUSE_LIMIT", "ORACLE_FAILED",
     "ORACLE_RESPONSE", "OPTIMIZER_UPDATES_LIMIT", "FORWARD_ROWS_LIMIT",
+    "ARM_WALL_LIMIT", "ARM_CPU_LIMIT",
 })
 
 
@@ -96,6 +97,11 @@ class Meter:
         self._deadline = datetime.fromisoformat(
             policy.deadline_utc[:-1] + "+00:00"
             if policy.deadline_utc.endswith("Z") else policy.deadline_utc)
+        self._active_budget: CumulativeBudget | None = None
+
+    def cumulative_budget(self, *, wall_seconds: float, cpu_seconds: float) -> CumulativeBudget:
+        """A serial active-time accumulator on this meter, not another executor."""
+        return CumulativeBudget(self, wall_seconds, cpu_seconds)
 
     def _sample_clocks(self) -> tuple[float, float, datetime]:
         try:
@@ -114,6 +120,8 @@ class Meter:
         if elapsed_wall < self._wall_elapsed or elapsed_cpu < self._cpu_elapsed:
             raise Stopped("CLOCK_UNAVAILABLE")
         self._wall_elapsed, self._cpu_elapsed = elapsed_wall, elapsed_cpu
+        if self._active_budget is not None:
+            self._active_budget._check(wall, cpu)
         if utc >= self._deadline:
             raise Stopped("DEADLINE")
         if elapsed_wall >= self._policy.wall_seconds:
@@ -164,3 +172,54 @@ class Meter:
             "cpu_elapsed_seconds": self._cpu_elapsed,
             "rss_bytes": self._rss,
         }
+
+
+class CumulativeBudget:
+    """Accumulate only active serial segments using the parent's sampled clocks."""
+
+    def __init__(self, meter: Meter, wall_seconds: float, cpu_seconds: float) -> None:
+        if any(type(v) not in (float, int) or not math.isfinite(v) or v <= 0
+               for v in (wall_seconds, cpu_seconds)):
+            raise ValueError('invalid cumulative limits')
+        self.meter = meter
+        self.limits = wall_seconds, cpu_seconds
+        self.total = [0., 0.]
+        self.start: tuple[float, float] | None = None
+        self.latest: tuple[float, float] | None = None
+
+    def __enter__(self) -> CumulativeBudget:
+        if self.meter._active_budget is not None or self.start is not None:
+            raise ValueError('nested cumulative budget')
+        self.meter.check()
+        self.start = self.latest = (self.meter._start_wall + self.meter._wall_elapsed,
+                                   self.meter._start_cpu + self.meter._cpu_elapsed)
+        self.meter._active_budget = self
+        return self
+
+    def _check(self, wall: float, cpu: float) -> None:
+        assert self.start is not None
+        self.latest = wall, cpu
+        elapsed = [self.total[i] + self.latest[i] - self.start[i] for i in range(2)]
+        for index, reason in enumerate(('ARM_WALL_LIMIT', 'ARM_CPU_LIMIT')):
+            if elapsed[index] >= self.limits[index]:
+                raise Stopped(reason)
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        try:
+            try:
+                self.meter.check()
+            except Stopped:
+                # Keep an already propagating storage/identity/failure exception.
+                # Successful segments must still fail closed on clocks or limits.
+                if exc_type is None:
+                    raise
+        finally:
+            assert self.start is not None and self.latest is not None
+            for i in range(2):
+                self.total[i] += self.latest[i] - self.start[i]
+            self.start = None
+            self.meter._active_budget = None
+
+    def snapshot(self) -> dict[str, object]:
+        return {'wall_seconds': self.total[0], 'cpu_seconds': self.total[1],
+                'wall_limit_seconds': self.limits[0], 'cpu_limit_seconds': self.limits[1]}

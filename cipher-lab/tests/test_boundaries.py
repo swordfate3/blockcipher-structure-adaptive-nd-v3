@@ -44,6 +44,18 @@ def test_no_old_package_or_historical_data_dependencies(path: Path) -> None:
             "exec",
             "eval",
         ):
+            # The sole exception is the explicit trusted plugin dispatch call,
+            # in that exact module/function, never another dynamic operation.
+            parents = {child: parent for parent in ast.walk(tree)
+                       for child in ast.iter_child_nodes(parent)}
+            parent: ast.AST = node
+            while parent in parents and not isinstance(parent, (ast.FunctionDef,
+                                                               ast.AsyncFunctionDef)):
+                parent = parents[parent]
+            if (path == PACKAGE / "plugin_cli.py" and isinstance(parent, ast.FunctionDef)
+                    and parent.name == "dispatch"
+                    and ast.unparse(node.func) == "importlib.import_module"):
+                continue
             pytest.fail(f"dynamic dependency evades boundaries: {path}")
 
 
@@ -67,6 +79,27 @@ def test_algorithm_and_report_import_boundaries(relative: str, forbidden: set[st
             name.endswith((".read_text", ".read_bytes", ".write_text", ".write_bytes"))
             for name in calls(tree)
         )
+
+
+def test_plugin_loader_has_exactly_one_stdlib_dynamic_import_boundary() -> None:
+    path = PACKAGE / "plugin_cli.py"
+    assert path.is_file(), "explicit plugin boundary is not implemented"
+    tree = ast.parse(path.read_text())
+    dynamic = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+               and ast.unparse(node.func) == "importlib.import_module"]
+    assert len(dynamic) == 1
+    dispatch = next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "dispatch")
+    assert dynamic[0] in list(ast.walk(dispatch))
+    for name in imports(tree):
+        assert name.split(".")[0] in sys.stdlib_module_names | {"__future__"}
+    # No alias can smuggle in a second loader that evades the exact call check.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert all(alias.asname is None for alias in node.names)
+        if isinstance(node, ast.ImportFrom):
+            assert node.module != "importlib"
+            assert node.level == 0
 
 
 def test_production_wiring_is_explicit_and_claim_precedes_imports() -> None:

@@ -4,6 +4,26 @@
 2080 项观测（64 单位项 + 2016 二次项）、完整 cube 采集、固定 D/S/冻结/C 与 null
 流程、协作式预算、唯一运行记录及保存结果报告。**工程演示不是实际 SIMON 实验，经验不是证明。**
 
+## 多位差分关系预测插件（2026-11-16）
+
+已新增独立外置插件 `shared-m-differential-relations-v1`：SIMON64/128六轮、固定输入差分0x40、四条预固定四位奇偶关系；shared-M预测模型逐对输出4个logits，原四密码分类模型保持原样。实验配置与五fit矩阵见 `configs/differential-relations-simon6.json`，设计与实施计划在仓库根目录 `docs/superpowers/`（只记录方案，尚未真实执行）。
+
+本轮只做插件边界接通与本地合成/static验证：**真实科学还没开始**——没有真实网络前向、密码/KAT、GPU、Windows或远端运行，尚无本实验科学结果；旧扩展全量外置迁移也尚未完成。
+
+源码入口（在 `cipher-lab/` 目录执行，Python≥3.12；`PYTHONPATH` 必须同时含 `src` 和 `plugins`，否则插件包无法导入）：
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:plugins /workspace/.venv/bin/python -m cipher_lab.cli check \
+  --plugin cipher_lab_plugins.differential_relations.cli \
+  --config configs/differential-relations-simon6.json
+```
+
+`check` 只校验冻结配置，不探测设备、不创建 run。正式 `run` 另须显式 `--root --id --device cuda:0 --gpu-uuid --gpu-pci`。
+
+本插件只有一个启动脚本 `plugins/cipher_lab_plugins/differential_relations/start.ps1`，七个必填参数：`-Python -Repo -Config -Root -Id -GpuUuid -GpuPci`。它要求已有兼容Python、明确物理卡和 `G:\lxy` 范围内的新输出；不安装、不同步源码、不自动选其他GPU。科学总wall 8小时、每fit 90分钟、共享数据/收尾30分钟均为合作式停止检查；原生调用和最后终态IO可能迟到，需结合退出码与 `CLOSING_OK/CLOSING_FAILED`。显存为间隔采样，非连续峰值硬限制。
+
+产物为 `data/<id>/run.json`、一个合并事件日志及紧凑NPZ，`models/<id>/` 最多五个插件声明的 `F1-best..F5-best`，`result/<id>/report.html` 单文件。插件 `evaluate` 显式读取原run/checkpoint/dataset并核实际身份，不再生标签；取回默认不调用它。
+
 ## 入口与权限
 
 已实现 `cipher-lab check/run/evaluate`（打包入口）；未安装时在本目录使用下列源码入口，二者参数相同。

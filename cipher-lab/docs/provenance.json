@@ -42,11 +42,13 @@
         "32-bit SIMON round function and high-x/low-y block packing"
       ],
       "changes": [
-        "Independent standard-library batch implementation; no old imports, state traces, NumPy or additional dependencies.",
+        "Original standard-library encrypt_many implementation and training callers remain unchanged; no old imports or state traces.",
         "Accept four low-word-first uint32 key words instead of a packed uint128; schedule once per batch, return only complete ciphertext blocks.",
-        "Strict tuple/uint32/uint64 validation, 1..44 rounds and 1..65536 blocks; private sampling and resource accounting remain outside the cipher."
+        "Strict tuple/uint32/uint64 validation, 1..44 rounds and 1..65536 blocks; private sampling and resource accounting remain outside the cipher.",
+        "The vector extension adds encrypt_batch with lazy existing NumPy, uint32 rounds/schedule and high-x/low-y uint64 packing; native C-contiguous one-dimensional uint64 inputs, 0..65536 blocks, no mutation or private sampling. This release explicitly selects it through the differential-relations plugin; scalar encrypt_many and existing core CLI selection remain unchanged.",
+        "source_path is the original pre-archive provenance location, not a claimed live file; the recorded original source_sha256 is preserved. No archived source was imported or executed for the batch derivation."
       ],
-      "validation": "Static source review only. No KAT, encrypt_many call or real encryption performed. tests/test_collection.py injects fake oracles and replaces production encrypt_many with an assertion-only no-call guard; fake tests do not establish SIMON correctness."
+      "validation": "Pre-release validation is static review and the differential-relations fake tests. test_differential_relations_application injects artificial scalar/batch oracles and poisons both production entries; it checks KAT call ordering and accounting without executing the cipher. No official KAT, complete cipher call, private scientific labels or neural update has been executed for this release at commit time. The approved run performs its own charged official KAT and scalar/vector checks before private labels; fake tests do not establish SIMON correctness."
     },
     {
       "source_path": "/workspace/src/cipher_experiments/ciphers/simeck64.py",

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from cipher_lab.config import Policy, Recipe, load_experiment, load_policy
+from cipher_lab.plugin_cli import dispatch
 from cipher_lab.speck_study_config import SpeckStudyRecipe, estimate_study
 from cipher_lab.speck_study_launch import LaunchSettings
 from cipher_lab.training_config import PredictionRecipe, SharedMRecipe
@@ -316,6 +317,9 @@ def _saved_report(store: object, root: Path, run_id: str, backend: str,
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    delegated = dispatch(sys.argv[1:] if argv is None else argv)
+    if delegated is not None:
+        return delegated
     parser = argparse.ArgumentParser(prog="cipher-lab", allow_abbrev=False)
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser(
