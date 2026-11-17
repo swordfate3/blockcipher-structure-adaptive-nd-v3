@@ -32,6 +32,14 @@ def device_only_guard(monkeypatch: Any) -> None:
     monkeypatch.setattr(torch.nn.Module, '__init__', forbidden)
     monkeypatch.setattr(torch.optim.Optimizer, '__init__', forbidden)
     monkeypatch.setattr(models.TorchRuntime, '__init__', forbidden)
+    original_empty = torch.empty
+    def guarded_empty(*args: Any, **kwargs: Any) -> Any:
+        # Keep unrelated CPU format fixtures legal; no actual CUDA allocation.
+        if 'cuda' in str(kwargs.get('device', '')):
+            forbidden()
+        return original_empty(*args, **kwargs)
+    monkeypatch.setattr(torch, 'empty', guarded_empty)
+    monkeypatch.setattr(torch.cuda, 'get_allocator_backend', forbidden)
     for name in ('device_count', 'set_device', 'current_device', 'get_device_properties',
                  'set_per_process_memory_fraction', 'memory_allocated'):
         monkeypatch.setattr(torch.cuda, name, forbidden)
@@ -151,11 +159,26 @@ def test_gpu_preserves_original_stopped_and_caches_without_retry() -> None:
     assert len(calls) == 1
 
 
-def artificial_torch(monkeypatch: Any, *, failure: str | None = None) -> tuple[Any, list[str]]:
+def artificial_torch(monkeypatch: Any, *, failure: str | None = None,
+                     deterministic: Any = False, backend: Any = 'native',
+                     establish: bool = True) -> tuple[Any, list[str]]:
     import builtins
-    from copy import deepcopy
+    import weakref
 
     events: list[str] = []
+    context = SimpleNamespace(current=False, allocations=[], storage=None)
+    class Storage:
+        pass
+    def empty(*args: Any, **kwargs: Any) -> Any:
+        events.append('empty')
+        context.allocations.append((args, kwargs))
+        if failure == 'empty':
+            raise RuntimeError('PRIVATE_ALLOCATION_FAILURE')
+        assert args == ((1,),) and kwargs == dict(dtype='UINT8', device='cuda:0')
+        context.current = establish
+        storage = Storage()
+        context.storage = weakref.ref(storage)
+        return storage
     def operation(name: str, value: Any = None) -> Any:
         def invoke(*args: Any, **kwargs: Any) -> Any:
             events.append(name)
@@ -165,11 +188,14 @@ def artificial_torch(monkeypatch: Any, *, failure: str | None = None) -> tuple[A
         return invoke
     fake = SimpleNamespace(cuda=SimpleNamespace(
         device_count=operation('count', 1), set_device=operation('select'),
-        init=operation('init'), get_device_properties=operation('properties',
+        init=operation('init'), get_allocator_backend=operation('allocator', backend),
+        get_device_properties=operation('properties',
             SimpleNamespace(total_memory=24*2**30)),
         set_per_process_memory_fraction=operation('fraction')),
         set_num_threads=operation('intra'), set_num_interop_threads=operation('inter'),
-        set_default_dtype=operation('dtype'), float32='FLOAT32',
+        set_default_dtype=operation('dtype'), float32='FLOAT32', uint8='UINT8',
+        are_deterministic_algorithms_enabled=operation('deterministic', deterministic),
+        empty=empty, context=context,
         backends=SimpleNamespace(cuda=SimpleNamespace(matmul=SimpleNamespace(allow_tf32=True)),
                                  cudnn=SimpleNamespace(allow_tf32=True, benchmark=True)))
     real_import = builtins.__import__
@@ -179,7 +205,7 @@ def artificial_torch(monkeypatch: Any, *, failure: str | None = None) -> tuple[A
         return real_import(name, *args, **kwargs)
     monkeypatch.setattr(builtins, '__import__', imported)
     monkeypatch.delitem(__import__('sys').modules, 'torch')
-    return deepcopy(fake), events
+    return fake, events
 
 
 @pytest.mark.parametrize('where,stage,detail', [
@@ -347,6 +373,8 @@ else:
  if hasattr(ctypes,'WinDLL'):patch.setattr(ctypes,'WinDLL',forbidden)
  import torch
  patch.setattr(torch.nn.Module,'__init__',forbidden)
+ patch.setattr(torch,'empty',forbidden)
+ patch.setattr(torch.cuda,'get_allocator_backend',forbidden)
  patch.setattr(torch.cuda,'set_per_process_memory_fraction',forbidden)
  from cipher_lab_plugins.innovation1 import resources,device,application
  for module,name in ((resources,'production_rss_bytes'),(resources,'gpu_sample'),
@@ -553,3 +581,181 @@ def test_tool_write_failure_preserves_original_diagnostic(
     assert writes == [output/'device-check.json']
     assert list(output.iterdir()) == []  # no retry, rewrite or secondary evidence
     assert 'PRIVATE' not in json.dumps(result)
+
+
+def test_context_establish_delayed_exact_allocation_lifetime_and_no_extra_sample(
+        monkeypatch: Any) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    _, checks = fake_setup(monkeypatch)
+    fake, calls = artificial_torch(monkeypatch)
+    events: list[Any] = []
+    def attest(*args: Any) -> Any:
+        calls.append('attest')
+        assert fake.context.current and fake.context.storage() is not None
+        return dict(gpu_uuid='GPU-manual', pci_bus_id='0000:3b:00.0', logical_device=0,
+                    pid=os.getpid(), evidence='cuda-current-context')
+    monkeypatch.setattr(device, 'actual_attestor', attest)
+    def observe(event: Any) -> None:
+        events.append(event)
+        if event['stage'] == 'context-establish' and event['event'] == 'begin':
+            assert not fake.context.current  # set_device/init intentionally do not bind
+        if event['stage'] == 'identity-check' and event['event'] == 'success':
+            assert fake.context.storage() is not None
+        if event['stage'] == 'device-properties' and event['event'] == 'begin':
+            assert fake.context.storage() is None  # storage ref dropped after identity
+    application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                     observer=observe)
+    assert calls == ['count', 'intra', 'inter', 'dtype', 'select', 'init',
+                     'deterministic', 'allocator', 'empty', 'attest', 'properties', 'fraction']
+    assert fake.context.allocations == [(((1,),), dict(dtype='UINT8', device='cuda:0'))]
+    assert checks == ['original-check', 'original-check']
+    assert [e['event'] for e in events if e['stage'] == 'context-establish'] == ['begin', 'success']
+
+
+@pytest.mark.parametrize('deterministic,backend,detail', [
+    (True, 'native', 'CONTEXT_DETERMINISM_REJECTED'),
+    (1, 'native', 'CONTEXT_DETERMINISM_REJECTED'),
+    (False, 'cudaMallocAsync', 'CONTEXT_ALLOCATOR_REJECTED'),
+    (False, None, 'CONTEXT_ALLOCATOR_REJECTED'),
+])
+def test_context_establish_preconditions_fail_before_allocation(
+        monkeypatch: Any, deterministic: Any, backend: Any, detail: str) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    _, checks = fake_setup(monkeypatch)
+    fake, calls = artificial_torch(monkeypatch, deterministic=deterministic, backend=backend)
+    def forbidden_attest(*args: Any) -> Any:
+        pytest.fail('attestor must not run after rejected setup')
+    monkeypatch.setattr(device, 'actual_attestor', forbidden_attest)
+    events: list[Any] = []
+    with pytest.raises(resources.ResourceStop) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=events.append)
+    assert str(caught.value) == caught.value.reason == 'GPU_UNVERIFIED'
+    assert caught.value.detail_code == detail
+    assert events[-1]['stage'] == 'context-establish' and events[-1]['event'] == 'stop'
+    assert not fake.context.allocations and checks == ['original-check']
+    assert 'properties' not in calls and 'fraction' not in calls
+    if deterministic is not False:
+        assert 'allocator' not in calls  # no subsequent CUDA-facing query
+
+
+@pytest.mark.parametrize('where', ['deterministic', 'allocator', 'empty'])
+def test_context_establish_api_failure_sanitized_without_attest(
+        monkeypatch: Any, where: str) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    fake_setup(monkeypatch)
+    _, calls = artificial_torch(monkeypatch, failure=where)
+    monkeypatch.setattr(device, 'actual_attestor', lambda *a: pytest.fail('unexpected attest'))
+    events: list[Any] = []
+    with pytest.raises(resources.ResourceStop) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=events.append)
+    assert caught.value.detail_code == 'CONTEXT_ESTABLISH_FAILED'
+    assert events[-1]['stage'] == 'context-establish'
+    assert 'PRIVATE' not in json.dumps(events)
+    assert 'properties' not in calls
+
+
+def test_context_establish_allocation_does_not_replace_null_context_proof(
+        monkeypatch: Any) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    _, checks = fake_setup(monkeypatch)
+    fake, calls = artificial_torch(monkeypatch, establish=False)
+    original = resources.ResourceStop(detail_code='NO_CURRENT_CONTEXT')
+    def attest(*args: Any) -> Any:
+        assert not fake.context.current and fake.context.storage() is not None
+        raise original
+    monkeypatch.setattr(device, 'actual_attestor', attest)
+    def broken(event: Any) -> None:
+        if event['event'] == 'stop':
+            raise RuntimeError('PRIVATE_OBSERVER_FAILURE')
+    with pytest.raises(resources.ResourceStop) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=broken)
+    assert caught.value is original and len(fake.context.allocations) == 1
+    assert checks == ['original-check'] and 'properties' not in calls
+
+
+def test_context_establish_observer_prevents_allocation_and_preserves_stop(
+        monkeypatch: Any) -> None:
+    fake_setup(monkeypatch)
+    fake, calls = artificial_torch(monkeypatch)
+    original = Stopped('CPU_LIMIT')
+    def observe(event: Any) -> None:
+        if event['stage'] == 'context-establish' and event['event'] == 'begin':
+            raise original
+    with pytest.raises(Stopped) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=observe)
+    assert caught.value is original
+    assert not fake.context.allocations and 'deterministic' not in calls
+
+
+def test_context_establish_device_check_stage_zero_budget_and_original_stop(
+        tmp_path: Path) -> None:
+    t = tool()
+    def setup(*args: Any, observer: Any) -> Any:
+        observer(dict(stage='context-establish', event='begin', elapsed_seconds=0., gate_last=0.))
+        raise Stopped('RSS_UNAVAILABLE')
+    result = t.run_check(ROOT/'configs/innovation1-fresh.json', tmp_path/'device-check',
+        device='cuda:0', gpu_uuid=t.GPU_UUID, gpu_pci=t.GPU_PCI, setup=setup,
+        clocks=Clocks(lambda: 0., lambda: 0.), rss=lambda: 0)
+    saved = json.loads((tmp_path/'device-check/device-check.json').read_bytes())
+    assert result['diagnostic_reason'] == saved['reason'] == 'RSS_UNAVAILABLE'
+    assert saved['stage'] == 'context-establish' and len(saved['events']) == 1
+    assert result['exit_code'] == 3
+    for kind in ('real_blocks', 'null_words', 'forward_rows', 'optimizer_updates'):
+        assert saved['counts'][f'attempted_{kind}'] == saved['counts'][f'completed_{kind}'] == 0
+
+
+def test_context_establish_original_allocation_stop_survives_observer(monkeypatch: Any) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    fake_setup(monkeypatch)
+    fake, calls = artificial_torch(monkeypatch)
+    original = Stopped('RSS_UNAVAILABLE')
+    def empty(*args: Any, **kwargs: Any) -> Any:
+        assert args == ((1,),) and kwargs == dict(dtype=fake.uint8, device='cuda:0')
+        calls.append('empty-stop')
+        raise original
+    fake.empty = empty
+    monkeypatch.setattr(device, 'actual_attestor', lambda *a: pytest.fail('unexpected attest'))
+    def broken(event: Any) -> None:
+        if event['event'] == 'stop':
+            raise RuntimeError('PRIVATE_OBSERVER_FAILURE')
+    with pytest.raises(Stopped) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=broken)
+    assert caught.value is original and calls[-1] == 'empty-stop'
+    assert 'properties' not in calls
+
+
+def test_context_establish_does_not_renew_original_gate_proof(monkeypatch: Any) -> None:
+    from cipher_lab_plugins.innovation1 import device
+    now = [0.]
+    samples: list[Any] = []
+    def sample() -> Any:
+        samples.append(now[0])
+        return dict(uuid='GPU-manual', pci='0000:3b:00.0', bytes=2*2**20)
+    # Real gate logic, fake telemetry/time/RSS only; no production probe.
+    gate = resources.GpuGate('GPU-manual', '0000:3b:00.0', 20*2**30,
+                             sample, lambda: now[0])
+    monkeypatch.setattr(application, 'GpuGate', lambda *a: gate)
+    monkeypatch.setattr(application, 'production_rss_bytes', lambda: 0)
+    fake, calls = artificial_torch(monkeypatch)
+    original_empty = fake.empty
+    def empty(*args: Any, **kwargs: Any) -> Any:
+        result = original_empty(*args, **kwargs)
+        now[0] = 6.
+        return result
+    fake.empty = empty
+    monkeypatch.setattr(device, 'actual_attestor', lambda *a: dict(
+        gpu_uuid='GPU-manual', pci_bus_id='0000:3b:00.0', logical_device=0,
+        pid=os.getpid(), evidence='cuda-current-context'))
+    observed: list[Any] = []
+    with pytest.raises(resources.ResourceStop) as caught:
+        application.production_resources(Recipe(), 'cuda:0', 'GPU-manual', '0000:3b:00.0',
+                                         observer=observed.append)
+    assert caught.value.detail_code == 'GPU_PROOF_STALE'
+    assert observed[-1]['stage'] == 'final-resource-check'
+    assert observed[-1]['gate_last'] == 0. and samples == [0.]
+    assert calls.count('empty') == 1 and calls[-1] == 'fraction'

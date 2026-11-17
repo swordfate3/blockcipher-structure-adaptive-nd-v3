@@ -123,6 +123,18 @@ def production_resources(recipe: Recipe, device: str, gpu_uuid: str,
     stage('torch-configure', configure, 'TORCH_CONFIGURE_FAILED')
     stage('cuda-select', lambda: torch.cuda.set_device(0), 'CUDA_SELECT_FAILED')
     stage('cuda-init', lambda: cast(Any, torch.cuda).init(), 'CUDA_INIT_FAILED')
+
+    def establish_context() -> Any:
+        # Fresh native allocator, no deterministic fill/kernel. This is device
+        # setup, not a scientific row: logical 1 byte can cost a pool + context.
+        # Keep the storage alive through read-only attestation and identity.
+        if torch.are_deterministic_algorithms_enabled() is not False:
+            raise ResourceStop(detail_code='CONTEXT_DETERMINISM_REJECTED')
+        if torch.cuda.get_allocator_backend() != 'native':
+            raise ResourceStop(detail_code='CONTEXT_ALLOCATOR_REJECTED')
+        return torch.empty((1,), dtype=torch.uint8, device='cuda:0')
+    context_storage = stage('context-establish', establish_context, 'CONTEXT_ESTABLISH_FAILED')
+
     def attest() -> None:
         nonlocal attestation
         attestation = actual_attestor(torch)
@@ -136,6 +148,7 @@ def production_resources(recipe: Recipe, device: str, gpu_uuid: str,
                 or attestation['evidence'] != 'cuda-current-context'):
             raise ResourceStop(detail_code='DEVICE_IDENTITY_MISMATCH')
     stage('identity-check', identity_check, 'DEVICE_IDENTITY_MISMATCH')
+    del context_storage  # Torch owns primary-context lifetime; never empty_cache/reset/release.
 
     def properties() -> Any:
         total = torch.cuda.get_device_properties(0).total_memory

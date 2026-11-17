@@ -22,8 +22,9 @@ LIMITS = dict(wall_seconds=120, cpu_seconds=480, rss_bytes=16 * 2**30,
               real_blocks=0, null_words=0, forward_rows=0, optimizer_updates=0)
 STAGES = frozenset(('entry-check', 'gate-setup', 'resource-setup',
                    'initial-resource-check', 'torch-import', 'torch-configure',
-                   'cuda-select', 'cuda-init', 'context-attest', 'identity-check',
-                   'device-properties', 'memory-fraction', 'final-resource-check', 'returned'))
+                   'cuda-select', 'cuda-init', 'context-establish', 'context-attest',
+                   'identity-check', 'device-properties', 'memory-fraction',
+                   'final-resource-check', 'returned'))
 
 
 def _source() -> dict[str, str]:

@@ -818,4 +818,39 @@ stdout 的 `exit_code` 是工具意图，不是已观测的 OS exit，须以上�
 
 诊断只定位设备装配问题，不证明密码、数值或训练可行；wall约8秒本身不能证明 stale。
 诊断不自动启动预检或 fit；通过/根因修复验收后由主控单独执行新增一次原8/48/8预检，
-再决定唯一正式fit5。任何失败/STOP/UNKNOWN即停、retry0，不覆盖原预检记录。
+再决定唯一正式fit5。失败/STOP/UNKNOWN不自动重试，不覆盖原预检记录；
+本次已确证setup缺陷的device-check STOP按下述批准恢复路径处理。
+
+#### 已确证setup缺陷的最小修复边界
+
+主控保存的本次单次device-only证据为`NO_CURRENT_CONTEXT`：初次遥测成功，
+`set_device/init`成功，但同线程attestor读到null；约3.342秒时停止，**不是本次stale**。
+原首次失败仍不可追溯。本次批准恢复路径仅为：修复→人工测试/独立审查/fresh验收→
+**唯一新增一次原8/48/8 preflight**，不再重跑device-check，不增GPU benchmark；
+preflight失败/STOP/UNKNOWN即停，不据此自动训练或重试。
+
+装配在`cuda-init`后新增`context-establish`：只读
+`torch.are_deterministic_algorithms_enabled()`，仅严格为False才继续（防止确定性fill产生kernel，
+不切换全局状态）；只读`torch.cuda.get_allocator_backend()`，仅`native`才继续，
+非native/不可读即固定detail失败，不改环境。随后唯一调用
+`torch.empty((1,), dtype=torch.uint8, device='cuda:0')`，引用跨原只读attestor和identity检查，
+通过identity后仅删除storage引用；不`empty_cache`，不手工retain/release/reset context。
+Torch管理primary-context生命周期；分配成功仍不能代替current-context/UUID/PCI/LUID实证。
+
+此路径限定fresh process、无先前Torch导入/先前tensor，所有装配仍在原调用线程执行。
+公开逻辑1字节不代表实际只占1字节：native small pool可能取得2MiB及额外context显存；
+首次分配发生在原memory-fraction设置之前，不声称已被allocator比例限制。
+原final gate继续按**整卡**实际显存检查；1秒采样、5秒超龄、身份与预算均不变，不额外采样。
+这是非零GPU setup操作，不是NN/forward/update或科学样本，科学计数0不等于零GPU操作。
+本地仅人工测试，不证明现场修复已成功；实际工程数值、5秒窗口及完整训练仍须门禁验收。
+
+依据主控提供的research（Torch v2.7.1＋CUDA11.8，非其他版本通用保证）：
+非零native分配进入malloc/alloc_block/cudaMalloc；InlineDeviceGuard保存的是ordinal而非CUcontext，
+CUDA<12同ordinal的SetDevice路径不恢复null；runtime按需创建并绑定primary context。
+拒绝empty0（跳过malloc），不引入需跨调用方配对生命周期的driver lease。
+参考公开源码/官方文档：
+- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/cuda/CUDACachingAllocator.cpp
+- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/core/impl/InlineDeviceGuard.h
+- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/cuda/CUDAFunctions.cpp
+- https://github.com/pytorch/pytorch/blob/v2.7.1/aten/src/ATen/EmptyTensor.cpp
+- https://docs.nvidia.com/cuda/archive/11.8.0/cuda-runtime-api/group__CUDART__DRIVER.html
