@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import os
 import sys
+import time
+from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -34,43 +37,117 @@ class Execution:
 
 
 def production_resources(recipe: Recipe, device: str, gpu_uuid: str,
-                         gpu_pci: str) -> Resources:
-    if (device != 'cuda:0' or sys.platform not in ('linux', 'win32')
-            or 'torch' in sys.modules or not gpu_uuid or not gpu_pci):
-        # No re-binding an already imported CUDA runtime or silent CPU fallback.
-        raise ResourceStop()
-    gate = GpuGate(gpu_uuid, gpu_pci, recipe.resources.gpu_bytes,
-                   lambda: gpu_sample(gpu_uuid))
-    resources = Resources(Meter(policy(recipe), Clocks(), production_rss_bytes), gate)
-    resources.check()  # actual telemetry required before numerical imports/constructors
-    os.environ['CUDA_VISIBLE_DEVICES'] = gpu_uuid
-    import torch
+                         gpu_pci: str, *,
+                         observer: Callable[[dict[str, Any]], None] | None = None) -> Resources:
+    """Same device admission, with optional detached public stage evidence only.
 
+    Observer errors never replace an error from the observed operation. On a
+    successful operation they fail closed, never silently yield successful setup.
+    No observer causes telemetry collection; snapshots read gate fields only.
+    """
+    gate: GpuGate | None = None
+    attestation: dict[str, Any] | None = None
+    origin = time.monotonic() if observer is not None else 0.
+    observer_error: Exception | None = None
+
+    def emit(stage: str, event: str, start: float, error: Exception | None = None) -> None:
+        nonlocal observer_error
+        if observer is None:
+            return
+        now = time.monotonic()
+        value = dict(stage=stage, event=event, elapsed_seconds=now - origin,
+                     started_seconds=start - origin, duration_seconds=now - start,
+                     reason=(error.reason if isinstance(error, (ResourceStop, Stopped))
+                             else 'GPU_UNVERIFIED' if error is not None else None),
+                     detail_code=(error.detail_code if isinstance(error, ResourceStop)
+                                  else None), gate_last=None if gate is None else gate.last,
+                     gate_latest={} if gate is None else gate.latest,
+                     attestation=attestation)
+        try:
+            observer(deepcopy(value))
+        except Exception as failure:
+            if observer_error is None:
+                observer_error = failure
+
+    def check_observer() -> None:
+        if observer_error is not None:
+            if isinstance(observer_error, (ResourceStop, Stopped)):
+                raise observer_error
+            raise ResourceStop(detail_code='OBSERVER_FAILED') from None
+
+    def stage(name: str, operation: Callable[[], Any], detail: str) -> Any:
+        start = time.monotonic() if observer is not None else 0.
+        emit(name, 'begin', start)
+        check_observer()
+        try:
+            result = operation()
+        except (ResourceStop, Stopped) as error:
+            emit(name, 'stop', start, error)
+            raise
+        except Exception:
+            failure = ResourceStop(detail_code=detail)
+            emit(name, 'stop', start, failure)
+            raise failure from None
+        emit(name, 'success', start)
+        check_observer()
+        return result
+
+    def entry() -> None:
+        if (device != 'cuda:0' or sys.platform not in ('linux', 'win32')
+                or 'torch' in sys.modules or not gpu_uuid or not gpu_pci):
+            raise ResourceStop(detail_code='DEVICE_ENTRY_REJECTED')
+    stage('entry-check', entry, 'DEVICE_ENTRY_REJECTED')
+    gate = stage('gate-setup', lambda: GpuGate(
+        gpu_uuid, gpu_pci, recipe.resources.gpu_bytes, lambda: gpu_sample(gpu_uuid)),
+        'GPU_SAMPLE_INVALID')
+    resources = cast(Resources, stage('resource-setup', lambda: Resources(
+        Meter(policy(recipe), Clocks(), production_rss_bytes), gate), 'GPU_SAMPLE_INVALID'))
+    stage('initial-resource-check', resources.check, 'GPU_SAMPLE_INVALID')
+    os.environ['CUDA_VISIBLE_DEVICES'] = gpu_uuid
+
+    def import_torch() -> Any:
+        import torch
+        return torch
+    torch = stage('torch-import', import_torch, 'TORCH_IMPORT_FAILED')
     from .device import actual_attestor
-    try:
+
+    def configure() -> None:
         if torch.cuda.device_count() != 1:
-            raise ResourceStop()
+            raise ResourceStop(detail_code='CUDA_COUNT_MISMATCH')
         torch.set_num_threads(recipe.resources.intra_threads)
         torch.set_num_interop_threads(recipe.resources.inter_threads)
         torch.set_default_dtype(torch.float32)
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
         torch.backends.cudnn.benchmark = False
-        torch.cuda.set_device(0)
-        cast(Any, torch.cuda).init()
-        evidence = actual_attestor(torch)
-        if (evidence['gpu_uuid'] != gpu_uuid or pci(evidence['pci_bus_id']) != pci(gpu_pci)
-                or evidence['logical_device'] != 0 or evidence['pid'] != os.getpid()
-                or evidence['evidence'] != 'cuda-current-context'):
-            raise ResourceStop()
+    stage('torch-configure', configure, 'TORCH_CONFIGURE_FAILED')
+    stage('cuda-select', lambda: torch.cuda.set_device(0), 'CUDA_SELECT_FAILED')
+    stage('cuda-init', lambda: cast(Any, torch.cuda).init(), 'CUDA_INIT_FAILED')
+    def attest() -> None:
+        nonlocal attestation
+        attestation = actual_attestor(torch)
+    stage('context-attest', attest, 'DRIVER_LOAD_FAILED')
+
+    def identity_check() -> None:
+        assert attestation is not None
+        if (attestation['gpu_uuid'] != gpu_uuid
+                or pci(attestation['pci_bus_id']) != pci(gpu_pci)
+                or attestation['logical_device'] != 0 or attestation['pid'] != os.getpid()
+                or attestation['evidence'] != 'cuda-current-context'):
+            raise ResourceStop(detail_code='DEVICE_IDENTITY_MISMATCH')
+    stage('identity-check', identity_check, 'DEVICE_IDENTITY_MISMATCH')
+
+    def properties() -> Any:
         total = torch.cuda.get_device_properties(0).total_memory
         if total < recipe.resources.gpu_bytes:
-            raise ResourceStop('GPU_LIMIT')
-        torch.cuda.set_per_process_memory_fraction(recipe.resources.gpu_bytes / total, 0)
-        resources.check()
-        return resources
-    except Exception:
-        raise ResourceStop() from None
+            raise ResourceStop('GPU_LIMIT', detail_code='GPU_MEMORY_LIMIT')
+        return total
+    total = stage('device-properties', properties, 'DEVICE_PROPERTIES_FAILED')
+    stage('memory-fraction', lambda: torch.cuda.set_per_process_memory_fraction(
+        recipe.resources.gpu_bytes / total, 0), 'MEMORY_FRACTION_FAILED')
+    stage('final-resource-check', resources.check, 'GPU_SAMPLE_INVALID')
+    stage('returned', lambda: None, 'OBSERVER_FAILED')
+    return resources
 
 
 def _production_provider(recipe: Recipe, resources: Resources) -> Any:

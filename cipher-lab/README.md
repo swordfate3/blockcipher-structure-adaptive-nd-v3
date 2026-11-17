@@ -776,3 +776,46 @@ output-dir必须不存在（父目录可存在），仅独占保存`preflight.js
 
 本地默认测试全部人工替身/guard；本次没有真实KAT、模型前后向/Adam、GPU/RSS或远端实测。
 发布、远端执行与正式启动由主控另行推进，工具本身不调用SSH/Git。
+
+### 创新1：一次 device-only 装配诊断
+
+此独立工具只调用真实 `production_resources` 并结束，不进入 preflight 的 KAT、
+模型构造或训练。科学预算为 **blocks=0 / forward rows=0 / updates=0 / null words=0**；
+这不等于不访问 GPU：Torch/CUDA 初始化可实际创建 context 并占用少量显存。
+外层 Meter 固定 wall120秒、CPU480秒、RSS16GiB、证据16MiB；生产 gate 保持
+GPU20GiB、1秒采样和5秒超龄，不新增 observer 采样，不放宽 UUID/PCI/current-context/LUID。
+限额检查是装配阶段边界的协作式检查，不是能打断原生驱动阻塞的 OS 硬超时。
+
+在已 Git 同步的实际训练机、新 fresh 目录执行一次（工具本身不 SSH/Git/重试）：
+
+```powershell
+$env:PYTHONPATH='src;plugins'
+& 'C:\Python313\python.exe' tools\innovation1\device_check.py `
+  --config configs\innovation1-fresh.json --device cuda:0 `
+  --gpu-uuid GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7 `
+  --gpu-pci 00000000:3B:00.0 `
+  --output-dir 'G:\lxy\shared-m-cipher-nd-runs\<fresh-id>\device-check'
+$deviceCheckExit = [int]$LASTEXITCODE
+# 必须先捕获上面数值，再执行其他 native 命令；由外层账本保存它。
+$deviceCheckExit
+```
+
+只写一份独占 `device-check.json`：源码闭包/config/tool SHA、固定阶段耗时、
+取得的 attestor、最近 `gate_last/gate_latest`、原 reason 与白名单 detail。
+即使装配未返回，observer 已接收的阶段和最近 proof 仍可保存。
+不保存 raw 异常、locals、任意对象 repr。observer 默认无输出，只复制结构；
+其失败不能变成 PASS，原操作的 `ResourceStop` / `Stopped` 保留原停止原因。
+外层零预算 ledger 不绑定科学入口，**不能仅凭计数0证明任意 setup 没有科学调用**；
+本工具的零科学承诺来自限定调用链及 guarded fake 测试，而非装配内部正式 Meter。
+
+JSON 的 `status/counts/prewrite_reason` 截止写前；stdout 的
+`command_status/counts/postwrite_reason` 包含写后检查。原失败/停止 reason 不被
+收尾失败替换，新增收尾原因另列。写失败 `evidence_status=UNKNOWN`（可能部分写入），
+不覆盖/补写已有文件。exit0 PASS，2目录claim失败，3 STOPPED，4 FAILED，6证据写失败。
+stdout 的 `exit_code` 是工具意图，不是已观测的 OS exit，须以上述 `$LASTEXITCODE` 为准。
+主控已在 Windows 实测纯零科学 `& Python -c 'import sys; sys.exit(7)'` 后立即捕获
+`[int]$LASTEXITCODE` 为数值7；这是主控提供的证据，不是本开发代理的现场测试。
+
+诊断只定位设备装配问题，不证明密码、数值或训练可行；wall约8秒本身不能证明 stale。
+诊断不自动启动预检或 fit；通过/根因修复验收后由主控单独执行新增一次原8/48/8预检，
+再决定唯一正式fit5。任何失败/STOP/UNKNOWN即停、retry0，不覆盖原预检记录。
