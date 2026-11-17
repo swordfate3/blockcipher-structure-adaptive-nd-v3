@@ -736,3 +736,43 @@ PYTHONPATH=src:plugins python -m cipher_lab.cli evaluate \
 `report_files_written=true`也不表示后置门禁通过。保存science counts只到science finalize；
 报告含pre_render_resources及范围说明，最终report-inclusive快照/命令状态由stdout
 `command_resources`给出，不能原子地回写到已完成报告自身。不二次finalize、不篡改科学终态。
+
+### 创新1独立工程预检（不自动启动训练）
+
+`tools/innovation1/preflight.py` 是Git同步后在训练机显式执行一次的独立工具，不是新科学
+实验入口或远程runner；失败即停止，不自行正式run。现有Python 3.13.3 / Torch 2.7.1+cu118 /
+NumPy 2.4.0环境信息由主控提供，本次开发未连接远端核验、未安装任何依赖。
+
+在已Git同步的项目根运行（PowerShell，路径占位`<fresh-id>`须换为本次明确新id）：
+
+```powershell
+$env:PYTHONPATH='src;plugins'
+C:\Python313\python.exe tools\innovation1\preflight.py `
+  --config configs\innovation1-fresh.json --device cuda:0 `
+  --gpu-uuid GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7 `
+  --gpu-pci 00000000:3B:00.0 `
+  --output-dir 'G:\lxy\shared-m-cipher-nd-runs\<fresh-id>\preflight'
+```
+
+固定额度：**8公开密码blocks / 48前向组 / 8 optimizer updates**，warmup0、retry0：
+四家族各1full已知答案＋1reduced旧回放（8blocks）；四任务M/对应D各B2 CPU与GPU eval
+（32rows）；随后四任务各M→D一次GPU更新（16rows/8updates）。没有更新后评分、秘密熵、
+真实训练标签、旧权重、DEV/TEST生成或正式run触发。full向量注明归档来源，reduced仅是
+旧实现冻结回放、**非官方独立向量**。模型和Adam均复用本owner生产实现，公开固定二值
+`[2,4,2,64]`输入及标签`[0,1]`；两设备比较同state，固定atol1e-5/rtol1e-4，失败不调宽。
+
+工具独立计量包括setup，墙钟600秒/CPU累计2400秒、RSS16GiB/整卡GPU20GiB/证据16MiB；
+复用core Meter和owner生产RSS、原production_resources真实装配/attestor及同一GPU gate。
+不修改正式Recipe.resources，不换卡/CPU降级，不放宽GPU证明超5秒即停规则。检查为协作式，
+原生阻塞不能保证立即打断；若模型构造/单步超过证明时效也直接停止，不承诺现场可行性。
+
+output-dir必须不存在（父目录可存在），仅独占保存`preflight.json`，无权重或其他日志树。
+保存公共阶段/状态、attempt/completed、设备证据、core/owner/**tool源码SHA**、精确config
+和向量/公开输入fixture字节SHA。保存status为写前证据；stdout的command_status和counts
+包含写后资源检查，写后超限不会把已存PASS改写成STOP，必须同时检查stdout/exit。
+退出0=PASS、2=目录claim失败、3=STOPPED、4=FAILED、6=证据写入失败；部分写失败为UNKNOWN，
+不覆盖原证据重跑。stdout日志由调用外层留存，工具不另写日志。PASS仅为本次小规模工程检查，
+不能证明batch512资源可行性、完整24epoch训练质量或跨key结论。
+
+本地默认测试全部人工替身/guard；本次没有真实KAT、模型前后向/Adam、GPU/RSS或远端实测。
+发布、远端执行与正式启动由主控另行推进，工具本身不调用SSH/Git。
