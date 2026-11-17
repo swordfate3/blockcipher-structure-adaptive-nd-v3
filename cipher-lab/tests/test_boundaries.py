@@ -44,6 +44,18 @@ def test_no_old_package_or_historical_data_dependencies(path: Path) -> None:
             "exec",
             "eval",
         ):
+            # The sole exception is the explicit trusted plugin dispatch call,
+            # in that exact module/function, never another dynamic operation.
+            parents = {child: parent for parent in ast.walk(tree)
+                       for child in ast.iter_child_nodes(parent)}
+            parent: ast.AST = node
+            while parent in parents and not isinstance(parent, (ast.FunctionDef,
+                                                               ast.AsyncFunctionDef)):
+                parent = parents[parent]
+            if (path == PACKAGE / "plugin_cli.py" and isinstance(parent, ast.FunctionDef)
+                    and parent.name == "dispatch"
+                    and ast.unparse(node.func) == "importlib.import_module"):
+                continue
             pytest.fail(f"dynamic dependency evades boundaries: {path}")
 
 
@@ -54,19 +66,45 @@ def test_no_old_package_or_historical_data_dependencies(path: Path) -> None:
         ("integral/linear.py", {"cipher_lab", "numpy", "os", "pathlib", "random", "secrets"}),
         ("integral/observables.py", {"cipher_lab", "os", "pathlib", "random", "secrets"}),
         ("integral/report.py", {"cipher_lab", "os", "pathlib", "random", "secrets", "numpy"}),
-        ("demo.py", {"cipher_lab.ciphers", "secrets", "random", "numpy"}),
+        ("demo.py", {"cipher_lab.ciphers", "secrets", "random"}),
     ],
 )
 def test_algorithm_and_report_import_boundaries(relative: str, forbidden: set[str]) -> None:
     tree = ast.parse((PACKAGE / relative).read_text())
     for name in imports(tree):
         assert not any(name == item or name.startswith(item + ".") for item in forbidden)
+    if relative in ("ciphers/simon.py", "integral/observables.py", "demo.py"):
+        # Batch paths may import NumPy locally; check/import stays zero NumPy.
+        assert not any(isinstance(node, (ast.Import, ast.ImportFrom))
+                       and any(name == "numpy" or name.startswith("numpy.")
+                               for name in imports(node)) for node in tree.body)
     if relative in ("integral/linear.py", "integral/observables.py", "integral/report.py"):
         assert not calls(tree) & {"open", "print", "input", "__import__"}
         assert not any(
             name.endswith((".read_text", ".read_bytes", ".write_text", ".write_bytes"))
             for name in calls(tree)
         )
+
+
+def test_plugin_loader_has_exactly_one_stdlib_dynamic_import_boundary() -> None:
+    path = PACKAGE / "plugin_cli.py"
+    assert path.is_file(), "explicit plugin boundary is not implemented"
+    tree = ast.parse(path.read_text())
+    dynamic = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+               and ast.unparse(node.func) == "importlib.import_module"]
+    assert len(dynamic) == 1
+    dispatch = next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "dispatch")
+    assert dynamic[0] in list(ast.walk(dispatch))
+    for name in imports(tree):
+        assert name.split(".")[0] in sys.stdlib_module_names | {"__future__"}
+    # No alias can smuggle in a second loader that evades the exact call check.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert all(alias.asname is None for alias in node.names)
+        if isinstance(node, ast.ImportFrom):
+            assert node.module != "importlib"
+            assert node.level == 0
 
 
 def test_production_wiring_is_explicit_and_claim_precedes_imports() -> None:
@@ -87,9 +125,16 @@ def test_production_wiring_is_explicit_and_claim_precedes_imports() -> None:
     ]
     assert {node.module for node in production} == {"secrets", "cipher_lab.ciphers.simon"}
     assert all(node.lineno > claim for node in production)
-    assert {"token_bytes", "encrypt_many", "production_rss_bytes"} <= {
-        node.id for node in ast.walk(runner) if isinstance(node, ast.Name)
-    }
+    names = {node.id for node in ast.walk(runner) if isinstance(node, ast.Name)}
+    assert {"token_bytes", "encrypt_batch", "production_rss_bytes"} <= names
+    assert "encrypt_many" not in names
+    assert {alias.name for node in production if node.module == "cipher_lab.ciphers.simon"
+            for alias in node.names} == {"encrypt_batch"}
+    collectors = [node for node in ast.walk(runner)
+                  if isinstance(node, ast.Call) and ast.unparse(node.func) == "CubeCollector"]
+    assert len(collectors) == 2
+    assert {ast.unparse(keyword.value) for node in collectors for keyword in node.keywords
+            if keyword.arg == "batch_oracle"} == {"fake_encrypt_batch", "encrypt_batch"}
     # No runner-owned unit reservations/completions parallel to CubeCollector.
     assert not any(name.endswith((".reserve", ".complete")) for name in calls(runner))
 
@@ -145,3 +190,27 @@ def test_evaluation_application_has_no_generation_training_or_private_rng_import
         assert not any(name == item or name.startswith(item + ".") for item in forbidden)
     assert not any(name.endswith((".reserve", ".complete", ".write_model", ".write_dataset"))
                    for name in calls(tree))
+
+
+def test_search_is_external_and_core_retains_only_ordinary_integral() -> None:
+    tree = ast.parse((PACKAGE / "cli.py").read_text())
+    runner = next(node for node in tree.body
+                  if isinstance(node, ast.FunctionDef) and node.name == "_run")
+    assert "SearchRecipe" not in ast.unparse(runner)
+    needs = next(node for node in tree.body
+                 if isinstance(node, ast.FunctionDef) and node.name == "_needs_models")
+    models = next(node for node in ast.walk(needs)
+                  if isinstance(node, ast.Call) and ast.unparse(node.func) == "isinstance")
+    assert len(models.args) == 2 and ast.unparse(models.args[0]) == "recipe"
+    choices = models.args[1]
+    assert isinstance(choices, ast.Tuple)
+    assert [ast.unparse(entry) for entry in choices.elts] == ["PredictionRecipe", "SharedMRecipe"]
+    for relative in ("config.py", "cli.py", "integral/method.py", "integral/stages.py",
+                     "integral/report.py"):
+        source = ast.parse((PACKAGE / relative).read_text())
+        assert not any(name.startswith("cipher_lab_plugins") for name in imports(source))
+        assert not any(isinstance(node, ast.Constant) and node.value == "integral-search-v1"
+                       for node in ast.walk(source))
+    renderer = ast.parse((PACKAGE / "integral/report.py").read_text())
+    assert not any(name.endswith(("select_pattern", "kernel", "survivor_basis", "confirms"))
+                   for name in calls(renderer))

@@ -2,6 +2,37 @@
   "schema": 1,
   "extractions": [
     {
+      "source_path": "/workspace/backups/v3-before-rebuild-20261019/src/cipher_output_prediction/bit_algebra.py",
+      "source_sha256": "d10b45e8a9baa41051eaffd5347a3404207ce0c9f3394a475550d9476256f6ea",
+      "related_read_only_sources": [
+        {
+          "path": "/workspace/backups/v3-before-rebuild-20261019/src/cipher_output_prediction/bit_algebra_basis.py",
+          "sha256": "eda38c36c40644d7974a14216af36af90d7f8570f125fc5bdc75f4f926afaf73"
+        },
+        {
+          "path": "/workspace/backups/v3-before-rebuild-20261019/src/cipher_output_prediction/bit_algebra_factored.py",
+          "sha256": "812cd4ada4370f2f50868c312330532e8240b8bbfa8e5270b3f18c4710435b6f"
+        },
+        {
+          "path": "/workspace/backups/v3-before-rebuild-20261019/src/cipher_output_prediction/bit_algebra_shared_r6.py",
+          "sha256": "e158127733d3f0579614982f624540463ad53681b698dd1aaed4baa31d8ec539"
+        }
+      ],
+      "destination": "src/cipher_lab/representations/{simon_anf,simon_frontier,frontier_inputs}.py",
+      "algorithms": [
+        "Boolean target-cone recurrence",
+        "formal-key coefficient grouping and exact GF(2) subset",
+        "rotated direct-r4/direct-r3 r5 containing space",
+        "shared r6 Boolean identity"
+      ],
+      "changes": [
+        "Read and hashed mathematical source only; no old imports/execution or whole-module copy.",
+        "Independent implementation with cumulative attempted-work accounting and explicit coefficient reconstruction witnesses; no actual key assignment API.",
+        "New canonical bounded public plan and batch Boolean adapter; r6 uses symbolic shared-function identity and analytic syntax lower-bound evidence, not giant expansion or fitted rank."
+      ],
+      "validation": "Task1 toy tests plus normal-import no-Torch subprocess and lazy-export compatibility. Initial pre-builder import failure preserved; after explicitly authorized lazy-export fix, one full shared-budget builder execution and plan encode/decode audited r4 residual89/direct90, r3 direct14, r5 8098 syntactic candidates. r6 shared Boolean identity and analytic syntax lower bound exceed 8192; ENGINEERING_LIMIT, no truncated plan. See ownedroot/structure-audit.json and task1-report.md. Science/model/cipher/privateRNG/productionRSS calls zero."
+    },
+    {
       "source_path": "/workspace/src/cipher_experiments/integral_linear.py",
       "source_sha256": "7fd87a1d0f2df631aa85956970fcf8ab729b0c1fb92bdbfc31472d8d7ecd8186",
       "destination": "src/cipher_lab/integral/linear.py",
@@ -42,11 +73,13 @@
         "32-bit SIMON round function and high-x/low-y block packing"
       ],
       "changes": [
-        "Independent standard-library batch implementation; no old imports, state traces, NumPy or additional dependencies.",
+        "Original standard-library encrypt_many implementation and training callers remain unchanged; no old imports or state traces.",
         "Accept four low-word-first uint32 key words instead of a packed uint128; schedule once per batch, return only complete ciphertext blocks.",
-        "Strict tuple/uint32/uint64 validation, 1..44 rounds and 1..65536 blocks; private sampling and resource accounting remain outside the cipher."
+        "Strict tuple/uint32/uint64 validation, 1..44 rounds and 1..65536 blocks; private sampling and resource accounting remain outside the cipher.",
+        "A1 T2 derives explicit encrypt_batch with lazy existing NumPy, uint32 vector rounds/schedule and high-x/low-y uint64 packing; native C-contiguous one-dimensional uint64 inputs, 0..65536 blocks, no mutation or private sampling. Only integral CLI selects it; scalar encrypt_many is not rewritten.",
+        "source_path is the original pre-archive provenance location, not a claimed live file; the recorded original source_sha256 is preserved. No archived source was imported or executed for the batch derivation."
       ],
-      "validation": "Static source review only. No KAT, encrypt_many call or real encryption performed. tests/test_collection.py injects fake oracles and replaces production encrypt_many with an assertion-only no-call guard; fake tests do not establish SIMON correctness."
+      "validation": "Complete encrypt_many/encrypt_batch are statically reviewed only; no KAT, complete cipher call, scientific labels or training performed in A1 T2. test_collection/test_batch_collection/test_cli poison production entries and use fake oracles; test_simon_batch_structure only checks independent artificial one-round uint32 arithmetic and static interface structure, never composes a complete round chain. These tests do not establish SIMON correctness."
     },
     {
       "source_path": "/workspace/src/cipher_experiments/ciphers/simeck64.py",
@@ -231,6 +264,39 @@
       "validation": "tests/test_mlp.py and tests/test_shared_m.py: artificial CPU single-thread forward/backward without optimizer steps; public13 and neighborhood hand fixtures; SKINNY artificial r1/r7/r8/r9/r32 vectors (round constants 01/3d/3b/37/38), manual inverse-MC/SR/lower-half-Sbox. Old files read and hashed only, never imported/executed. No cipher/KAT/scientific labels/training/GPU/installation/production validation."
     },
     {
+      "source_path": "https://github.com/YuanYufeiISCAS/FourierNeuralDistinguishers",
+      "source_sha256": null,
+      "source_sha256_status": "NOT_RETRIEVED_NO_LOCAL_COPY",
+      "paper": {
+        "title": "Fourier Analysis of Neural Distinguishers",
+        "authors": [
+          "Yuan",
+          "Wu",
+          "Zhang",
+          "Wu"
+        ],
+        "venue": "IACR Transactions on Symmetric Cryptology (ToSC) 2026(1) 441-467",
+        "doi": "10.46586/tosc.v2026.i1.441-467",
+        "sections": "§2.3/§3, Algorithm 1, eq. (3), pp. 444-449",
+        "official_notebooks": [
+          "main/core/FourierAlg.ipynb",
+          "main/example/cnf.py"
+        ]
+      },
+      "destination": "src/cipher_lab/{spectral_config.py,spectral/{search,codec,method,report}.py,data/spectral.py}",
+      "algorithms": [
+        "bucket score as an estimate of in-bucket Fourier mass",
+        "bounded beam over MSB0 prefix masks",
+        "mean coefficient fitting with fixed amplitude threshold"
+      ],
+      "changes": [
+        "Independent standard-library/NumPy implementation from the paper's equations; no repository clone, import, notebook execution or weight download.",
+        "Official notebooks are recorded as read-only references only; no code was copied from them.",
+        "The target f(P)=MSB0 ciphertext bit0 of six-round SIMON64/128 replaces the trained-network teacher, which the official README also permits via a hard-coded Boolean function."
+      ],
+      "validation": "Engineering Task1-3 tests only: literal bit-mask fixtures, fake oracle/private bytes and saved-only report checks. No real cipher/private RNG/production RSS/NN/optimizer call, no scientific run or performance test; the config recipe and demo command are not authorization."
+    },
+    {
       "source_repository": "https://github.com/YuanYufeiISCAS/FourierNeuralDistinguishers",
       "revision": "96344da116ff624be30f503038b22f26c7f7f693",
       "source_files": {
@@ -259,6 +325,110 @@
       ],
       "license_status": "No LICENSE found in reviewed snapshot maxdepth2 (Task1 evidence); no permission inferred. Attribution/technical provenance is not a license grant; publication permission remains unresolved.",
       "validation": "Task1-4 engineering reports; Task5B concrete Windows parent/child/provider assembly and separate runtime/provider/bootstrap/full-package source manifests, fake-only guards and strict saved-model checks. DXGI self-per-process+parent-luid is not independent NVML. No actual Windows/py39/py310/DLL/COM/TF/H5/CUDA/RSS/cipher validation or scientific release."
+    },
+    {
+      "source_path": "/workspace/backups/innovation-one-old-20261011/src/blockcipher_nd_v3/high_round/models.py",
+      "source_sha256": "3bbbbb1ff2185a77c9cb2946b583d9681fdacb27d956bebe40e9b7259ee98275",
+      "destination": [
+        "src/cipher_lab/models/dedicated/feistel.py",
+        "src/cipher_lab/representations/dedicated.py"
+      ],
+      "algorithms": [
+        "four-pair Feistel SE expert for SIMECK64 and SIMON64",
+        "key-free eight-word relation input"
+      ],
+      "changes": [
+        "Extract only FeistelSEExpert and required SE/convolution/residual components; no archived imports, execution, weights or training helpers.",
+        "Accept canonical MSB0 [B,4,2,64] input and return [B,1]; retain feature ordering, pair-axis layout, construction order, Xavier initialization and dynamic BatchNorm (eps=.001, momentum=.01).",
+        "Move key-free relation construction to the public representation module; omit unused kernel-penalty API. This fresh comparison uses no historical teacher or weights and is not a replication of the old optimization recipe."
+      ],
+      "validation": "Task1 guarded metadata/parameter/layout fixtures and independent static review only; two experts each 599809 parameters. No real cipher/KAT, secret sampling, numerical NN forward/backward, optimizer step, GPU or production resource validation. Hashes independently checked against read-only source bytes."
+    },
+    {
+      "source_path": "/workspace/backups/innovation-one-old-20261011/src/blockcipher_nd_v3/kev_selection/components.py",
+      "source_sha256": "32b3690fef8276858bf95bacfa625380a00d3e926155bbc6ebd357be07a74206",
+      "destination": "src/cipher_lab/models/dedicated/present.py",
+      "algorithms": ["four-pair XOR-enabled undilated PRESENT component expert"],
+      "changes": [
+        "Keep only ComponentExpert(xor=True,dilated=False) as PresentExpert; remove variant controls, forward-time auxiliary L2 and unused auxiliary-loss state.",
+        "Retain asymmetric same padding, default initialization, fixed-eval BatchNorm with trainable affine terms and original pair/position mean aggregation; canonical [B,4,2,64] to [B,1] interface.",
+        "No archived imports/execution or historical checkpoint loading; the unified fresh recipe does not claim historical L2 protocol reproduction."
+      ],
+      "validation": "Task1 guarded topology/BN/layout fixtures and static review only; 651073 parameters. Actual model numerical forward/backward, Adam, four-family KAT and GPU/Windows execution remain unverified."
+    },
+    {
+      "source_path": "/workspace/backups/innovation-one-old-20261011/src/blockcipher_nd_v3/expansion/skinny.py",
+      "source_sha256": "12eb570f01ee2ba770d6c0d4a91d6be9de89d7dd790306e485e43f2b8a52a707",
+      "related_read_only_sources": [
+        {
+          "path": "src/cipher_lab/representations/input.py",
+          "sha256": "695bcad089c161bcd0e5da92872624c9f9d66bc25d11fcfb9d747319c97aca80"
+        }
+      ],
+      "destination": [
+        "src/cipher_lab/models/dedicated/skinny.py",
+        "src/cipher_lab/representations/dedicated.py"
+      ],
+      "algorithms": ["backstep_xor_resnet SKINNY dedicated expert and author 2D pair layout"],
+      "changes": [
+        "Keep only the backstep_xor_resnet branch, with public rounds=8 default instead of 7; remove unused shallow/variant branches.",
+        "Reuse the existing core key-free bit backstep exactly once, then XOR and preserve author (3,4,16) reshape; accept raw canonical ciphertext bits.",
+        "Preserve encoder, ten double-convolution residual blocks, default initialization, dynamic BatchNorm and aggregation; no archived imports/execution, teacher or old weights."
+      ],
+      "validation": "Task1 guarded hand-built layout/backstep and metadata fixtures plus static review only; 289313 parameters. Actual numerical NN training, cipher/KAT, CPU/GPU agreement, full-batch BN behavior and resource feasibility remain unverified."
+    },
+    {
+      "source_path": "/workspace/backups/innovation-one-old-20261011/src/blockcipher_nd_v3/component_moe/four_task_run.py",
+      "source_sha256": "87d302f744b68608d06f3bfa6ebeca4b40d3f8de0de3ccf1842616bed156d4d3",
+      "related_read_only_sources": [
+        {
+          "path": "/workspace/backups/innovation-one-old-20261011/outputs/remote_runs/component-20261005-170536-gpu1/retrieved/run/config.json",
+          "sha256": "c6e43e5fa2528ea9c3394e0dca425c4bdaa60a166d0f1ce9a00de55b42fc1d98"
+        }
+      ],
+      "destination": [
+        "configs/innovation1-fresh.json",
+        "plugins/cipher_lab_plugins/innovation1/config.py"
+      ],
+      "algorithms": ["historical scale reference for the fresh online shared-versus-dedicated comparison"],
+      "changes": [
+        "Reference only: historical batch512, 24000 dedicated updates, DEV65536, confirmation262144 and bootstrap20000; no old runner, retry/orchestration, teacher or prefix logic migrated.",
+        "New explicitly designed 24 online epochs times 1024 cycles with fresh same-batch M/D exposure, cycle cosine LR1e-3 to1e-4 and five independently initialized optimizers; 24576 updates per dedicated expert, not exact old-recipe reproduction.",
+        "Public seeds only control initialization/plaintexts/shuffle/statistics; actual keys use injected private fresh bytes, never the old public-seed key stream. Configuration is not execution or resource authorization."
+      ],
+      "validation": "Strict stdlib recipe/estimator fixtures and independent integer accounting; formal totals 196608 optimizer updates, 413138944 real blocks and 115343360 forward rows are planned bounds, not actual work or feasibility measurements."
+    },
+    {
+      "source_path": "plugins/cipher_lab_plugins/speck_study/platform_resources/gpu.py",
+      "source_sha256": "76439933e1aac092f011083e93d644cc0c3173475b9a6a163e95cb190c21887d",
+      "destination": [
+        "plugins/cipher_lab_plugins/innovation1/device.py",
+        "plugins/cipher_lab_plugins/innovation1/resources.py"
+      ],
+      "algorithms": ["CUDA current-context UUID/PCI/PID attestation and strict GPU identity parsing"],
+      "changes": [
+        "Extract only _ok/actual_attestor to an independent owner module, using local ResourceStop; no production dependency on another experiment owner.",
+        "Require explicit GPU UUID/PCI and logical cuda:0 with whole-device nvidia-smi memory.used charging against the configured 20GiB limit; no silent CPU/demo fallback.",
+        "No NVML/study/teacher/process supervision or remote orchestration migration; sampled cooperative checks are not OS hard isolation or proof against transient peaks."
+      ],
+      "validation": "Only injected driver/telemetry and failure fixtures under guards. No actual CUDA/NVML/nvidia-smi, GPU memory measurement, Windows driver call or physical-device acceptance performed."
+    },
+    {
+      "source_path": "plugins/cipher_lab_plugins/speck_study/platform_resources/windows.py",
+      "source_sha256": "8111c157013a87e96b35008472e913507c98eafc8374a3343e4d12efefc9a91c",
+      "related_read_only_sources": [
+        {
+          "path": "src/cipher_lab/execution.py",
+          "sha256": "c03148703c692df811da32a489fcd1d658d360a87e912b4fedfe51b449974f0f"
+        }
+      ],
+      "destination": "plugins/cipher_lab_plugins/innovation1/resources.py",
+      "algorithms": ["current-process Windows GetProcessMemoryInfo RSS and Linux procfs RSS"],
+      "changes": [
+        "Reference only the current-process RSS API and explicit HANDLE signature; retain core Meter/Policy/Clocks accounting without importing another owner.",
+        "Implement a narrow platform-specific current RSS function; no Job object, child process, SSH, scheduler or installation behavior. Missing/unsupported telemetry fails closed."
+      ],
+      "validation": "Static signature review and injected failure fixtures only; production RSS entry is poisoned in engineering tests. No actual Linux procfs or Windows GetProcessMemoryInfo measurement, peak-memory proof or target-machine acceptance."
     }
   ]
 }

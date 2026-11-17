@@ -1,0 +1,1 @@
+"""Explicit integral search plugin."""

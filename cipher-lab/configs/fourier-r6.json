@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "method": "bit-fourier-search-v1",
+  "synthetic": false,
+  "rounds": 6,
+  "target_bit": 0,
+  "input_bits": 64,
+  "pairs_per_layer": 65536,
+  "beam_width": 32,
+  "tau": 0.1,
+  "coef_size": 65536,
+  "dev_size": 65536,
+  "test_size": 65536,
+  "search_seed": 19691111,
+  "coef_seed": 29691111,
+  "dev_seed": 39691111,
+  "test_seed": 49691111
+}

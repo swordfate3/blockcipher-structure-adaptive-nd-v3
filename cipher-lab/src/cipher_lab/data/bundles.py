@@ -16,7 +16,7 @@ import struct
 import zipfile
 import zlib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import IO, cast
 
 import numpy as np
@@ -50,6 +50,12 @@ class PredictionTask:
                 "target_bit": self.target_bit, "label_mode": self.label_mode}
 
 
+
+
+
+
+
+
 TaskDeclaration = TaskSpec | PredictionTask
 
 
@@ -58,6 +64,7 @@ class DatasetBundle:
     method: str
     task_declarations: tuple[TaskDeclaration, ...]
     panels: Mapping[str, tuple[Tensor, Tensor]]
+    references: Mapping[str, Tensor] = field(default_factory=dict)
 
 
 def _identity(method: str, tasks: tuple[TaskDeclaration, ...]) -> tuple[str, ...]:
@@ -76,9 +83,10 @@ def _identity(method: str, tasks: tuple[TaskDeclaration, ...]) -> tuple[str, ...
 
 
 def _shape(shape: tuple[int, ...], method: str, *, label: bool = False) -> None:
-    limit = 2000000 if method == "bit-prediction-v1" else 65536
-    minimum = 1 if method == "bit-prediction-v1" else 2
-    suffix = (1,) if label else ((64,) if method == "bit-prediction-v1" else (4, 2, 64))
+    prediction = method == "bit-prediction-v1"
+    limit = 2000000 if prediction else 65536
+    minimum = 1 if prediction else 2
+    suffix = (1,) if label else ((64,) if prediction else (4, 2, 64))
     if (not shape or not minimum <= shape[0] <= limit or shape[1:] != suffix
             or (method == "shared-m-four-task-v1" and shape[0] % 2)):
         raise ValueError
@@ -100,7 +108,11 @@ def encode_bundle(bundle: DatasetBundle) -> bytes:
         names = _identity(bundle.method, bundle.task_declarations)
         if set(bundle.panels) != set(names):
             raise ValueError
-        metadata = json.dumps({"schema": 1, "method": bundle.method,
+        residual = False
+        if set(bundle.references) != (set(names) if residual else set()):
+            raise ValueError
+        schema = 1
+        metadata = json.dumps({"schema": schema, "method": bundle.method,
                                "task_declarations": [t.to_dict()
                                                      for t in bundle.task_declarations]},
                               allow_nan=False, separators=(",", ":")).encode("utf-8")
@@ -116,7 +128,13 @@ def encode_bundle(bundle: DatasetBundle) -> bytes:
             if x.shape[0] != y.shape[0]:
                 raise ValueError
             total += x.numel() + y.numel()
-        if total + (len(names) * 2 + 1) * _MAX_HEADER > MAX_BYTES:
+            if residual:
+                h = bundle.references[name]
+                _tensor(h, bundle.method, label=True)
+                if h.shape != y.shape:
+                    raise ValueError
+                total += h.numel()
+        if total + (len(names) * (3 if residual else 2) + 1) * _MAX_HEADER > MAX_BYTES:
             raise ValueError
         output = io.BytesIO()
         expanded = 0
@@ -134,6 +152,8 @@ def encode_bundle(bundle: DatasetBundle) -> bytes:
             for index, name in enumerate(names):
                 for axis, tensor in zip(("x", "y"), bundle.panels[name], strict=True):
                     add(f"p{index}_{axis}.npy", tensor.to(torch.uint8).numpy())
+                if residual:
+                    add(f"p{index}_h.npy", bundle.references[name].to(torch.uint8).numpy())
         content = output.getvalue()
         if len(content) > MAX_BYTES:
             raise ValueError
@@ -163,9 +183,10 @@ def _metadata(raw: bytes) -> tuple[str, tuple[TaskDeclaration, ...]]:
     node = _object(json.loads(raw.decode("utf-8"), object_pairs_hook=_pairs,
                               parse_constant=bad_constant),
                    {"schema", "method", "task_declarations"})
-    if type(node["schema"]) is not int or node["schema"] != 1:
-        raise ValueError
     method = node["method"]
+    if (type(node["schema"]) is not int
+            or node["schema"] != 1):
+        raise ValueError
     declarations = node["task_declarations"]
     if type(method) is not str or type(declarations) is not list:
         raise ValueError
@@ -305,7 +326,7 @@ def decode_bundle(content: bytes) -> DatasetBundle:
                     or sum(info.file_size for info in infos) > MAX_BYTES):
                 raise ValueError
             allowed = {"metadata.npy"} | {
-                f"p{i}_{axis}.npy" for i in range(4) for axis in ("x", "y")
+                f"p{i}_{axis}.npy" for i in range(4) for axis in ("x", "y", "h")
             }
             ranges: list[tuple[int, int]] = []
             members: list[tuple[zipfile.ZipInfo, int]] = []
@@ -348,8 +369,9 @@ def decode_bundle(content: bytes) -> DatasetBundle:
                 if stream.read(1):
                     raise ValueError
             expected_names = _identity(method, tasks)
+            axes = ("x", "y")
             if set(names) != {"metadata.npy"} | {
-                f"p{i}_{axis}.npy" for i in range(len(tasks)) for axis in ("x", "y")
+                f"p{i}_{axis}.npy" for i in range(len(tasks)) for axis in axes
             }:
                 raise ValueError
             # Preflight EVERY array header/shape before any tensor allocation,
@@ -357,22 +379,23 @@ def decode_bundle(content: bytes) -> DatasetBundle:
             # allocate earlier large arrays first.
             for index in range(len(tasks)):
                 rows: list[int] = []
-                for axis in ("x", "y"):
+                for axis in axes:
                     member = f"p{index}_{axis}.npy"
                     with archive.open(member) as stream:
                         shape, _amount = _header(stream, archive.getinfo(member).file_size)
-                        _shape(shape, method, label=axis == "y")
+                        _shape(shape, method, label=axis != "x")
                         rows.append(shape[0])
-                if rows[0] != rows[1]:
+                if len(set(rows)) != 1:
                     raise ValueError
             panels: dict[str, tuple[Tensor, Tensor]] = {}
+            references: dict[str, Tensor] = {}
             for index, name in enumerate(expected_names):
                 tensors: list[Tensor] = []
-                for axis in ("x", "y"):
+                for axis in axes:
                     member = f"p{index}_{axis}.npy"
                     with archive.open(member) as stream:
                         shape, amount = _header(stream, archive.getinfo(member).file_size)
-                        _shape(shape, method, label=axis == "y")
+                        _shape(shape, method, label=axis != "x")
                         raw = stream.read(amount)
                         if len(raw) != amount or stream.read(1):
                             raise ValueError
@@ -380,10 +403,12 @@ def decode_bundle(content: bytes) -> DatasetBundle:
                         if not bool((array <= 1).all()):
                             raise ValueError
                         tensors.append(torch.from_numpy(array.copy()).to(torch.float32))
-                x, y = tensors
+                x, y = tensors[:2]
+                if len(tensors) == 3:
+                    references[name] = tensors[2]
                 if x.shape[0] != y.shape[0]:
                     raise ValueError
                 panels[name] = (x, y)
-        return DatasetBundle(method, tasks, panels)
+        return DatasetBundle(method, tasks, panels, references)
     except Exception:
         raise ValueError("invalid bundle") from None

@@ -149,6 +149,8 @@ class PredictionRecipe:
                 "target_bit": self.target_bit, "label_mode": self.label_mode}
 
 
+
+
 @dataclass(frozen=True, slots=True)
 class SharedMRecipe:
     schema: int
@@ -229,3 +231,28 @@ def parse_shared_m(value: object) -> SharedMRecipe:
         schema=cast(int, node["schema"]), method=cast(str, node["method"]), model=spec,
         training=_training(node["training"]), tasks=tuple(tasks),
     )
+
+
+
+
+
+
+
+
+
+
+
+
+# Pure public identities: importing configuration must never import Torch.
+
+# Admission is tied to the saved Task1 audit, not an arbitrary self-consistent SHA.
+
+
+
+
+
+
+
+
+
+

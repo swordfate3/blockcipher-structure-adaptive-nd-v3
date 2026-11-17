@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "method": "integral-search-v1",
+  "rounds": [11, 12, 13, 14],
+  "patterns": [
+    [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+    [32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62]
+  ],
+  "discovery_active": 10,
+  "expanded_active": 16,
+  "groups": {"discovery": 2112, "screen": 320, "confirm": 256},
+  "chunk_points": 65536
+}

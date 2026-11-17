@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "method": "bit-public-feature-probe-v1",
+  "reference": "simon64-zero-master-v1",
+  "representation": "simon-r3-residual13-v1",
+  "model": {
+    "hidden_width": 2
+  },
+  "training": {
+    "train": 2,
+    "dev": 2,
+    "test": 2,
+    "batch_size": 2,
+    "epochs": 1,
+    "learning_rate": 0.001,
+    "init_seed": 0,
+    "sample_seed": 1,
+    "shuffle_seed": 4294967295
+  },
+  "rounds": 3,
+  "target_bit": 0,
+  "label_mode": "cipher"
+}

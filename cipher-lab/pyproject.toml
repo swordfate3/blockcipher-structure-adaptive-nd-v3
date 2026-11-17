@@ -17,8 +17,32 @@ where = ["src"]
 include = ["cipher_lab", "cipher_lab.*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
+# Each experiment has one explicit owner. Relations' existing tests still live
+# under tests/test_differential_relations_*.py; its future owner path is reserved.
+testpaths = [
+    "tests",
+    "plugins/cipher_lab_plugins/differential_relations/tests",
+    "plugins/cipher_lab_plugins/residual/tests",
+    "plugins/cipher_lab_plugins/feature_probe/tests",
+    "plugins/cipher_lab_plugins/frontier/tests",
+    "plugins/cipher_lab_plugins/fourier/tests",
+    "plugins/cipher_lab_plugins/speck_study/tests",
+    "plugins/cipher_lab_plugins/integral_search/tests",
+    "plugins/cipher_lab_plugins/innovation1/tests",
+]
+addopts = "-q -p plugin_isolation -m 'not science'"
+markers = ["science: original real cipher/NN/optimizer/RSS cases; separate permission required"]
+pythonpath = [
+    "src", "plugins", "tests",
+    "plugins/cipher_lab_plugins/differential_relations/tests",
+    "plugins/cipher_lab_plugins/residual/tests",
+    "plugins/cipher_lab_plugins/feature_probe/tests",
+    "plugins/cipher_lab_plugins/frontier/tests",
+    "plugins/cipher_lab_plugins/fourier/tests",
+    "plugins/cipher_lab_plugins/speck_study/tests",
+    "plugins/cipher_lab_plugins/integral_search/tests",
+    "plugins/cipher_lab_plugins/innovation1/tests",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -27,8 +51,13 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+# execution is in the SPECK main Python3.10 closure: UTC was added in 3.11.
+# The provider3.9 typing-Callable exemptions stay inline with their source owners.
+[tool.ruff.lint.per-file-ignores]
+"src/cipher_lab/execution.py" = ["UP017"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
-mypy_path = "src"
+files = ["src", "tests", "plugins"]
+mypy_path = ["src", "tests", "plugins"]

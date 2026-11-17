@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import cast
 
@@ -17,7 +17,7 @@ from cipher_lab.models import BitMLP, SharedM
 from cipher_lab.representations.tasks import public_features
 from cipher_lab.training_config import TASK_FAMILIES, MLPSpec, SharedMSpec, TaskSpec
 
-Model = BitMLP | SharedM
+Model = torch.nn.Module
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,11 +47,16 @@ class PublicModelSpec:
 
     model: MLPSpec | SharedMSpec
     task_declarations: tuple[TaskDeclaration, ...]
+    output_mode: str = "direct"
+    arm_id: str | None = None
+    input_representation: str | None = None
 
     def __post_init__(self) -> None:
         tasks = self.task_declarations
         if type(tasks) is not tuple:
             raise ValueError('invalid public model identity')
+        if self.arm_id is not None or self.input_representation is not None:
+            raise ValueError('unexpected arm identity')
         if type(self.model) is MLPSpec:
             if len(tasks) != 1 or type(tasks[0]) is not PredictionTask:
                 raise ValueError('invalid prediction identity')
@@ -61,6 +66,8 @@ class PublicModelSpec:
                 raise ValueError('invalid shared-M identity')
         else:
             raise ValueError('unsupported public model specification')
+        if self.output_mode != 'direct':
+            raise ValueError('invalid output mode')
         # Revalidate dataclasses, including instances altered with object.__setattr__.
         self.model.__post_init__()
         for task in tasks:
@@ -111,15 +118,18 @@ class EvaluationPanels:
     task_declarations: tuple[TaskDeclaration, ...]
     panels: Mapping[str, tuple[Tensor, Tensor]]
     baseline: Mapping[str, TrainBaseline]
+    references: Mapping[str, Tensor] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'panels', MappingProxyType(dict(self.panels)))
         object.__setattr__(self, 'baseline', MappingProxyType(dict(self.baseline)))
+        object.__setattr__(self, 'references', MappingProxyType(dict(self.references)))
 
     @classmethod
     def from_bundle(cls, bundle: DatasetBundle,
                     baseline: Mapping[str, TrainBaseline]) -> EvaluationPanels:
-        return cls(bundle.method, bundle.task_declarations, bundle.panels, baseline)
+        return cls(bundle.method, bundle.task_declarations, bundle.panels, baseline,
+                   bundle.references)
 
 
 def validate_baseline(spec: PublicModelSpec, baseline: Mapping[str, TrainBaseline]) -> None:
@@ -136,7 +146,7 @@ def validate_baseline(spec: PublicModelSpec, baseline: Mapping[str, TrainBaselin
 
 def validate_model(model: Model, spec: PublicModelSpec) -> None:
     expected = BitMLP if type(spec.model) is MLPSpec else SharedM
-    if type(model) is not expected or model.spec != spec.model:
+    if type(model) is not expected or getattr(model, "spec", None) != spec.model:
         raise ValueError('model does not match public specification')
     for value in model.state_dict().values():
         if (value.device.type != 'cpu' or value.layout != torch.strided
@@ -146,7 +156,8 @@ def validate_model(model: Model, spec: PublicModelSpec) -> None:
 
 
 def evaluate_batches(model: Model, panels: EvaluationPanels, model_spec: PublicModelSpec,
-                     meter: Meter, batch_size: int) -> dict[str, object]:
+                     meter: Meter, batch_size: int, *,
+                     outputs: dict[str, Tensor] | None = None) -> dict[str, object]:
     """Validate context before reserving; each valid batch completes exactly N rows.
 
     Return {'rows': total, 'tasks': {cipher: metrics}, 'mean_bce': equal-task mean}.
@@ -159,9 +170,11 @@ def evaluate_batches(model: Model, panels: EvaluationPanels, model_spec: PublicM
             or panels.task_declarations != model_spec.task_declarations
             or set(panels.panels) != set(model_spec.names)):
         raise ValueError('evaluation identity mismatch')
+    if panels.references:
+        raise ValueError('unexpected references')
     validate_baseline(model_spec, panels.baseline)
     validate_model(model, model_spec)
-    suffix = (64,) if type(model_spec.model) is MLPSpec else (4, 2, 64)
+    suffix = (4, 2, 64) if type(model_spec.model) is SharedMSpec else (64,)
     for x, y in panels.panels.values():
         _tensor(x, suffix, binary=True)
         _tensor(y, (1,), binary=True)
@@ -169,30 +182,53 @@ def evaluate_batches(model: Model, panels: EvaluationPanels, model_spec: PublicM
             raise ValueError('evaluation row mismatch')
         if type(model_spec.model) is SharedMSpec and (x.shape[0] % 2 or x.shape[0] > 65536):
             raise ValueError('invalid shared-M rows')
+    tasks = {task.cipher: task for task in model_spec.task_declarations}
+    def forward(name: str, batch: Tensor) -> Tensor:
+        if type(model_spec.model) is SharedMSpec:
+            public = torch.tensor(public_features(name), dtype=torch.float32)
+            return cast(Tensor, model(batch, public, rounds=tasks[name].rounds))
+        return cast(Tensor, model(batch))
+    return evaluate_bound_panels(model, model_spec.names, panels.panels, panels.baseline,
+        meter, batch_size, forward=forward, outputs=outputs)
+
+
+def evaluate_bound_panels(model: Model, names: tuple[str, ...],
+        panels: Mapping[str, tuple[Tensor, Tensor]], baseline: Mapping[str, TrainBaseline],
+        meter: Meter, batch_size: int, *, forward: Callable[[str, Tensor], Tensor],
+        absolute: Callable[[str, Tensor], Tensor] | None = None,
+        outputs: dict[str, Tensor] | None = None) -> dict[str, object]:
+    """Metered forward/metrics only; strict typed context is validated by caller.
+
+    No experiment/spec dispatch. Preserve modes, batch reservation order, concatenation,
+    caller absolute conversion, and equal-task mean exactly as the original evaluator.
+    """
+    if type(batch_size) is not int or not 1 <= batch_size <= 2000000:
+        raise ValueError('invalid evaluation batch size')
     modes = [(module, module.training) for module in model.modules()]
     results: dict[str, dict[str, float | int]] = {}
     try:
         model.eval()
         with torch.no_grad():
-            for task in model_spec.task_declarations:
-                x, y = panels.panels[task.cipher]
-                outputs: list[Tensor] = []
+            for name in names:
+                x, y = panels[name]
+                batches: list[Tensor] = []
                 for start in range(0, len(x), batch_size):
                     batch = x[start:start + batch_size]
                     meter.reserve('forward_rows', len(batch))
-                    if type(model_spec.model) is SharedMSpec:
-                        public = torch.tensor(public_features(task.cipher), dtype=torch.float32)
-                        logits = cast(Tensor, model(batch, public, rounds=task.rounds))
-                    else:
-                        logits = cast(Tensor, model(batch))
+                    logits = forward(name, batch)
                     _tensor(logits, (1,))
                     if len(logits) != len(batch):
                         raise ValueError('invalid forward row count')
                     meter.complete('forward_rows', len(batch))
-                    outputs.append(logits)
-                baseline = panels.baseline[task.cipher]
-                results[task.cipher] = binary_metrics(torch.cat(outputs), y,
-                    majority=baseline.majority, probability=baseline.probability)
+                    batches.append(logits)
+                train_baseline = baseline[name]
+                absolute_logits = torch.cat(batches)
+                if absolute is not None:
+                    absolute_logits = absolute(name, absolute_logits)
+                if outputs is not None:
+                    outputs[name] = absolute_logits.detach().clone()
+                results[name] = binary_metrics(absolute_logits, y,
+                    majority=train_baseline.majority, probability=train_baseline.probability)
     finally:
         for module, training in modes:
             module.training = training

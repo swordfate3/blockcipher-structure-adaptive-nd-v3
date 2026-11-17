@@ -24,6 +24,16 @@ from cipher_lab.artifacts import RunStore, read_saved
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 
+@pytest.fixture(autouse=True)
+def forbid_production_entries(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden(*args: object, **kwargs: object) -> None:
+        pytest.fail("production cipher/RNG/RSS called")
+    monkeypatch.setattr("cipher_lab.ciphers.simon.encrypt_many", forbidden)
+    monkeypatch.setattr("cipher_lab.ciphers.simon.encrypt_batch", forbidden)
+    monkeypatch.setattr("secrets.token_bytes", forbidden)
+    monkeypatch.setattr(execution, "production_rss_bytes", forbidden)
+
+
 def inputs(tmp_path: Path, **limits: object) -> list[str]:
     config = tmp_path / "config.json"
     policy = tmp_path / "policy.json"
@@ -428,13 +438,15 @@ def test_method_storage_failure_uses_saved_identity_without_second_finalize(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
     backend: str, failure_at: str,
 ) -> None:
-    from cipher_lab.demo import DemoBytes, demo_rss_bytes, fake_encrypt_many
+    from cipher_lab.demo import DemoBytes, demo_rss_bytes, fake_encrypt_batch
 
     # Even the simon assembly path uses only fake oracle/randomness/RSS.
     fake_cipher = ModuleType("cipher_lab.ciphers.simon")
-    fake_cipher.encrypt_many = fake_encrypt_many  # type: ignore[attr-defined]
+    fake_cipher.encrypt_batch = fake_encrypt_batch  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "cipher_lab.ciphers.simon", fake_cipher)
-    monkeypatch.setattr("secrets.token_bytes", DemoBytes())
+    private = DemoBytes()
+    monkeypatch.setattr("secrets.token_bytes", lambda size: (
+        private(size) if size in (8, 16) else private.bulk_words(size // 8)))
     monkeypatch.setattr(execution, "production_rss_bytes", demo_rss_bytes)
     original_payload = RunStore.write_payload
     original_snapshot = RunStore.write_snapshot
@@ -611,3 +623,121 @@ def test_first_identity_write_failure_does_not_infer_metadata_from_arguments(
     assert saved["summary"] == {"reason": "OUTPUT_LIMIT"}
     assert not (tmp_path / "out" / "result" / "sample" / "index.html").exists()
     assert not (tmp_path / "out" / "result" / "sample" / "source.json").exists()
+
+
+@pytest.mark.parametrize("amount", [1, 2, 3, 65536])
+def test_demo_bulk_words_preserves_continuous_eight_byte_stream(amount: int) -> None:
+    from cipher_lab.demo import DemoBytes
+
+    scalar, bulk = DemoBytes(), DemoBytes()
+    assert scalar(8) == bulk(8)
+    for size in (1, 10, 16):
+        assert scalar(size) == bulk(size)
+    assert bulk.bulk_words(amount) == b"".join(scalar(8) for _ in range(amount))
+    assert scalar(8) == bulk(8)
+    for size in (1, 10, 16):
+        assert scalar(size) == bulk(size)
+
+
+@pytest.mark.parametrize("amount", [0, -1, True, 65537, 1.0])
+def test_demo_bulk_rejects_invalid_word_counts(amount: int) -> None:
+    from cipher_lab.demo import DemoBytes
+
+    with pytest.raises((TypeError, ValueError)):
+        DemoBytes().bulk_words(amount)
+
+
+def test_check_does_not_import_numpy_or_cipher(tmp_path: Path) -> None:
+    script = """
+import importlib.abc, sys
+class Block(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.startswith(('numpy', 'cipher_lab.ciphers', 'torch')):
+            raise AssertionError('PRIVATE forbidden scientific dependency')
+sys.meta_path.insert(0, Block())
+from cipher_lab.cli import main
+raise SystemExit(main(sys.argv[1:]))
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script, "check", *inputs(tmp_path)], cwd=tmp_path,
+        env=dict(os.environ, PYTHONPATH=str(SRC), PYTHONDONTWRITEBYTECODE="1"),
+        capture_output=True, text=True, check=False)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["planned_calls_fit_policy"]["real_blocks"] is True
+
+
+@pytest.mark.parametrize("backend", ["demo", "simon"])
+def test_integral_cli_explicit_batch_only_preserves_counts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch,
+    backend: str,
+) -> None:
+    import numpy as np
+    from numpy.typing import NDArray
+
+    from cipher_lab.demo import DemoBytes, demo_rss_bytes
+
+    source = DemoBytes()
+    calls: list[int] = []
+    def forbidden(*a: object, **k: object) -> None:
+        pytest.fail("scalar cipher or production RNG/RSS used")
+    def fake(points: NDArray[np.uint64], key: tuple[int, ...], rounds: int
+             ) -> NDArray[np.uint64]:
+        calls.append(len(points))
+        assert points.dtype == np.dtype(np.uint64) and points.ndim == 1
+        return points ^ np.uint64(rounds)
+    fake_cipher = ModuleType("cipher_lab.ciphers.simon")
+    fake_cipher.encrypt_many = forbidden  # type: ignore[attr-defined]
+    fake_cipher.encrypt_batch = fake  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "cipher_lab.ciphers.simon", fake_cipher)
+    monkeypatch.setattr("cipher_lab.demo.fake_encrypt_many", forbidden)
+    monkeypatch.setattr("cipher_lab.demo.fake_encrypt_batch", fake, raising=False)
+    # The production assembly still uses arbitrary exact byte sizes; this fake
+    # models that contract without confusing a key request with a null request.
+    def random(size: int) -> bytes:
+        return source(size) if size in (8, 16) else b"x"*size
+    monkeypatch.setattr("secrets.token_bytes", random)
+    monkeypatch.setattr(execution, "production_rss_bytes", demo_rss_bytes)
+    arguments = args(tmp_path)
+    arguments[-1] = backend
+    assert cli.main(arguments) in (0, 5)
+    output = result(capsys)
+    assert calls == [3, 1]*3
+    saved = read_saved(tmp_path / "out", "sample")
+    counts = cast(dict[str, int], saved["counts"])
+    assert counts["completed_real_blocks"] == counts["attempted_real_blocks"] == 12
+    assert counts["completed_null_words"] == counts["attempted_null_words"] == 12
+    assert output["backend_identity"] == backend and output["scientific_validation"] is False
+
+
+@pytest.mark.parametrize("chunk", [1, 2, 3, 4])
+def test_demo_cli_bulk_null_word_stream_not_key_size_stream(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], chunk: int,
+) -> None:
+    arguments = args(tmp_path)
+    config_path = tmp_path / "config.json"
+    config = json.loads(config_path.read_text())
+    config["chunk_points"] = chunk
+    config_path.write_text(json.dumps(config))
+    assert cli.main(arguments) in (0, 5)
+    result(capsys)
+    saved = read_saved(tmp_path / "out", "sample")
+    counts = cast(dict[str, int], saved["counts"])
+    assert counts["completed_real_groups"] == counts["completed_null_groups"] == 3
+    assert counts["completed_real_blocks"] == counts["completed_null_words"] == 12
+    # Every group has the same null sequence regardless of 8/16-byte bulk size.
+    payloads = cast(dict[str, dict[str, object]], saved["payloads"])
+    summary = cast(dict[str, object], saved["summary"])
+    cells = cast(list[dict[str, object]], summary["cells"])
+    null = cast(dict[str, object], cells[0]["null"])
+    assert null["frozen_dimension"] == 2079
+    assert len(cast(list[int], payloads[str(null["basis_ref"])]["frozen_basis"])) == 2079
+
+
+def test_production_public_exit_identity_is_not_all_family_kat_or_proof(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert cli._public_exit("SUCCEEDED", report_status="SAVED", backend="ciphers") == 0
+    output = result(capsys)
+    assert output["scientific_validation"] is False
+    assert "不认证实现" in str(output["count_semantics"])
+    assert "不等于所有密码家族 KAT" in str(output["count_semantics"])

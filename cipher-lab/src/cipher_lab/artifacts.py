@@ -3,15 +3,17 @@
 Snapshot updates accept only recipe/policy/counts/summary JSON mappings. The caller
 must construct these public summaries: this module cannot detect secrets in JSON.
 Payloads are immutable JSON; datasets and models are opaque bytes. References
-are category-bound, never arbitrary paths. Only best models may be replaced.
+are category-bound, never arbitrary paths. Only default best models and explicitly
+claim-declared model slots may be replaced.
 Events accept kind/counts/summary, never a complete snapshot.
 Terminal states are SUCCEEDED, FAILED, STOPPED, ALARM. Missing terminal = UNKNOWN.
 
 Report handoff: retain the original claimed store, finalize it, then read_saved().
 Pass that saved mapping to a pure render_report(saved) -> dict[str, bytes] renderer
 (no destination or disk I/O), then pass its three files to that same store's
-write_report_files(). The renderer uses the reader's run_ref/run_sha256, not a new
-source scan. This module supplies storage, not the renderer. No report writer can
+write_report_files(), or use write_html_report() for a single HTML document.
+The renderer uses the reader's run_ref/run_sha256, not a new source scan.
+This module supplies storage, not the renderer. No report writer can
 be reopened in another process; report failures never alter the scientific terminal.
 
 Only a single process and a trusted, non-concurrently-mutated root are supported.
@@ -28,7 +30,7 @@ import os
 import platform
 import re
 import stat
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
 from hashlib import sha256
@@ -198,9 +200,9 @@ def _source(value: object) -> None:
         raise ArtifactError("INVALID_SCHEMA")
     for name, digest in source.items():
         parts = name.split("/")
-        if (len(parts) < 2 or parts[0] != "cipher_lab" or not name.endswith(".py")
-                or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", p) for p in parts[1:-1])
-                or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*\.py", parts[-1])
+        if (len(parts) < 2 or not name.endswith((".py", ".ps1", ".cmd", ".bat", ".sh"))
+                or any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", p) for p in parts[:-1])
+                or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*\.(py|ps1|cmd|bat|sh)", parts[-1])
                 or not isinstance(digest, str) or _SHA.fullmatch(digest) is None):
             raise ArtifactError("INVALID_SCHEMA")
 
@@ -358,18 +360,40 @@ class RunStore:
     _sequence: int = 0
     _sealed: bool = False
     _frozen_sha: str | None = None
+    _model_slots: frozenset[str] = field(default_factory=frozenset)
+    _source_supplier: Callable[[], dict[str, str]] | None = None
+
+    def current_source_identity(self) -> dict[str, str]:
+        """Fresh identity from the same caller-owned closure used by claim."""
+        identity = (source_identity if self._source_supplier is None
+                    else self._source_supplier)()
+        _source(identity)
+        return dict(identity)
 
     @classmethod
     def claim(cls, root: Path, run_id: str, *, output_bytes: int,
-              needs_models: bool = False) -> RunStore:
+              needs_models: bool = False, model_slots: tuple[str, ...] = (),
+              source_supplier: Callable[[], dict[str, str]] | None = None) -> RunStore:
+        """Claim a fresh owner, optionally granting extra model replacement slots.
+
+        Slots are validated/deduplicated before I/O, apply only to this owner,
+        and do not implicitly request a models directory (needs_models still does).
+        """
         _token(run_id)
         if type(output_bytes) is not int or output_bytes <= 0 or type(needs_models) is not bool:
             raise ArtifactError("INVALID_BUDGET")
+        if type(model_slots) is not tuple:
+            raise ArtifactError("INVALID_NAME")
+        slots = frozenset(_token(name) for name in model_slots)
+        if source_supplier is not None and not callable(source_supplier):
+            raise ArtifactError("INVALID_SCHEMA")
         created: list[Path] = []
         store: RunStore | None = None
         try:
             root = _path(root)
-            identity = source_identity()
+            identity = (source_identity if source_supplier is None else source_supplier)()
+            _source(identity)
+            identity = dict(identity)
             record: dict[str, object] = {
                 "schema": _SCHEMA, "run_id": run_id, "source": identity,
                 "environment": _environment_identity(), "status": "RUNNING",
@@ -389,7 +413,8 @@ class RunStore:
                     _path(item)
                     item.mkdir()  # no exist_ok: no accidental adoption of a competing claim
                     created.append(item)
-            store = cls(root, run_id, output_bytes, record, set(locations))
+            store = cls(root, run_id, output_bytes, record, set(locations), _model_slots=slots,
+                        _source_supplier=source_supplier)
             store._atomic(store._data / "run.json", _encode(record))
             return store
         except (OSError, ArtifactError) as error:
@@ -466,6 +491,8 @@ class RunStore:
         fd: int | None = None
         try:
             _path(temporary)
+            # Windows CRT text descriptors may translate LF; opaque bytes and
+            # their recorded hashes must be platform-independent.
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
             fd = os.open(temporary, flags, 0o600)
             made = True
@@ -580,14 +607,15 @@ class RunStore:
         return self._write_artifact(ref, content)
 
     def write_model(self, name: str, content: bytes, *, replace: bool = False) -> str:
-        """Write opaque checkpoint bytes; only best permits explicit replacement."""
+        """Write opaque checkpoints; only the explicit best slots permit replacement."""
         self._running()
         ref = f"model/{_token(name)}.pt"
         if type(content) is not bytes:
             raise ArtifactError("INVALID_CONTENT")
         if type(replace) is not bool:
             raise ArtifactError("INVALID_STATE")
-        if replace and name not in ("best", "A-best", "B-best"):
+        if (replace and name not in ("best", "A-best", "B-best", "C-best")
+                and name not in self._model_slots):
             raise ArtifactError("OCCUPIED")
         if self._root / "models" / self._run_id not in self._dirs:
             raise ArtifactError("OWNERSHIP_LOST")
@@ -648,6 +676,27 @@ class RunStore:
         self._save({**self._record, **update})
         self._sealed = True
         self._frozen_sha = self._files[self._data / "run.json"]
+
+    def write_html_report(self, content: bytes) -> None:
+        """Write only report.html through the retained finalized owner.
+
+        The renderer supplies bytes, never paths. Frozen run identity, ownership,
+        shared output budget and old-file-plus-temporary peak checks are the same
+        as the three-file report API. Re-render is allowed by this owner only;
+        failures preserve the scientific terminal and existing committed report.
+        This method neither generates provenance nor rewrites run.json.
+        """
+        if not self._sealed or self._frozen_sha is None:
+            raise ArtifactError("NOT_FINALIZED")
+        if type(content) is not bytes:
+            raise ArtifactError("INVALID_REPORT")
+        try:
+            self._target(self._data / "run.json")
+            if self._files[self._data / "run.json"] != self._frozen_sha:
+                raise ArtifactError("HASH_MISMATCH")
+            self._atomic(self._result / "report.html", content)
+        except OSError:
+            raise ArtifactError("WRITE_FAILED") from None
 
     def write_report_files(self, files: Mapping[str, bytes]) -> None:
         """Write exactly report.md/index.html/source.json against the frozen run.

@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import cast
 
-from cipher_lab.speck_study_config import METHOD, SpeckStudyRecipe
 from cipher_lab.training_config import (
     PredictionRecipe,
     SharedMRecipe,
@@ -70,8 +69,8 @@ class Cell:
 
     def __post_init__(self) -> None:
         _integer(self.rounds, "rounds", 1, 44)
-        if type(self.active) is not tuple or not 2 <= len(self.active) <= 16:
-            raise ValueError("active: expected tuple of 2..16 positions")
+        if type(self.active) is not tuple or not 2 <= len(self.active) <= 20:
+            raise ValueError("active: expected tuple of 2..20 positions")
         for bit in self.active:
             _integer(bit, "active position", 0, 63)
         if len(set(self.active)) != len(self.active):
@@ -113,6 +112,8 @@ class Recipe:
             raise ValueError("cells: expected tuple of 1..64 cells")
         if any(not isinstance(cell, Cell) for cell in self.cells):
             raise ValueError("cells: expected Cell values")
+        if any(len(cell.active) > 16 for cell in self.cells):
+            raise ValueError("active: ordinary recipe supports 2..16 positions")
         identities = {(cell.rounds, frozenset(cell.active)) for cell in self.cells}
         if len(identities) != len(self.cells):
             raise ValueError("cells: repeated rounds/active set")
@@ -128,6 +129,8 @@ class Recipe:
             "groups": self.groups.to_dict(),
             "chunk_points": self.chunk_points,
         }
+
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,14 +211,12 @@ def load_recipe(path: Path) -> Recipe:
 
 def load_experiment(
     path: Path,
-) -> Recipe | PredictionRecipe | SharedMRecipe | SpeckStudyRecipe:
+) -> (Recipe | PredictionRecipe | SharedMRecipe):
     """Read strict JSON exactly once, then explicitly dispatch by public method."""
     value = _load(path)
     if not isinstance(value, dict):
         raise ValueError("experiment: expected object")
     method = value.get("method")
-    if method == METHOD:
-        return SpeckStudyRecipe.parse(value)
     if method == _METHOD:
         return _parse_recipe(value)
     if method == "bit-prediction-v1":
@@ -251,6 +252,8 @@ def _parse_recipe(raw: object) -> Recipe:
                               for name, group in groups.items()}),
         chunk_points=_integer(value["chunk_points"], "chunk_points", 1, 65536),
     )
+
+
 
 
 def load_policy(path: Path) -> Policy:

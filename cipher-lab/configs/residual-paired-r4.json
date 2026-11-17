@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "method": "bit-residual-paired-v1",
+  "reference": "simon64-zero-master-v1",
+  "model": {
+    "hidden_width": 128
+  },
+  "training": {
+    "train": 65536,
+    "dev": 8192,
+    "test": 65536,
+    "batch_size": 256,
+    "epochs": 32,
+    "learning_rate": 0.001,
+    "init_seed": 17,
+    "sample_seed": 196902,
+    "shuffle_seed": 296902
+  },
+  "rounds": 4,
+  "target_bit": 0,
+  "label_mode": "cipher"
+}

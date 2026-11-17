@@ -1,0 +1,113 @@
+{
+  "method": "innovation1-shared-vs-dedicated-v1",
+  "namespace": "innovation1-fresh-v1-20261117",
+  "tasks": [
+    {
+      "cipher": "SIMECK",
+      "rounds": 16,
+      "difference": 64
+    },
+    {
+      "cipher": "PRESENT",
+      "rounds": 7,
+      "difference": 13631488
+    },
+    {
+      "cipher": "SIMON",
+      "rounds": 13,
+      "difference": 64
+    },
+    {
+      "cipher": "SKINNY",
+      "rounds": 8,
+      "difference": 8192
+    }
+  ],
+  "training": {
+    "epochs": 24,
+    "batches_per_epoch": 1024,
+    "batch_groups": 512,
+    "dev_groups": 65536,
+    "test_groups": 262144,
+    "eval_batch_groups": 512,
+    "pairs_per_group": 4,
+    "gradient_accumulation": 1,
+    "retries": 0
+  },
+  "optimizer": {
+    "name": "Adam",
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "amsgrad": false,
+    "lr_max": 0.001,
+    "lr_min": 0.0001,
+    "schedule": "cycle-cosine",
+    "clip_norm": 1.0,
+    "loss": "mean-BCEWithLogits",
+    "label_smoothing": 0.0,
+    "kernel_l2": 0.0,
+    "routing_penalty": 0.0
+  },
+  "seeds": {
+    "init": 26111741,
+    "sample": 26111742,
+    "shuffle": 26111743,
+    "bootstrap": 26111744
+  },
+  "statistics": {
+    "replicates": 20000,
+    "confidence": 0.9875,
+    "family_alpha": 0.05,
+    "comparisons": 4,
+    "threshold": 0.0,
+    "quantile": "linear",
+    "bootstrap": "fixed-class-quota-paired-group-multinomial"
+  },
+  "model": {
+    "stem_width": 96,
+    "channels": 96,
+    "norm_groups": 8,
+    "suffix_kernels": [
+      3,
+      5,
+      7,
+      9,
+      11
+    ],
+    "head_hidden": 64,
+    "router_hidden": 16,
+    "top_k": 2,
+    "dedicated": [
+      "feistel-se-simeck64",
+      "present-xor-undilated",
+      "feistel-se-simon64",
+      "skinny-backstep-xor-resnet"
+    ]
+  },
+  "selection": {
+    "shared": "macro-dev-bce",
+    "dedicated": "task-dev-bce",
+    "interval": "epoch-end",
+    "ties": "earliest",
+    "early_stopping": false,
+    "test": "after-five-persisted-best-reloads"
+  },
+  "resources": {
+    "precision": "float32",
+    "device_kind": "cuda",
+    "amp": false,
+    "tf32": false,
+    "cudnn_benchmark": false,
+    "gpu_bytes": 21474836480,
+    "rss_bytes": 17179869184,
+    "artifact_bytes": 1073741824,
+    "wall_seconds": 86400,
+    "cpu_seconds": 345600,
+    "intra_threads": 4,
+    "inter_threads": 1
+  }
+}

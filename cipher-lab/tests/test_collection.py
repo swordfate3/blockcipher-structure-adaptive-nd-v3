@@ -44,6 +44,7 @@ def forbid_cipher(monkeypatch: pytest.MonkeyPatch) -> None:
     def forbidden(*args: object, **kwargs: object) -> tuple[int, ...]:
         raise AssertionError("production cipher called by an engineering test")
     monkeypatch.setattr("cipher_lab.ciphers.simon.encrypt_many", forbidden)
+    monkeypatch.setattr("cipher_lab.ciphers.simon.encrypt_batch", forbidden)
 
 
 @pytest.mark.parametrize("chunk, sizes", [(1, [1, 1, 1, 1]), (3, [3, 1])])

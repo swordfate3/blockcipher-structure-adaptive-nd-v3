@@ -23,7 +23,10 @@ from typing import cast
 import torch
 from torch import Tensor
 
-from cipher_lab.data.bundles import PredictionTask, TaskDeclaration
+from cipher_lab.data.bundles import (
+    PredictionTask,
+    TaskDeclaration,
+)
 from cipher_lab.evaluation.metrics import (
     Model,
     PublicModelSpec,
@@ -32,7 +35,11 @@ from cipher_lab.evaluation.metrics import (
     validate_model,
 )
 from cipher_lab.models import BitMLP, SharedM
-from cipher_lab.training_config import MLPSpec, SharedMSpec, TaskSpec
+from cipher_lab.training_config import (
+    MLPSpec,
+    SharedMSpec,
+    TaskSpec,
+)
 
 MAX_BYTES = 256 * 1024 * 1024
 _MAX_ENTRIES = 2048
@@ -86,8 +93,9 @@ def _family(spec: PublicModelSpec) -> str:
 
 def _wiring(spec: PublicModelSpec) -> dict[str, object]:
     if type(spec.model) is MLPSpec:
-        return {'input_bits': 64, 'output_logits': 1, 'hidden_layers': 2,
-                'activation': 'relu', 'bit_order': 'msb0'}
+        wiring: dict[str, object] = {'input_bits': 64, 'output_logits': 1, 'hidden_layers': 2,
+                                     'activation': 'relu', 'bit_order': 'msb0'}
+        return wiring
     return {'input_shape': [4, 2, 64], 'output_logits': 1, 'public_width': 13,
             'stems': ['local', 'word', 'nibble'], 'route': 'learned-stable-top2',
             'view': 'single', 'relation': True, 'readout': 'pair',
@@ -102,7 +110,10 @@ def _new(spec: PublicModelSpec, *, meta: bool = False) -> Model:
         return SharedM(cast(SharedMSpec, spec.model))
 
 
-def _metadata(node: object) -> tuple[PublicModelSpec, Selection, dict[str, TrainBaseline], str]:
+def _metadata(node: object, plan: object = None
+              ) -> tuple[PublicModelSpec, Selection, dict[str, TrainBaseline], str]:
+    if plan is not None:
+        raise ValueError
     obj = _object(node, {'schema', 'method', 'model_family', 'model_spec', 'wiring',
                          'task_declarations', 'selection', 'baseline', 'recipe_sha', 'state'})
     if type(obj['schema']) is not int or obj['schema'] != 1:
@@ -110,7 +121,8 @@ def _metadata(node: object) -> tuple[PublicModelSpec, Selection, dict[str, Train
     raw = obj['model_spec']
     if obj['model_family'] == 'bit-mlp-v1':
         model_node = _object(raw, {'hidden_width'})
-        model: MLPSpec | SharedMSpec = MLPSpec(cast(int, model_node['hidden_width']))
+        model: MLPSpec | SharedMSpec = MLPSpec(
+            cast(int, model_node['hidden_width']))
     elif obj['model_family'] == 'shared-m-v1':
         model_node = _object(raw, {'stem_width', 'channels', 'norm_groups', 'suffix_kernels',
                                    'head_hidden', 'router_hidden'})
@@ -207,7 +219,8 @@ def encode_checkpoint(model: Model, public_model_spec: PublicModelSpec,
         state = {k: v.detach().to(device='cpu', copy=True).contiguous()
                  for k, v in model.state_dict().items()}
         node: dict[str, object] = {
-            'schema': 1, 'method': public_model_spec.method,
+            'schema': 1,
+            'method': public_model_spec.method,
             'model_family': _family(public_model_spec),
             'model_spec': public_model_spec.model.to_dict(), 'wiring': _wiring(public_model_spec),
             'task_declarations': [t.to_dict() for t in task_declarations],
@@ -504,13 +517,14 @@ def _preflight(content: bytes) -> tuple[PublicModelSpec, Selection, dict[str, Tr
             total += info.file_size
             if total > MAX_BYTES:
                 raise ValueError
+        plan = None
         if root+'/data.pkl' not in names or archive.read(root+'/byteorder') != b'little':
             raise ValueError
         raw = archive.read(root+'/data.pkl')
         _pickle_preflight(raw)
         inspector = _Inspect(raw, sizes)
         node = inspector.load()
-        spec, selection, baseline, recipe_sha = _metadata(node)
+        spec, selection, baseline, recipe_sha = _metadata(node, plan)
         if inspector.used != set(sizes):
             raise ValueError
         expected = _new(spec, meta=True).state_dict()
@@ -533,7 +547,8 @@ def load_checkpoint(content: bytes, expected_sha: str) -> LoadedModel:
             raise ValueError
         spec, selection, baseline, recipe_sha = _preflight(content)
         node = torch.load(io.BytesIO(content), map_location='cpu', weights_only=True)
-        loaded_metadata = _metadata(node)
+        plan = None
+        loaded_metadata = _metadata(node, plan)
         if loaded_metadata != (spec, selection, baseline, recipe_sha):
             raise ValueError
         model = _new(spec)

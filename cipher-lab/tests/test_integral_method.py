@@ -13,6 +13,7 @@ import pytest
 
 import cipher_lab.artifacts as artifacts
 import cipher_lab.integral.method as method
+import cipher_lab.integral.stages as stages
 from cipher_lab.artifacts import RunStore, read_saved
 from cipher_lab.config import Cell, Policy, Recipe, StageSizes
 from cipher_lab.execution import Clocks, Meter, Stopped
@@ -78,8 +79,10 @@ def side(saved: Mapping[str, object], name: str, index: int = 0) -> dict[str, ob
 @pytest.fixture
 def small_math(monkeypatch: pytest.MonkeyPatch) -> None:
     # An artificial one-dimensional relation; null is full rank by default.
-    monkeypatch.setattr(method, "kernel", lambda rows: () if tuple(rows) == (9,) else (1,))
-    monkeypatch.setattr(method, "survivor_basis", lambda discovery, screen: tuple(discovery))
+    monkeypatch.setattr(stages, "kernel",
+                        lambda rows, *, check=None: () if tuple(rows) == (9,) else (1,))
+    monkeypatch.setattr(stages, "survivor_basis",
+                        lambda discovery, screen, *, check=None: tuple(discovery))
 
 
 def run(tmp_path: Path, r: Recipe, collector: FakeCollector, meter: FakeMeter | Meter
@@ -100,11 +103,12 @@ def test_freeze_precedes_c_and_screen_receives_relation_basis(
     collector = FakeCollector(quiet_null())
     observed: list[tuple[int, ...]] = []
 
-    def survivor(discovery: tuple[int, ...], screen: tuple[int, ...]) -> tuple[int, ...]:
+    def survivor(discovery: tuple[int, ...], screen: tuple[int, ...], *,
+                 check: Callable[[], None] | None = None) -> tuple[int, ...]:
         observed.append(discovery)
         return discovery
 
-    monkeypatch.setattr(method, "survivor_basis", survivor)
+    monkeypatch.setattr(stages, "survivor_basis", survivor)
 
     def inspect(cell: Cell, domain: tuple[str, str, int]) -> None:
         if domain == ("real", "confirm", 0):
@@ -198,7 +202,6 @@ def test_identity_change_stops_before_more_calls(
     collector = FakeCollector(quiet_null())
     identity_value = {"cipher_lab/fake.py": "0" * 64}
     monkeypatch.setattr(artifacts, "source_identity", lambda: identity_value.copy())
-    monkeypatch.setattr(method, "source_identity", lambda: identity_value.copy())
 
     def mutate() -> None:
         if identity == "recipe":
@@ -235,7 +238,7 @@ def test_claim_source_change_before_method_stops_without_collection(
     source_b = {"cipher_lab/fake.py": "1" * 64}
     monkeypatch.setattr(artifacts, "source_identity", lambda: source_a.copy())
     store = RunStore.claim(tmp_path, "case", output_bytes=policy().output_bytes)
-    monkeypatch.setattr(method, "source_identity", lambda: source_b.copy())
+    monkeypatch.setattr(store, "current_source_identity", lambda: source_b.copy())
     collector = FakeCollector(quiet_null())
     result = method.run_integral(recipe(), collector, FakeMeter(), store)
     assert collector.calls == []
@@ -251,11 +254,13 @@ def test_fake_store_claim_source_is_method_baseline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source_a = {"cipher_lab/fake.py": "0" * 64}
-    monkeypatch.setattr(method, "source_identity", lambda: {"cipher_lab/fake.py": "1" * 64})
 
     class FakeStore:
         def __init__(self) -> None:
             self.final: dict[str, object] = {}
+
+        def current_source_identity(self) -> dict[str, str]:
+            return {"cipher_lab/fake.py": "1" * 64}
 
         def source_snapshot(self) -> dict[str, str]:
             return source_a.copy()
@@ -370,7 +375,7 @@ def test_source_scan_failure_finalizes_without_more_collection(
         raise ArtifactError("SOURCE_UNAVAILABLE")
 
     def fail_scan(cell: Cell, domain: tuple[str, str, int]) -> None:
-        monkeypatch.setattr(method, "source_identity", unavailable)
+        monkeypatch.setattr(artifacts, "source_identity", unavailable)
 
     collector.hook = fail_scan
     _, saved = run(tmp_path, recipe(), collector, FakeMeter())
@@ -411,8 +416,10 @@ def test_all_frozen_vectors_checked_even_nonrepresentative_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     frozen = tuple(1 << bit for bit in range(8))
-    monkeypatch.setattr(method, "kernel", lambda rows: frozen if tuple(rows) == (0,) else ())
-    monkeypatch.setattr(method, "survivor_basis", lambda discovery, screen: tuple(discovery))
+    monkeypatch.setattr(stages, "kernel",
+                        lambda rows, *, check=None: frozen if tuple(rows) == (0,) else ())
+    monkeypatch.setattr(stages, "survivor_basis",
+                        lambda discovery, screen, *, check=None: tuple(discovery))
     collector = FakeCollector({**quiet_null(), ("real", "confirm"): (128,)})
     _, saved = run(tmp_path, recipe(), collector, FakeMeter())
     assert cells(saved)[0]["outcome"] == "REJECTED"
@@ -499,6 +506,6 @@ def test_backend_identity_rejects_invalid_input_before_scientific_or_store_calls
         def __getattr__(self, name: str) -> object:
             pytest.fail("invalid backend must not access store")
     with pytest.raises(ValueError, match="backend_identity"):
-        method.run_integral(recipe(), collector, meter, cast(method.Store, NoStore()),
+        method.run_integral(recipe(), collector, meter, cast(stages.Store, NoStore()),
                             backend_identity=cast("method.BackendIdentity", invalid))
     assert collector.calls == [] and meter.checks == 0

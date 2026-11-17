@@ -8,7 +8,10 @@ from collections.abc import Callable
 
 from cipher_lab.artifacts import RunStore
 from cipher_lab.execution import Meter
-from cipher_lab.training_config import PredictionRecipe, SharedMRecipe
+from cipher_lab.training_config import (
+    PredictionRecipe,
+    SharedMRecipe,
+)
 
 
 def prepare_training(recipe: PredictionRecipe | SharedMRecipe, policy_meter: Meter,
@@ -21,6 +24,7 @@ def prepare_training(recipe: PredictionRecipe | SharedMRecipe, policy_meter: Met
 
         private_random: Callable[[int], bytes] = DemoBytes()
         oracles = {name: fake_encrypt_many for name in ('SIMECK', 'PRESENT', 'SIMON', 'SKINNY')}
+        # Public zero-master-key reference: the demo fake never becomes a cipher.
     else:
         from secrets import token_bytes
 
@@ -28,6 +32,8 @@ def prepare_training(recipe: PredictionRecipe | SharedMRecipe, policy_meter: Met
 
         private_random = token_bytes
         oracles = {'SIMON': encrypt_many}
+        # Data always supplies key=(0,0,0,0) for the reference, i.e. a zero
+        # MASTER key with a real public-key schedule, never zero round keys.
         if isinstance(recipe, SharedMRecipe):
             from cipher_lab.ciphers.present import encrypt_many as present
             from cipher_lab.ciphers.simeck import encrypt_many as simeck

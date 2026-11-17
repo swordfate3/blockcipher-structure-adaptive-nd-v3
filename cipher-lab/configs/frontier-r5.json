@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "method": "bit-public-feature-frontier-v1",
+  "reference": "simon64-zero-master-v1",
+  "identity": {
+    "rounds": 5,
+    "target_bit": 0,
+    "representation": "simon-r5-factored-v1",
+    "dimension": 8098,
+    "order_sha256": "43f03e294b5b7849ae23b6d592a01ca89c9f609f652d5dbe50be1e0139f9b409",
+    "plan_sha256": "3554d0ea9fa0a38ba2811bbc69dcbbf8019ba1a7f9ac0e72e41ad9c2d1dd4841"
+  },
+  "model": {
+    "hidden_width": 128
+  },
+  "training": {
+    "train": 16384,
+    "dev": 4096,
+    "test": 16384,
+    "batch_size": 256,
+    "epochs": 32,
+    "learning_rate": 0.001,
+    "init_seed": 31,
+    "sample_seed": 196910,
+    "shuffle_seed": 296910
+  },
+  "rounds": 5,
+  "target_bit": 0,
+  "label_mode": "cipher"
+}

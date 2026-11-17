@@ -395,6 +395,8 @@ class Block(importlib.abc.MetaPathFinder):
                          'cipher_lab.science')):
             raise AssertionError('collection import forbidden')
 sys.meta_path.insert(0, Block())
+from checkpoint_child_guard import install_checkpoint_guard
+install_checkpoint_guard()
 from cipher_lab.evaluation import *
 from cipher_lab.models import BitMLP
 from cipher_lab.training_config import MLPSpec
@@ -406,8 +408,13 @@ b = encode_checkpoint(BitMLP(s), PublicModelSpec(s, t), t, Selection(1, 1, .7),
                       {'SIMON': TrainBaseline(2, 1)}, 'a'*64)
 load_checkpoint(b, hashlib.sha256(b).hexdigest())
 '''
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    paths = os.pathsep.join(str(root / name) for name in ('src', 'plugins', 'tests'))
     result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True,
-                            timeout=30, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'})
+                            timeout=30, env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1',
+                                             'PYTHONPATH': paths})
     assert result.returncode == 0, result.stderr
 
 

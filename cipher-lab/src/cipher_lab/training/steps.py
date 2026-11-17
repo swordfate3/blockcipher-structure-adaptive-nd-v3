@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, TypedDict, cast
 
@@ -16,8 +16,7 @@ import torch
 from torch import Tensor
 from torch.nn import functional as F
 
-from cipher_lab.artifacts import ArtifactError, source_identity
-from cipher_lab.data.bundles import TaskDeclaration
+from cipher_lab.artifacts import ArtifactError
 from cipher_lab.evaluation.checkpoints import Selection, encode_checkpoint, load_checkpoint
 from cipher_lab.evaluation.metrics import (
     Model,
@@ -27,14 +26,28 @@ from cipher_lab.evaluation.metrics import (
 from cipher_lab.execution import Meter, Stopped
 from cipher_lab.models import BitMLP, SharedM
 from cipher_lab.representations.tasks import public_features
-from cipher_lab.training_config import MLPSpec, PredictionRecipe, SharedMRecipe
+from cipher_lab.training_config import (
+    MLPSpec,
+    PredictionRecipe,
+    SharedMRecipe,
+    SharedMSpec,
+)
+
+
+class PublicTask(Protocol):
+    @property
+    def cipher(self) -> str: ...
+    @property
+    def rounds(self) -> int: ...
 
 
 class Store(Protocol):
+    def current_source_identity(self) -> dict[str, str]: ...
     def source_snapshot(self) -> dict[str, str]: ...
     def write_snapshot(self, value: Mapping[str, object]) -> None: ...
     def write_payload(self, name: str, value: object) -> str: ...
     def write_model(self, name: str, content: bytes, *, replace: bool = False) -> str: ...
+    def read_model(self, ref: str, expected_sha256: str, max_bytes: int) -> bytes: ...
     def write_dataset(self, name: str, content: bytes) -> str: ...
     def finalize(self, value: Mapping[str, object]) -> None: ...
 
@@ -59,18 +72,23 @@ def make_optimizer(model: Model, learning_rate: float) -> torch.optim.Adam:
     return torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 
-def initialized_model(spec: PublicModelSpec, seed: int) -> Model:
-    # CPU-only fork; do not initialize CUDA or alter global CPU RNG.
+def initialized_network(factory: Callable[[], Model], seed: int) -> Model:
+    """Isolate CPU RNG; construction and public specification belong to caller."""
     with torch.random.fork_rng(devices=[]):
         torch.set_rng_state(torch.Generator(device='cpu').manual_seed(seed).get_state())
-        if isinstance(spec.model, MLPSpec):
-            return BitMLP(spec.model)
-        return SharedM(spec.model)
+        return factory()
+
+
+def initialized_model(spec: PublicModelSpec, seed: int) -> Model:
+    factory = (lambda: BitMLP(spec.model)) if isinstance(spec.model, MLPSpec) else (
+        lambda: SharedM(spec.model))
+    return initialized_network(factory, seed)
+
 
 
 def train_step(model: Model, inputs: Tensor, labels: Tensor,
-               public_context: TaskDeclaration, optimizer: torch.optim.Optimizer,
-               meter: Meter) -> float:
+               public_context: PublicTask, optimizer: torch.optim.Optimizer,
+               meter: Meter, *, forward: Callable[[Tensor], Tensor] | None = None) -> float:
     """Only owner of update reservations and training forward-row reservations."""
     meter.reserve('optimizer_updates', 1)
     try:
@@ -84,7 +102,9 @@ def train_step(model: Model, inputs: Tensor, labels: Tensor,
         model.train()
         optimizer.zero_grad(set_to_none=True)
         meter.reserve('forward_rows', len(inputs))
-        if type(model) is SharedM:
+        if forward is not None:
+            logits = forward(inputs)
+        elif type(model) is SharedM:
             public = torch.tensor(public_features(public_context.cipher), dtype=torch.float32)
             logits = model(inputs, public, rounds=public_context.rounds)
         else:
@@ -137,9 +157,12 @@ class TrainingRecord:
     checks SHA on these exact committed bytes; no optimizer/private RNG is saved.
     """
 
-    def __init__(self, recipe: PredictionRecipe | SharedMRecipe, spec: PublicModelSpec,
+    def __init__(self, recipe: PredictionRecipe | SharedMRecipe,
+                 spec: PublicModelSpec,
                  meter: Meter, store: Store, backend_identity: str) -> None:
-        allowed = ('demo', 'simon') if isinstance(recipe, PredictionRecipe) else ('demo', 'ciphers')
+        allowed = (('demo', 'simon')
+                   if isinstance(recipe, PredictionRecipe)
+                   else ('demo', 'ciphers'))
         if type(backend_identity) is not str or backend_identity not in allowed:
             raise ValueError('INVALID_BACKEND_IDENTITY')
         self.recipe, self.spec, self.meter, self.store = recipe, spec, meter, store
@@ -173,7 +196,7 @@ class TrainingRecord:
     def guard(self) -> None:
         self.meter.check()
         try:
-            current = source_identity()
+            current = self.store.current_source_identity()
         except ArtifactError:
             raise IdentityChanged from None
         if current != self.source or self.recipe.to_dict() != self.frozen:
@@ -182,7 +205,7 @@ class TrainingRecord:
 
     def panel(self, split: str, name: str, x: Tensor, y: Tensor) -> None:
         expected = getattr(self.recipe.training, split)
-        suffix = (64,) if type(self.spec.model) is MLPSpec else (4, 2, 64)
+        suffix = (4, 2, 64) if type(self.spec.model) is SharedMSpec else (64,)
         if (x.shape != (expected, *suffix) or y.shape != (expected, 1)
                 or x.dtype != torch.float32 or y.dtype != torch.float32
                 or x.device.type != 'cpu' or y.device.type != 'cpu'

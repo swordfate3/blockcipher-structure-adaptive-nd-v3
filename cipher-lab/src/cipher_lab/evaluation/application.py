@@ -15,7 +15,7 @@ from html import escape
 from pathlib import Path
 from typing import cast
 
-from cipher_lab.artifacts import ArtifactError, RunStore, source_identity
+from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.execution import Meter, Stopped
 
 MAX_BYTES = 256 * 1024 * 1024
@@ -54,7 +54,7 @@ def run_evaluation(checkpoint: Path, checkpoint_sha: str, dataset: Path, dataset
     try:
         frozen = store.source_snapshot()
         meter.check()
-        if source_identity() != frozen:
+        if store.current_source_identity() != frozen:
             raise ValueError('SOURCE_CHANGED')
         store.write_snapshot({'summary': summary})
         # Local imports are inside CLI's fixed setup/method boundary, never check.
@@ -84,7 +84,7 @@ def run_evaluation(checkpoint: Path, checkpoint_sha: str, dataset: Path, dataset
         summary['metrics'] = evaluate_batches(loaded.model,
             EvaluationPanels.from_bundle(bundle, loaded.baseline), spec, meter, batch_size)
         meter.check()
-        if source_identity() != frozen:
+        if store.current_source_identity() != frozen:
             raise ValueError('SOURCE_CHANGED')
     except ArtifactError:
         raise  # never retry a storage-sealed owner

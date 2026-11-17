@@ -127,7 +127,7 @@ def test_public_failure_no_early_test_and_no_storage_retry(tmp_path: Path,
             raise ArtifactError('WRITE_FAILED')
         monkeypatch.setattr(store, 'write_' + failure, storage_fail)
     if failure == 'source':
-        monkeypatch.setattr(steps, 'source_identity', lambda: {'wrong': 'identity'})
+        monkeypatch.setattr(store, 'current_source_identity', lambda: {'wrong': 'identity'})
     if failure in ('step', 'stop'):
         def step_fail(*args: object, **kwargs: object) -> float:
             if failure == 'stop':
@@ -221,11 +221,10 @@ def test_corrupt_checkpoint_rejected_before_release(tmp_path: Path,
 
 def test_source_change_after_update_keeps_completed_stats(tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
-    from cipher_lab.training import steps
     def change(model: object, x: Tensor, y: Tensor, task: object,
                optimizer: object, meter: Meter) -> float:
         value = fake_step(model, x, y, task, optimizer, meter)
-        monkeypatch.setattr(steps, 'source_identity', lambda: {'changed': 'yes'})
+        monkeypatch.setattr(store, 'current_source_identity', lambda: {'changed': 'yes'})
         return value
     monkeypatch.setattr(prediction, 'train_step', change)
     store = RunStore.claim(tmp_path, 'changed', output_bytes=10000000, needs_models=True)

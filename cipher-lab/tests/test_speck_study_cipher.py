@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import pytest
-from speck_study_fakes import science_guard, torch  # noqa: F401
+from speck_cipher_guards import (  # noqa: F401
+    science_guard,
+    torch,
+)
 
 from cipher_lab.ciphers import speck, speck_tensor
 
@@ -68,7 +71,7 @@ def test_real_entries_and_cuda_are_poisoned() -> None:
 
 
 def test_fake_wrapper_input_rejection_never_reaches_cipher(monkeypatch: pytest.MonkeyPatch) -> None:
-    from speck_study_fakes import forbidden
+    from speck_cipher_guards import forbidden
 
     monkeypatch.setattr(speck, 'enc_one_round', forbidden)
     for point in (True, -1, 2**32):

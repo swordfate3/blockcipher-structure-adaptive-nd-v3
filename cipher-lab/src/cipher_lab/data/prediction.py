@@ -38,10 +38,15 @@ class PredictionData:
     claimed; no retry can silently reuse a partial private acquisition.
     """
 
-    def __init__(self, recipe: PredictionRecipe, oracle: Oracle,
-                 private_random: RandomSource, meter: Meter) -> None:
+    def __init__(self, recipe: PredictionRecipe,
+                 oracle: Oracle,
+                 private_random: RandomSource, meter: Meter, *,
+                 reference_oracle: Oracle | None = None) -> None:
         if not isinstance(recipe, PredictionRecipe) or not callable(oracle):
             raise ValueError("expected prediction recipe/oracle")
+        self._reference_oracle = reference_oracle
+        self._references: dict[str, Tensor] = {}
+        self._reference_claimed: set[str] = set()
         self._recipe = recipe
         self._oracle = oracle
         self._random = private_random
@@ -82,11 +87,13 @@ class PredictionData:
         except Exception:
             raise Stopped("RANDOM_UNAVAILABLE") from None
 
-    def _encrypt(self, points: tuple[int, ...]) -> tuple[int, ...]:
+    def _encrypt(self, points: tuple[int, ...], *, reference: bool = False) -> tuple[int, ...]:
         self._meter.check()
-        assert self._key is not None
+        key = (0, 0, 0, 0) if reference else self._key
+        oracle = self._reference_oracle if reference else self._oracle
+        assert key is not None and oracle is not None
         try:
-            response = self._oracle(points, self._key, self._recipe.rounds)
+            response = oracle(points, key, self._recipe.rounds)
         except Exception:
             raise Stopped("ORACLE_FAILED") from None
         try:
@@ -148,6 +155,7 @@ class PredictionData:
             self._meter.check()
         self._labels[split] = labels
         return labels.clone()
+
 
     def release_test(self) -> None:
         """Idempotently grant permission, without accessing any TEST label."""
