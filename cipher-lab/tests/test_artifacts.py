@@ -777,6 +777,36 @@ def test_storage_failure_retains_only_committed_minimal_public_identity(
     assert disk_bytes(tmp_path) <= 30_000
 
 
+@pytest.mark.parametrize("mode", ["opted-in", "default", "over-cap", "reserved-key"])
+def test_failure_summary_opt_in_copies_only_one_bounded_committed_field(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str,
+) -> None:
+    store = claim(tmp_path)
+    evidence = "x" * 150_000 if mode == "over-cap" else {"rows": [1, 2]}
+    if mode != "default":
+        store._failure_evidence_key = "backend_identity" if mode == "reserved-key" else "evidence"
+    store.write_snapshot({"counts": {"items": 2}, "summary": {
+        "evidence": evidence, "backend_identity": "unrecognized", "unselected": "omit",
+    }})
+    atomic = store._atomic
+
+    def fail_proposed_record(target: Path, content: bytes) -> None:
+        if target == run_path(tmp_path) and json.loads(content)["status"] == "RUNNING":
+            raise OSError("injected write failure")
+        atomic(target, content)
+
+    monkeypatch.setattr(store, "_atomic", fail_proposed_record)
+    with pytest.raises(ArtifactError, match="^WRITE_FAILED$"):
+        store.write_snapshot({"counts": {"items": 3}, "summary": {"evidence": {"rows": [3]}}})
+    saved = read_saved(tmp_path, "sample-1")
+    assert saved["status"] == "FAILED"
+    assert saved["counts"] == {"items": 2}
+    expected: dict[str, object] = {"reason": "WRITE_FAILED"}
+    if mode == "opted-in":
+        expected["evidence"] = {"rows": [1, 2]}
+    assert saved["summary"] == expected
+
+
 @pytest.mark.parametrize("summary,retained", [
     ({}, {}),
     ({"backend_identity": "PRIVATE", "scientific_validation": True}, {}),

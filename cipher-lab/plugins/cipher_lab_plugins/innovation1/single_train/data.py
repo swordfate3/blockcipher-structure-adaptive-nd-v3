@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from numpy.typing import NDArray
 
+from ..config import Recipe
 from ..data import BlockMeter, DataError, Oracle, PrivateSource, derive_seed
 from .config import ARCHITECTURE, NAMESPACE, RUN_ID, SLOTS, TASK, SingleRecipe, canonical
 
@@ -25,6 +26,7 @@ class PairBatch:
     labels: NDArray[np.uint8]
     split: str
     index: int
+    namespace: str = NAMESPACE
 
     def __post_init__(self) -> None:
         x, y = self.ciphertext, self.labels
@@ -44,7 +46,7 @@ class PairBatch:
 
     @property
     def digest(self) -> str:
-        h = sha256(canonical([NAMESPACE, self.split, self.index, self.groups]).encode('ascii'))
+        h = sha256(canonical([self.namespace, self.split, self.index, self.groups]).encode('ascii'))
         h.update(self.ciphertext)
         h.update(self.labels)
         return h.hexdigest()
@@ -58,13 +60,14 @@ class PairBatch:
         if not 0 <= start < stop <= self.groups:
             raise ValueError('PAIR_SLICE')
         return PairBatch(self.ciphertext[start:stop], self.labels[start:stop],
-                         self.split, self.index)
+                         self.split, self.index, self.namespace)
 
 
 class Provider:
     def __init__(self, recipe: SingleRecipe, oracle: Oracle, private: PrivateSource,
-                 meter: BlockMeter) -> None:
+                 meter: BlockMeter, *, streams: Recipe = _PUBLIC_STREAMS) -> None:
         self.recipe, self.oracle, self.private, self.meter = recipe, oracle, private, meter
+        self._streams = streams
         self._cycle = 0
         self._panels: set[str] = set()
         self._stopped = False
@@ -87,7 +90,8 @@ class Provider:
         parts = [self._collect(split, index, tr.eval_batch_groups)
                  for index in range(size // tr.eval_batch_groups)]
         return PairBatch(np.concatenate([b.ciphertext for b in parts]),
-                         np.concatenate([b.labels for b in parts]), split, 0)
+                         np.concatenate([b.labels for b in parts]), split, 0,
+                         self._streams.namespace)
 
     def _collect(self, split: str, index: int, size: int) -> PairBatch:
         if self._stopped:
@@ -99,8 +103,8 @@ class Provider:
             raise
 
     def _generate(self, split: str, index: int, size: int) -> PairBatch:
-        public = random.Random(derive_seed(_PUBLIC_STREAMS, TASK, split, index, 'sample'))
-        shuffle = random.Random(derive_seed(_PUBLIC_STREAMS, TASK, split, index, 'shuffle'))
+        public = random.Random(derive_seed(self._streams, TASK, split, index, 'sample'))
+        shuffle = random.Random(derive_seed(self._streams, TASK, split, index, 'shuffle'))
         labels = [0] * (size // 2) + [1] * (size // 2)
         shuffle.shuffle(labels)
         packed = np.empty((size, 1, 2, 8), dtype=np.uint8)
@@ -130,27 +134,36 @@ class Provider:
                 raise DataError('ORACLE_RESPONSE') from None
             self.meter.complete('real_blocks', 2)
             self.meter.check()
-        return PairBatch(packed, np.asarray(labels, dtype=np.uint8).reshape(-1, 1), split, index)
+        return PairBatch(packed, np.asarray(labels, dtype=np.uint8).reshape(-1, 1), split, index,
+                         self._streams.namespace)
 
 
 def encode_panel(batch: PairBatch, recipe: SingleRecipe, source: dict[str, str],
                  backend: str, *, logits: dict[str, Any] | None = None,
                  weights: dict[str, Any] | None = None) -> bytes:
+    metadata = dict(schema=1, run_id=RUN_ID, recipe=recipe.to_dict(), source=source,
+                    backend=backend, split=batch.split, digest=batch.digest,
+                    encoding='packed-msb0-single-pair-v1')
+    return pack_panel(batch, recipe, metadata, SLOTS, ('m_logits', 'd_logits'), NAMESPACE,
+                      logits=logits, weights=weights)
+
+
+def pack_panel(batch: PairBatch, recipe: SingleRecipe, metadata: dict[str, Any],
+               slots: tuple[str, str], columns: tuple[str, str], namespace: str, *,
+               logits: dict[str, Any] | None, weights: dict[str, Any] | None) -> bytes:
     has_scores = batch.split == 'test'
     size = recipe.training.test_groups if has_scores else recipe.training.dev_groups
     if (batch.split not in ('dev', 'test') or batch.index != 0 or batch.groups != size
+            or batch.namespace != namespace
             or (logits is not None) != has_scores or (weights is not None) != has_scores):
         raise ValueError('PANEL_IDENTITY')
-    metadata: dict[str, Any] = dict(schema=1, run_id=RUN_ID, recipe=recipe.to_dict(), source=source,
-                                   backend=backend, split=batch.split, digest=batch.digest,
-                                   encoding='packed-msb0-single-pair-v1')
     stream = io.BytesIO()
     arrays: dict[str, Any] = dict(ciphertext=batch.ciphertext, labels=batch.labels)
     if logits is not None and weights is not None:
-        if set(logits) != set(SLOTS) or set(weights) != set(SLOTS):
+        if set(logits) != set(slots) or set(weights) != set(slots):
             raise ValueError('PANEL_BINDING')
-        metadata['weights'] = weights
-        arrays.update(m_logits=logits[SLOTS[0]], d_logits=logits[SLOTS[1]])
+        metadata = {**metadata, 'weights': weights}
+        arrays.update({column: logits[slot] for slot, column in zip(slots, columns, strict=True)})
     np.savez(stream, metadata=np.frombuffer(canonical(metadata).encode('ascii'), dtype=np.uint8),
              **arrays)
     return stream.getvalue()

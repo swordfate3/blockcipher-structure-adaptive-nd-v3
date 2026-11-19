@@ -50,6 +50,7 @@ _ENVIRONMENT_FIELDS = frozenset({"python_implementation", "python_version", "os"
 _PYTHON_VERSION = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\Z", re.ASCII)
 _PUBLIC = frozenset({"recipe", "policy", "counts", "summary"})
 _REPORTS = frozenset({"report.md", "index.html", "source.json"})
+_MAX_FAILURE_EVIDENCE = 128 * 1024  # encoded bytes of one owner-selected summary field
 
 
 class ArtifactError(ValueError):
@@ -362,6 +363,9 @@ class RunStore:
     _frozen_sha: str | None = None
     _model_slots: frozenset[str] = field(default_factory=frozenset)
     _source_supplier: Callable[[], dict[str, str]] | None = None
+    # Private owner opt-in for a single, already public snapshot field. No replay
+    # of an uncommitted update, and no change to claim's interface or defaults.
+    _failure_evidence_key: str | None = field(default=None, init=False)
 
     def current_source_identity(self) -> dict[str, str]:
         """Fresh identity from the same caller-owned closure used by claim."""
@@ -519,9 +523,8 @@ class RunStore:
 
     def _failed(self, reason: str) -> None:
         self._sealed = True
-        # Preserve only committed, bounded public identity, never the proposed
-        # update or a possibly huge/incomplete scientific summary. Storage does
-        # not certify science: only the explicit False validation flag is valid.
+        # Default to committed, bounded public identity, never the proposed
+        # update or the full summary. Only explicit False is a validation flag.
         previous = _mapping(self._record["summary"])
         summary: dict[str, object] = {"reason": reason}
         backend = previous.get("backend_identity")
@@ -529,8 +532,14 @@ class RunStore:
             summary["backend_identity"] = backend
         if previous.get("scientific_validation") is False:
             summary["scientific_validation"] = False
-        failed = {**self._record, "status": "FAILED", "summary": summary}
         try:
+            key = self._failure_evidence_key
+            if (key is not None and key in previous
+                    and key not in ("reason", "backend_identity", "scientific_validation")):
+                evidence = {key: previous[key]}
+                if len(_encode(evidence)) <= _MAX_FAILURE_EVIDENCE:
+                    summary.update(evidence)
+            failed = {**self._record, "status": "FAILED", "summary": summary}
             self._atomic(self._data / "run.json", _encode(failed))
             self._record = failed
             self._frozen_sha = self._files[self._data / "run.json"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import re
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from cipher_lab.artifacts import ArtifactError, RunStore
@@ -13,15 +14,14 @@ from ..resources import DETAIL_CODES, Resources, ResourceStop
 from .config import ARCHITECTURE, BACKEND, DEVICE, FIXED, GPU_PCI, GPU_UUID, METHOD, SLOTS
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from .config import SingleRecipe
 
 
-def summary_for(backend: str) -> dict[str, Any]:
-    return dict(method=METHOD, backend_identity=backend, synthetic=backend != BACKEND,
+def summary_for(backend: str, *, method: str = METHOD,
+                slots: tuple[str, str] = SLOTS) -> dict[str, Any]:
+    return dict(method=method, backend_identity=backend, synthetic=backend != BACKEND,
                 scientific_validation=False, updates={s: dict(attempted=0, completed=0)
-                for s in SLOTS}, paired_completed=0, best={}, curves=[], pending=[], batch_refs=[],
+                for s in slots}, paired_completed=0, best={}, curves=[], pending=[], batch_refs=[],
                 persisted_reloads={}, location=dict(phase='setup'))
 
 
@@ -54,7 +54,7 @@ def _public_fields(row: Any, *, text: dict[str, str], integers: tuple[str, ...]
     return public
 
 
-def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, Any]:
+def admit_device(resources: Resources, evidence: dict[str, Any]) -> None:
     from ..application import production_resources
 
     stages: dict[str, Any] = {}
@@ -102,6 +102,10 @@ def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, An
         raise ResourceStop(detail_code='GPU_SAMPLE_INVALID')
     resources.gpu = wired.gpu  # never carry the legacy run's Meter into the new owner
     resources.check()
+
+
+def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, Any]:
+    admit_device(resources, evidence)
     from secrets import token_bytes
 
     from cipher_lab.ciphers import skinny
@@ -115,9 +119,22 @@ def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, An
     return provider, runtime
 
 
+Assemble = Callable[[Resources, dict[str, Any]], tuple[Any, Any]]
+Train = Callable[["SingleRecipe", Any, Any, RunStore, Resources, dict[str, Any], str], None]
+
+
 def _execute(recipe: SingleRecipe, store: RunStore, resources: Resources, backend: str,
-             assemble: Callable[[Resources, dict[str, Any]], tuple[Any, Any]]) -> None:
-    summary = summary_for(backend)
+             assemble: Assemble) -> None:
+    def train(*args: Any) -> None:
+        from .training import train as legacy_train
+
+        legacy_train(*args)
+
+    execute_pair(recipe, store, resources, backend, assemble, train, summary_for(backend))
+
+
+def execute_pair(recipe: SingleRecipe, store: RunStore, resources: Resources, backend: str,
+                 assemble: Assemble, train: Train, summary: dict[str, Any]) -> None:
     setup: dict[str, Any] = {}
     summary['device_setup'] = setup
     status = 'FAILED'
@@ -132,8 +149,6 @@ def _execute(recipe: SingleRecipe, store: RunStore, resources: Resources, backen
             # Preserve bounded setup evidence before long DEV collection.
             store.write_snapshot(dict(summary=summary, counts=resources.snapshot()))
             resources.check()
-        from .training import train
-
         resources.check()
         train(recipe, provider, runtime, store, resources, summary, backend)
         resources.check()
