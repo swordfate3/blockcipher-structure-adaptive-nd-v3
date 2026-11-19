@@ -357,6 +357,27 @@ def test_saved_summary_and_no_unadmitted_forward(
     assert tuple(vars(task) for task in TASKS) == before
 
 
+def test_new_output_id_coexists_with_sealed_old_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    e, _ = _fixture(tmp_path / 'inputs', monkeypatch, '')
+    assert e.OUTPUT_ID == 'innovation1-skinny-single-pair-20261119-02'
+    old = tmp_path / 'output' / 'data' / 'innovation1-skinny-single-pair-20261119-01'
+    old.mkdir(parents=True)
+    sealed = json.dumps({'schema': 2, 'run_id': old.name, 'status': 'FAILED'}).encode()
+    (old / 'run.json').write_bytes(sealed)
+    reports = tmp_path / 'output' / 'result' / old.name
+    reports.mkdir(parents=True)
+    (reports / 'report.md').write_bytes(b'sealed old failure')
+    result, _ = e.run(tmp_path / 'inputs', tmp_path / 'output')
+    assert result['scientific_status'] == 'SUCCEEDED' and result['exit_code'] == 0
+    assert (old / 'run.json').read_bytes() == sealed
+    assert (reports / 'report.md').read_bytes() == b'sealed old failure'
+    new = tmp_path / 'output' / 'data' / e.OUTPUT_ID / 'run.json'
+    assert json.loads(new.read_bytes())['status'] == 'SUCCEEDED'
+    assert (tmp_path / 'output' / 'result' / e.OUTPUT_ID / 'report.md').is_file()
+
+
 def test_source_closure_adds_exact_nested_bytes_only() -> None:
     from cipher_lab_plugins.innovation1.single_pair import evaluate as e
 
