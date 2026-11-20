@@ -44,7 +44,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:plugins /workspace/.venv/bin/python -m 
 |`cipher_lab_plugins.fourier.cli`|check / run；无 evaluate 子命令|`configs/fourier-example.json`（synthetic/demo）或 r6（simon）|
 |`cipher_lab_plugins.speck_study.cli`|check / run；无 evaluate 子命令|`configs/speck-study-paper.json`；run 仅 speck-study，须现场门禁|
 |`cipher_lab_plugins.integral_search.cli`|check / run；无 evaluate 子命令|`configs/integral-search.json` / `integral-search-k18k20.json`；demo/simon|
-|`cipher_lab_plugins.innovation1.cli`|check / run / evaluate|`configs/innovation1-fresh.json`；[创新1同批M+4D说明](#创新1线上同批-m4d新-owner尚未现场科学验证)，无需旧`--policy`；run仅ciphers/cuda:0或明确人工demo|
+|`cipher_lab_plugins.innovation1.cli`|check / run|`configs/innovation1-fresh.json` 和 `configs/innovation1-skinny-layout-early-stop.json`，见下文创新1；run 显式 GPU UUID 与新 ID|
 
 统一形式：`python -m cipher_lab check|run|evaluate --plugin <上表模块> <该插件参数>`。
 只有列出的命令已实现，core 的统一 evaluate 委派能力不表示每个插件都有 evaluate。
@@ -681,176 +681,48 @@ R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`�
 `data/<id>`、`models/<id>`、`result/<id>`及专属监督目录，owner/registeredSHA/严格JSON模型身份不降级。
 工程fake闭环不是科研结果，不产生新的key/seed/阈值或许可。
 
-## 创新1线上同批 M+4D（新 owner；尚未现场科学验证）
+## 创新1：四密码 M/D 与 SKINNY 行扫／列扫
 
-源码入口为 `--plugin cipher_lab_plugins.innovation1.cli` 的 `check/run/evaluate`，不改变
-旧 shared-M、其他插件或 checkpoint。`check/help` 只用标准库，不探测设备、claim目录或
-导入 NumPy/Torch；正式数值仍为 `configs/innovation1-fresh.json` 中24×1024 cycles、
-每任务每批512组。开发测试没有运行真实密码/KAT、秘密熵、真实模型前后向、Adam或GPU；
-未证明CUDA/Windows实际能力、吞吐或科学效果，用户仍须指定机器和物理GPU并另行授权。
+唯一入口是 `cipher-lab --plugin cipher_lab_plugins.innovation1.cli {check,run}`。
+`check` 只用标准库读取和校验完整配方，输出静态预算；不申请输出目录、探测设备或
+导入 NumPy/Torch。它不是运行授权或 CUDA 可用性证明。只接受以下两个冻结配方：
 
-```sh
-PYTHONPATH=src:plugins python -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli --help
-PYTHONPATH=src:plugins python -m cipher_lab.cli check \
-  --plugin cipher_lab_plugins.innovation1.cli --config configs/innovation1-fresh.json
-# 人工demo：dummy update / 手写logits，计数均模拟，绝非CPU科学训练
-PYTHONPATH=src:plugins python -m cipher_lab.cli run \
-  --plugin cipher_lab_plugins.innovation1.cli --config configs/innovation1-manual-demo.json \
-  --backend demo --device cpu --root /tmp/innovation1-demo --id manual-new
-```
+| 配方 | 方法 | 更新上限 | 加密块上限 |
+|---|---|---:|---:|
+| `configs/innovation1-fresh.json` | 四密码共享 M vs 每任务专用 D，24×1024 cycles，同批对照 | 196608 | 413138944 |
+| `configs/innovation1-skinny-layout-early-stop.json` | SKINNY64/64 8轮单对行扫 vs 列扫，100轮上限，24轮预热后两臂各自检查耐心12轮 | 204800 | 105512960 |
 
-真实入口仅 `--backend ciphers --device cuda:0 --gpu-uuid GPU-... --gpu-pci 0000:01:00.0`，
-加明确 `--config --root --id`；不支持CPU科学训练、自动选卡/降级/重试/续训。
-GPU UUID会冻结到 CUDA_VISIBLE_DEVICES，当前CUDA context独立核UUID/PCI；Linux/Windows
-RSS及目标整卡显存采样均fail closed。显存每秒采样、证明超5秒未更新即停止，N/A/缺读也停止；
-不是OS硬内存/短峰值保证，首次实际部署仍需独立有界验证。不能把设备门禁实现当现场通过。
-
-训练每任务只获取/转换一次batch，M→D共享同tensor，保留消费摘要并检测mutation；
-epoch末DEV选择唯一M/四个D，平局保留早期。五best通过RunStore持久保存并从磁盘核SHA/
-严格CPU state形状dtype及buffer后，才构造共同TEST。所有产物仅由owner写到
-`data/<id>/`、`models/<id>/`、`result/<id>/`。TRAIN只有摘要，不可据此恢复或重放。
-`result/<id>/{report.md,index.html,source.json}` 根据已保存compare绘内嵌SVG，不重算指标。
-
-显式evaluate是单独主动操作，不再生标签/调用密码/训练。使用保存run.json及其SHA和其中
-artifact refs（不是随意磁盘路径）；新代码source须与输入run绑定来源完全相同，不能猜backend。
-人工demo例（SHA请从本次 `data/manual-new/run.json` 及文件实际字节核对，不用历史权重）：
+四密码以固定 DEV 选出五份 best；SKINNY 两臂各自按 DEV BCE 选 best（并列取早），
+早停与选模独立。两种方法均须从磁盘严格重载所有 best 后才构造共同 TEST。
+SKINNY 配方中的 `run_id: null` 表示尚未绑定，`run --id` 把新编号写入配方、权重、
+面板和报告身份，不改公开种子或采样命名空间。旧固定训练编号不接受，无续训／覆盖。
 
 ```sh
-PYTHONPATH=src:plugins python -m cipher_lab.cli evaluate \
-  --plugin cipher_lab_plugins.innovation1.cli \
-  --run-root /tmp/innovation1-demo --run-id manual-new --run-sha256 <RUN_JSON_SHA256> \
-  --checkpoint-ref model/M-best.pt --checkpoint-sha256 <CHECKPOINT_SHA256> \
-  --dataset-ref dataset/test-SIMECK.npz --dataset-sha256 <DATASET_SHA256> \
-  --max-forward-rows 2 --batch-groups 2 \
-  --backend demo --device cpu --root /tmp/innovation1-demo --id explicit-new
+PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-fresh.json
+PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-early-stop.json
 ```
 
-正式evaluate同样显式ciphers/cuda/UUID/PCI，输入必须是同来源ciphers运行；无身份不改写为真实。
-预算/批量必须明确（不能大于原评估批量），既有root/id拒绝覆盖。退出码：0成功、2参数/claim失败、
-3资源STOPPED、4执行FAILED、6报告失败、7保存终态UNKNOWN；任何demo成功均不表示训练完成。
-报告不自动启动网络服务（本轮禁止网络），需要查看时由用户/主控另行授权只服务result目录。
-
-创新1命令收尾另输出 `scientific_status`（保存的科学终态）和 `command_status`/`report_status`。
-同一Meter墙钟、CPU、RSS覆盖科学finalize之后的读取、渲染、写报告；报告纯CPU保存量处理，
-不新探测GPU。报告阶段超限保留原科学终态，命令非零（3）且report_status=STOPPED；
-`report_files_written=true`也不表示后置门禁通过。保存science counts只到science finalize；
-报告含pre_render_resources及范围说明，最终report-inclusive快照/命令状态由stdout
-`command_resources`给出，不能原子地回写到已完成报告自身。不二次finalize、不篡改科学终态。
-
-### 创新1独立工程预检（不自动启动训练）
-
-`tools/innovation1/preflight.py` 是Git同步后在训练机显式执行一次的独立工具，不是新科学
-实验入口或远程runner；失败即停止，不自行正式run。现有Python 3.13.3 / Torch 2.7.1+cu118 /
-NumPy 2.4.0环境信息由主控提供，本次开发未连接远端核验、未安装任何依赖。
-
-在已Git同步的项目根运行（PowerShell，路径占位`<fresh-id>`须换为本次明确新id）：
+现场运行须另行授权。在 Windows 新进程中以 `-B` 启动，绝对输出根必须位于 `G:\lxy` 下。
+示例（将 UUID 占位符替换为明确指定的完整 `GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`）：
 
 ```powershell
-$env:PYTHONPATH='src;plugins'
-C:\Python313\python.exe tools\innovation1\preflight.py `
-  --config configs\innovation1-fresh.json --device cuda:0 `
-  --gpu-uuid GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7 `
-  --gpu-pci 00000000:3B:00.0 `
-  --output-dir 'G:\lxy\shared-m-cipher-nd-runs\<fresh-id>\preflight'
+$env:PYTHONPATH = 'src;plugins'
+python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli run `
+  --config configs/innovation1-skinny-layout-early-stop.json `
+  --root G:\lxy\cipher-lab-output --id skinny-layout-new-01 --gpu-uuid '<GPU-UUID>'
 ```
 
-固定额度：**8公开密码blocks / 48前向组 / 8 optimizer updates**，warmup0、retry0：
-四家族各1full已知答案＋1reduced旧回放（8blocks）；四任务M/对应D各B2 CPU与GPU eval
-（32rows）；随后四任务各M→D一次GPU更新（16rows/8updates）。没有更新后评分、秘密熵、
-真实训练标签、旧权重、DEV/TEST生成或正式run触发。full向量注明归档来源，reduced仅是
-旧实现冻结回放、**非官方独立向量**。模型和Adam均复用本owner生产实现，公开固定二值
-`[2,4,2,64]`输入及标签`[0,1]`；两设备比较同state，固定atol1e-5/rtol1e-4，失败不调宽。
+UUID 在首次导入 Torch 前写入 `CUDA_VISIBLE_DEVICES`；只接受一张可见卡、逻辑 `cuda:0`。
+训练使用 FP32，关闭 TF32，按配方限制 PyTorch 进程分配器显存（**不是整卡显存上限**）；
+不探测驱动或采样整卡显存，不自动重试、换卡或回退 CPU。单个 Meter 检查协作式时间、
+计数、进程 RSS，单个 RunStore 管理产物上限和所有权；不是 OS 硬隔离。
 
-工具独立计量包括setup，墙钟600秒/CPU累计2400秒、RSS16GiB/整卡GPU20GiB/证据16MiB；
-复用core Meter和owner生产RSS、原production_resources真实装配/attestor及同一GPU gate。
-不修改正式Recipe.resources，不换卡/CPU降级，不放宽GPU证明超5秒即停规则。检查为协作式，
-原生阻塞不能保证立即打断；若模型构造/单步超过证明时效也直接停止，不承诺现场可行性。
+保存至 `data/<id>`、`models/<id>`、`result/<id>`。报告只从已封存且已核验的文件生成；
+报告失败不改写 `run.json`。命令分别给出保存的科学状态、报告状态和请求退出码
+（0 成功、2 参数／claim 拒绝、3 停止、4 训练失败、6 结果核验／报告失败、7 未知终态）。
+实际退出须由调用者记录。介质故障时只能依赖最后成功落盘的计数和已注册产物；当前 main
+的 RunStore 存储失败封存不保留尚未登记为 payload 的 `pending` 明细，也不会用推测补齐。
 
-output-dir必须不存在（父目录可存在），仅独占保存`preflight.json`，无权重或其他日志树。
-保存公共阶段/状态、attempt/completed、设备证据、core/owner/**tool源码SHA**、精确config
-和向量/公开输入fixture字节SHA。保存status为写前证据；stdout的command_status和counts
-包含写后资源检查，写后超限不会把已存PASS改写成STOP，必须同时检查stdout/exit。
-退出0=PASS、2=目录claim失败、3=STOPPED、4=FAILED、6=证据写入失败；部分写失败为UNKNOWN，
-不覆盖原证据重跑。stdout日志由调用外层留存，工具不另写日志。PASS仅为本次小规模工程检查，
-不能证明batch512资源可行性、完整24epoch训练质量或跨key结论。
-
-本地默认测试全部人工替身/guard；本次没有真实KAT、模型前后向/Adam、GPU/RSS或远端实测。
-发布、远端执行与正式启动由主控另行推进，工具本身不调用SSH/Git。
-
-### 创新1：一次 device-only 装配诊断
-
-此独立工具只调用真实 `production_resources` 并结束，不进入 preflight 的 KAT、
-模型构造或训练。科学预算为 **blocks=0 / forward rows=0 / updates=0 / null words=0**；
-这不等于不访问 GPU：Torch/CUDA 初始化可实际创建 context 并占用少量显存。
-外层 Meter 固定 wall120秒、CPU480秒、RSS16GiB、证据16MiB；生产 gate 保持
-GPU20GiB、1秒采样和5秒超龄，不新增 observer 采样，不放宽 UUID/PCI/current-context/LUID。
-限额检查是装配阶段边界的协作式检查，不是能打断原生驱动阻塞的 OS 硬超时。
-
-在已 Git 同步的实际训练机、新 fresh 目录执行一次（工具本身不 SSH/Git/重试）：
-
-```powershell
-$env:PYTHONPATH='src;plugins'
-& 'C:\Python313\python.exe' tools\innovation1\device_check.py `
-  --config configs\innovation1-fresh.json --device cuda:0 `
-  --gpu-uuid GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7 `
-  --gpu-pci 00000000:3B:00.0 `
-  --output-dir 'G:\lxy\shared-m-cipher-nd-runs\<fresh-id>\device-check'
-$deviceCheckExit = [int]$LASTEXITCODE
-# 必须先捕获上面数值，再执行其他 native 命令；由外层账本保存它。
-$deviceCheckExit
-```
-
-只写一份独占 `device-check.json`：源码闭包/config/tool SHA、固定阶段耗时、
-取得的 attestor、最近 `gate_last/gate_latest`、原 reason 与白名单 detail。
-即使装配未返回，observer 已接收的阶段和最近 proof 仍可保存。
-不保存 raw 异常、locals、任意对象 repr。observer 默认无输出，只复制结构；
-其失败不能变成 PASS，原操作的 `ResourceStop` / `Stopped` 保留原停止原因。
-外层零预算 ledger 不绑定科学入口，**不能仅凭计数0证明任意 setup 没有科学调用**；
-本工具的零科学承诺来自限定调用链及 guarded fake 测试，而非装配内部正式 Meter。
-
-JSON 的 `status/counts/prewrite_reason` 截止写前；stdout 的
-`command_status/counts/postwrite_reason` 包含写后检查。原失败/停止 reason 不被
-收尾失败替换，新增收尾原因另列。写失败 `evidence_status=UNKNOWN`（可能部分写入），
-不覆盖/补写已有文件。exit0 PASS，2目录claim失败，3 STOPPED，4 FAILED，6证据写失败。
-stdout 的 `exit_code` 是工具意图，不是已观测的 OS exit，须以上述 `$LASTEXITCODE` 为准。
-主控已在 Windows 实测纯零科学 `& Python -c 'import sys; sys.exit(7)'` 后立即捕获
-`[int]$LASTEXITCODE` 为数值7；这是主控提供的证据，不是本开发代理的现场测试。
-
-诊断只定位设备装配问题，不证明密码、数值或训练可行；wall约8秒本身不能证明 stale。
-诊断不自动启动预检或 fit；通过/根因修复验收后由主控单独执行新增一次原8/48/8预检，
-再决定唯一正式fit5。失败/STOP/UNKNOWN不自动重试，不覆盖原预检记录；
-本次已确证setup缺陷的device-check STOP按下述批准恢复路径处理。
-
-#### 已确证setup缺陷的最小修复边界
-
-主控保存的本次单次device-only证据为`NO_CURRENT_CONTEXT`：初次遥测成功，
-`set_device/init`成功，但同线程attestor读到null；约3.342秒时停止，**不是本次stale**。
-原首次失败仍不可追溯。本次批准恢复路径仅为：修复→人工测试/独立审查/fresh验收→
-**唯一新增一次原8/48/8 preflight**，不再重跑device-check，不增GPU benchmark；
-preflight失败/STOP/UNKNOWN即停，不据此自动训练或重试。
-
-装配在`cuda-init`后新增`context-establish`：只读
-`torch.are_deterministic_algorithms_enabled()`，仅严格为False才继续（防止确定性fill产生kernel，
-不切换全局状态）；只读`torch.cuda.get_allocator_backend()`，仅`native`才继续，
-非native/不可读即固定detail失败，不改环境。随后唯一调用
-`torch.empty((1,), dtype=torch.uint8, device='cuda:0')`，引用跨原只读attestor和identity检查，
-通过identity后仅删除storage引用；不`empty_cache`，不手工retain/release/reset context。
-Torch管理primary-context生命周期；分配成功仍不能代替current-context/UUID/PCI/LUID实证。
-
-此路径限定fresh process、无先前Torch导入/先前tensor，所有装配仍在原调用线程执行。
-公开逻辑1字节不代表实际只占1字节：native small pool可能取得2MiB及额外context显存；
-首次分配发生在原memory-fraction设置之前，不声称已被allocator比例限制。
-原final gate继续按**整卡**实际显存检查；1秒采样、5秒超龄、身份与预算均不变，不额外采样。
-这是非零GPU setup操作，不是NN/forward/update或科学样本，科学计数0不等于零GPU操作。
-本地仅人工测试，不证明现场修复已成功；实际工程数值、5秒窗口及完整训练仍须门禁验收。
-
-依据主控提供的research（Torch v2.7.1＋CUDA11.8，非其他版本通用保证）：
-非零native分配进入malloc/alloc_block/cudaMalloc；InlineDeviceGuard保存的是ordinal而非CUcontext，
-CUDA<12同ordinal的SetDevice路径不恢复null；runtime按需创建并绑定primary context。
-拒绝empty0（跳过malloc），不引入需跨调用方配对生命周期的driver lease。
-参考公开源码/官方文档：
-- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/cuda/CUDACachingAllocator.cpp
-- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/core/impl/InlineDeviceGuard.h
-- https://github.com/pytorch/pytorch/blob/v2.7.1/c10/cuda/CUDAFunctions.cpp
-- https://github.com/pytorch/pytorch/blob/v2.7.1/aten/src/ATen/EmptyTensor.cpp
-- https://docs.nvidia.com/cuda/archive/11.8.0/cuda-runtime-api/group__CUDART__DRIVER.html
+旧独立 `evaluate`、嵌套训练入口、24轮横／竖扫配方、独立 M/D 单对实验、预检与设备诊断
+均不再提供。历史发布和记录不动；新版不读取旧科学产物。此替换只经人工替身验证，未证明
+现场 CUDA、Windows、性能、真实训练或科学结论。

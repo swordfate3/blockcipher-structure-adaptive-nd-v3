@@ -15,9 +15,8 @@ from cipher_lab.training.early_stopping import EarlyStopping, Settings
 from ..contracts import MAX_CHECKPOINT
 from ..resources import Resources, ResourceStop
 from ..scoring import bce, predict, tensor_digest
-from .config import SLOTS, TASK, SingleRecipe, estimate, learning_rate
-from .data import PairBatch, encode_panel
-from .weights import identity
+from .config import TASK, SingleRecipe, estimate, learning_rate
+from .data import PairBatch
 
 
 class PanelEncoder(Protocol):
@@ -28,18 +27,6 @@ class PanelEncoder(Protocol):
 
 CheckpointIdentity = Callable[[SingleRecipe, dict[str, str], str, str, int, float], dict[str, Any]]
 TestResult = Callable[[PairBatch, dict[str, dict[str, float]], dict[str, Any]], dict[str, Any]]
-
-
-def _legacy_result(panel: PairBatch, scores: dict[str, dict[str, float]],
-                   logits: dict[str, Any]) -> dict[str, Any]:
-    return {'m_minus_d': {metric: scores[SLOTS[0]][metric] - scores[SLOTS[1]][metric]
-                          for metric in ('accuracy', 'bce')}}
-
-
-def train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
-          resources: Resources, summary: dict[str, Any], backend: str) -> None:
-    train_pair(recipe, provider, runtime, store, resources, summary, backend, slots=SLOTS,
-               panel_bytes=encode_panel, checkpoint_identity=identity, test_result=_legacy_result)
 
 
 def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
@@ -102,7 +89,8 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     check_source()
     # Only the committed pending rows (at most 256) need inline failure evidence.
     # Earlier chunks are already registered payloads, not copied into the seal.
-    store._failure_evidence_key = 'pending'
+    if hasattr(store, '_failure_evidence_key'):
+        setattr(store, '_failure_evidence_key', 'pending')  # optional release-core capability
     summary['models'] = runtime.metadata()
     summary['location'] = dict(phase='dev-generate')
     dev = provider.panel('dev')

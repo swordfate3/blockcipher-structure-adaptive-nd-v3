@@ -1,14 +1,18 @@
 """Stdlib-only immutable recipe, strict parser and static accounting.
 
-Parsing is not execution authorization. Runtime device binding belongs to Task2.
+Parsing is not execution authorization. Device binding belongs to the application.
 """
 from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .layout_probe.config import LayoutRecipe
 
 
 @dataclass(frozen=True)
@@ -190,11 +194,54 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def load_config(path: str | Path) -> Recipe:
-    raw = json.loads(Path(path).read_text(encoding='utf-8'), object_pairs_hook=_unique)
-    recipe: Recipe = _decode(raw, Recipe(), 'recipe')
-    validate(recipe)
-    return recipe
+MAX_CONFIG_BYTES = 16384
+RUN_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', re.ASCII)
+GPU_UUID = re.compile(r'GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}')
+_RETIRED_IDS = frozenset({
+    'innovation1-skinny-single-train-20261119-01',
+    'innovation1-skinny-layout-train-20261119-01',
+    'innovation1-skinny-layout-early-stop-20261120-01',
+})
+_WINDOWS_RESERVED = re.compile(r'CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9]', re.IGNORECASE)
+
+
+def validate_run_id(run_id: str) -> None:
+    if (not RUN_ID.fullmatch(run_id) or run_id.casefold() in _RETIRED_IDS
+            or _WINDOWS_RESERVED.fullmatch(run_id)):
+        raise ValueError('INVALID_RUN_ID')
+
+
+def canonical(value: object) -> str:
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+def require_official(recipe: Recipe) -> None:
+    expected = Recipe()
+    if (type(recipe) is not Recipe or recipe != expected
+            or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
+        raise ValueError('CONFIG_EXACT')
+
+
+def load_config(path: str | Path) -> Recipe | LayoutRecipe:
+    from .layout_probe.config import EARLY_STOP
+
+    # Reject pipes/devices; the bounded read is for regular config files only.
+    path = Path(path)
+    if not path.is_file():
+        raise ValueError('CONFIG_FILE')
+    with path.open('rb') as stream:
+        content = stream.read(MAX_CONFIG_BYTES + 1)
+    if len(content) > MAX_CONFIG_BYTES:
+        raise ValueError('CONFIG_SIZE')
+    try:
+        raw = json.loads(content.decode('utf-8'), object_pairs_hook=_unique)
+        encoded = canonical(raw)  # strict JSON types as well as values
+        for recipe in (Recipe(), EARLY_STOP):
+            if encoded == canonical(recipe.to_dict()):
+                return recipe
+    except (ValueError, RecursionError):
+        pass
+    raise ValueError('CONFIG_EXACT')
 
 
 def learning_rate(recipe: Recipe, cycle: int) -> float:

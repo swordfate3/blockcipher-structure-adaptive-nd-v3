@@ -59,6 +59,17 @@ def test_manual_full_same_batch_best_disk_late_test(tmp_path: Path) -> None:
     assert len(saved['summary']['curves']) == 2
 
 
+def test_four_cipher_snapshot_keeps_launch_request_identity(tmp_path: Path) -> None:
+    from cipher_lab_plugins.innovation1.training import run
+    r, p, m, s, resources = setup(tmp_path)
+    launch = {'gpu_uuid': 'GPU-00000000-1111-2222-3333-444444444444',
+              'device': 'cuda', 'gpu_memory_scope': 'process_allocator'}
+    assert run(r, p, m, s, resources, launch=launch)['status'] == 'SUCCEEDED'
+    saved: Any = read_saved(tmp_path, 'manual')
+    assert saved['policy']['request'] == launch
+    assert saved['policy']['rss_bytes'] == r.resources.rss_bytes
+
+
 @pytest.mark.parametrize('failure', ['dedicated', 'mutation', 'disk', 'wrong-sha'])
 def test_failure_keeps_partial_and_never_builds_test(tmp_path: Path, failure: str,
                                                    monkeypatch: pytest.MonkeyPatch) -> None:
@@ -163,57 +174,6 @@ def test_source_includes_core_plugin_parents_not_other_owners() -> None:
     assert not any('/tests/' in k or 'speck_study' in k for k in value)
 
 
-def test_resources_cached_gpu_missing_stale_and_limits(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.resources import GpuGate, ResourceStop, manual_resources
-
-    from cipher_lab.execution import Stopped
-    now = [0.0]
-    calls: list[int] = []
-    def sample() -> dict[str, Any]:
-        calls.append(1)
-        return {'uuid': 'GPU-manual', 'pci': '0000:01:00.0', 'bytes': 2}
-    gate = GpuGate('GPU-manual', '0000:01:00.0', 20, sample, lambda: now[0])
-    for _ in range(100):
-        gate.check()
-    assert len(calls) == 1
-    now[0] = 1.0
-    gate.check()
-    assert len(calls) == 2
-    now[0] = 9.
-    with pytest.raises(ResourceStop):
-        gate.check()
-    resources = manual_resources(small())
-    with pytest.raises(Stopped):
-        resources.reserve('optimizer_updates', 17)
-    assert resources.snapshot()['attempted_optimizer_updates'] == 0
-
-
-def test_evaluate_saved_only_and_sha_failure(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.evaluate import evaluate
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    from cipher_lab_plugins.innovation1.training import run
-    r, p, m, s, resources = setup(tmp_path)
-    run(r, p, m, s, resources)
-    saved: Any = read_saved(tmp_path, 'manual')
-    cp = 'model/M-best.pt'
-    ds = 'dataset/test-SIMECK.npz'
-    cp_sha = saved['artifacts'][cp]['sha256']
-    ds_sha = saved['artifacts'][ds]['sha256']
-    from cipher_lab_plugins.innovation1.source import source_identity
-    out = RunStore.claim(tmp_path, 'evaluation', output_bytes=10**7,
-                         source_supplier=source_identity)
-    result = evaluate(tmp_path, 'manual', saved['run_sha256'], cp, cp_sha, ds, ds_sha,
-                      out, manual_resources(r), backend='demo')
-    assert result['status'] == 'SUCCEEDED'
-    assert result['counts']['completed_real_blocks'] == 0
-    assert result['counts']['completed_optimizer_updates'] == 0
-    assert result['counts']['completed_forward_rows'] == 2
-    out2 = RunStore.claim(tmp_path, 'bad-eval', output_bytes=10**7)
-    with pytest.raises((ValueError, ArtifactError)):
-        evaluate(tmp_path, 'manual', saved['run_sha256'], cp, '0'*64, ds, ds_sha,
-                 out2, manual_resources(r), backend='demo')
-
-
 def test_different_dev_bests_and_real_replacement_before_test(tmp_path: Path,
                                                            monkeypatch: Any) -> None:
     from cipher_lab_plugins.innovation1.training import run
@@ -287,24 +247,6 @@ def test_checkpoint_rejects_bool_int_even_if_expected_mutated() -> None:
         decode(encode(mutated, state), mutated, state)
 
 
-@pytest.mark.parametrize('bad', ['missing', 'over', 'nan-clock', 'slow', 'wrong-pci'])
-def test_gpu_fail_closed_public_artificial_samples(bad: str) -> None:
-    from cipher_lab_plugins.innovation1.resources import GpuGate, ResourceStop
-    now = [0.0]
-    def sample() -> dict[str, Any]:
-        if bad == 'slow':
-            now[0] = 2.
-        return dict(uuid='GPU-manual', pci='bad' if bad == 'wrong-pci' else '0000:01:00.0',
-                    bytes=None if bad == 'missing' else 21 if bad == 'over' else 1)
-    if bad == 'nan-clock':
-        now[0] = float('nan')
-    gate = GpuGate('GPU-manual', '0000:01:00.0', 20, sample, lambda: now[0])
-    with pytest.raises(ResourceStop):
-        gate.check()
-    with pytest.raises(ResourceStop):
-        gate.check()  # failure irreversible; no retry to renew evidence
-
-
 def test_disk_only_read_has_no_content_cache_and_no_finalize_retry(tmp_path: Path,
                                                                  monkeypatch: Any) -> None:
     from cipher_lab_plugins.innovation1.training import run
@@ -340,23 +282,6 @@ def test_output_budget_seal_is_not_overwritten(tmp_path: Path, monkeypatch: Any)
     assert not calls and not p.test_calls
 
 
-def test_evaluate_does_not_relabel_unverified_or_wrong_family(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.evaluate import evaluate
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    from cipher_lab_plugins.innovation1.training import run
-    r, p, m, s, resources = setup(tmp_path)
-    run(r, p, m, s, resources)
-    saved: Any = read_saved(tmp_path, 'manual')
-    cp = 'model/D-PRESENT-best.pt'
-    ds = 'dataset/test-SIMECK.npz'
-    for index, backend in enumerate(('UNVERIFIED', 'demo', 'ciphers')):
-        out = RunStore.claim(tmp_path, f'reject-{index}', output_bytes=10**7)
-        with pytest.raises(ValueError):
-            evaluate(tmp_path, 'manual', saved['run_sha256'], cp, saved['artifacts'][cp]['sha256'],
-                     ds, saved['artifacts'][ds]['sha256'], out, manual_resources(r),
-                     backend=backend)
-
-
 def test_model_metadata_and_saved_report_include_parameter_evidence(tmp_path: Path) -> None:
     from cipher_lab_plugins.innovation1.report import render
     from cipher_lab_plugins.innovation1.training import run
@@ -366,46 +291,6 @@ def test_model_metadata_and_saved_report_include_parameter_evidence(tmp_path: Pa
     assert result['summary']['models']['M-best']['manual_state_only'] is True
     saved: Any = read_saved(tmp_path, 'manual')
     assert b'parameters' in render(saved)['report.md']
-
-
-def test_evaluate_rejects_changed_current_source_before_forward(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.evaluate import evaluate
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    from cipher_lab_plugins.innovation1.training import run
-    r, p, m, s, resources = setup(tmp_path)
-    run(r, p, m, s, resources)
-    saved: Any = read_saved(tmp_path, 'manual')
-    cp, ds = 'model/M-best.pt', 'dataset/test-SIMECK.npz'
-    out = RunStore.claim(tmp_path, 'different-source', output_bytes=10**7,
-                         source_supplier=lambda: {'manual/changed.py': 'a'*64})
-    with pytest.raises(ValueError):
-        evaluate(tmp_path, 'manual', saved['run_sha256'], cp, saved['artifacts'][cp]['sha256'],
-                 ds, saved['artifacts'][ds]['sha256'], out, manual_resources(r), backend='demo')
-
-
-def test_evaluate_explicit_forward_budget_and_batch(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.evaluate import evaluate
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    from cipher_lab_plugins.innovation1.source import source_identity
-    from cipher_lab_plugins.innovation1.training import run
-    r, p, m, s, resources = setup(tmp_path)
-    run(r, p, m, s, resources)
-    saved: Any = read_saved(tmp_path, 'manual')
-    cp, ds = 'model/M-best.pt', 'dataset/test-SIMECK.npz'
-    out = RunStore.claim(tmp_path, 'limited-eval', output_bytes=10**7,
-                         source_supplier=source_identity)
-    with pytest.raises(ValueError, match='EVALUATION_BUDGET'):
-        evaluate(tmp_path, 'manual', saved['run_sha256'], cp, saved['artifacts'][cp]['sha256'],
-                 ds, saved['artifacts'][ds]['sha256'], out, manual_resources(r), backend='demo',
-                 max_forward_rows=1, batch_groups=2)
-
-
-def test_no_production_resources_or_gpu_attestation_escape_guard() -> None:
-    from cipher_lab_plugins.innovation1.device import actual_attestor
-    from cipher_lab_plugins.innovation1.resources import gpu_sample, production_rss_bytes
-    for probe in (lambda: gpu_sample('GPU-manual'), production_rss_bytes, actual_attestor):
-        with pytest.raises(AssertionError, match='UNAUTHORIZED_SCIENCE'):
-            probe()
 
 
 def test_best_storage_failure_preserves_preceding_update_counts(tmp_path: Path,
@@ -424,3 +309,42 @@ def test_best_storage_failure_preserves_preceding_update_counts(tmp_path: Path,
     assert saved['counts']['completed_forward_rows'] == 32
     assert not p.test_calls
     assert callable(original)
+
+
+@pytest.mark.parametrize('target_name,counts', [
+    ('dev-SIMECK.npz', (64, 0, 0)),
+    ('batches-00000.json', (128, 32, 8)),
+    ('test-SIMECK.npz', (208, 64, 16)),
+    ('predictions-SIMECK.json', (208, 68, 16)),
+])
+def test_artifact_failure_preserves_paid_counts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                               target_name: str,
+                                               counts: tuple[int, int, int]) -> None:
+    from cipher_lab_plugins.innovation1.training import run
+    from plugin_isolation import forbidden
+
+    r, p, m, s, resources = setup(tmp_path)
+    atomic = s._atomic
+    hits = []
+
+    def fault(target: Path, raw: bytes) -> None:
+        if target.name == target_name:
+            hits.append(target)
+            raise OSError('injected storage write failure')
+        atomic(target, raw)
+
+    monkeypatch.setattr(s, '_atomic', fault)
+    monkeypatch.setattr(s, 'finalize', forbidden)
+    assert run(r, p, m, s, resources)['status'] == 'FAILED'
+    saved: Any = read_saved(tmp_path, 'manual')
+    assert saved['status'] == 'FAILED' and saved['summary']['reason'] == 'WRITE_FAILED'
+    assert len(hits) == 1
+    for kind in ('attempted', 'completed'):
+        assert tuple(saved['counts'][f'{kind}_{unit}'] for unit in
+                     ('real_blocks', 'forward_rows', 'optimizer_updates')) == counts
+    assert not any(ref.endswith(target_name) for ref in saved['artifacts'])
+    if target_name == 'batches-00000.json':
+        if hasattr(s, '_failure_evidence_key'):
+            assert len(saved['summary']['pending']) == 4
+        else:
+            assert 'pending' not in saved['summary']

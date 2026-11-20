@@ -13,7 +13,7 @@ from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.execution import Stopped
 
 from .checkpoint import MAX_CHECKPOINT, SLOTS, identity
-from .config import Recipe, learning_rate
+from .config import Recipe, learning_rate, require_official
 from .data import derive_seed
 from .dataset import encode_panel
 from .metrics import compare
@@ -22,7 +22,7 @@ from .scoring import bce, score_panel, tensor_digest
 
 
 def run(recipe: Recipe, provider: Any, models: Any, store: RunStore, resources: Any,
-        *, backend: str = 'demo') -> dict[str, Any]:
+        *, backend: str = 'demo', launch: dict[str, str] | None = None) -> dict[str, Any]:
     if backend not in ('demo', 'ciphers') or models.backend != backend:
         raise ValueError('BACKEND_MISMATCH')
     if backend == 'ciphers':
@@ -31,33 +31,48 @@ def run(recipe: Recipe, provider: Any, models: Any, store: RunStore, resources: 
         from .models import TorchRuntime
         if type(provider) is not Provider or type(models) is not TorchRuntime:
             raise ValueError('PRODUCTION_DEPENDENCY_MISMATCH')
+        require_official(recipe)
     summary: dict[str, Any] = dict(method=recipe.method, backend_identity=backend,
         synthetic=backend == 'demo', scientific_validation=False, best={}, curves=[],
         batch_refs=[], pending=[], paired_completed=0, compare={},
         count_semantics='SIMULATED manual work' if backend == 'demo' else 'production attempts')
-    summary['models'] = models.metadata()
+    if launch is not None:
+        summary['launch'] = launch
     best: dict[str, dict[str, Any]] = summary['best']
     pending: list[dict[str, Any]] = summary['pending']
     source = store.source_snapshot()
     location: dict[str, Any] = {}
     def check_identity() -> None:
         resources.check()
-        if store.current_source_identity() != source:
+        try:
+            current = store.current_source_identity()
+        except ArtifactError:
+            raise ResourceStop('SOURCE_CHANGED') from None
+        if current != source:
             raise ResourceStop('SOURCE_CHANGED')
     def save() -> None:
         store.write_snapshot({'summary': summary, 'counts': resources.snapshot()})
     def flush() -> None:
         if pending:
+            save()  # commit paid counts before any sealing payload write
             ref = store.write_payload(f'batches-{len(summary["batch_refs"]):05d}', list(pending))
             summary['batch_refs'].append(ref)
             pending.clear()
     try:
-        store.write_snapshot({'recipe': recipe.to_dict(), 'policy': dict(vars(recipe.resources))})
+        summary['models'] = models.metadata()
+        policy = dict(vars(recipe.resources))
+        if launch is not None:
+            policy['request'] = dict(launch)  # never overwrite the saved request identity
+        store.write_snapshot({'recipe': recipe.to_dict(), 'policy': policy})
+        if hasattr(store, '_failure_evidence_key'):
+            setattr(store, '_failure_evidence_key', 'pending')  # optional release-core capability
         save()
         check_identity()
         dev = provider.prepare_dev()
         for task in recipe.tasks:
             raw = encode_panel(dev[task.cipher], recipe, source, backend)
+            if task == recipe.tasks[0]:
+                save()  # all DEV collection has already been paid
             store.write_dataset(f'dev-{task.cipher}', raw)
         for epoch in range(1, recipe.training.epochs + 1):
             train_sum = {t.cipher: [0., 0.] for t in recipe.tasks}
@@ -107,8 +122,9 @@ def run(recipe: Recipe, provider: Any, models: Any, store: RunStore, resources: 
                          **{f'D-{t.cipher}-best': scores[t.cipher][f'D-{t.cipher}-best']
                             for t in recipe.tasks}}
             # Preserve completed science before a potentially sealing best write.
+            if not pending:
+                save()
             flush()
-            save()
             for slot, score in selection.items():
                 if slot not in best or score < best[slot]['metadata']['score']:
                     check_identity()
@@ -135,15 +151,18 @@ def run(recipe: Recipe, provider: Any, models: Any, store: RunStore, resources: 
         for task in recipe.tasks:
             location = dict(phase='test', task=task.cipher)
             panel = provider.test(task)  # only AFTER all five persisted strict reloads
+            save()
             store.write_dataset(f'test-{task.cipher}', encode_panel(panel, recipe, source, backend))
             slot = f'D-{task.cipher}-best'
             logits = score_panel(panel, models, ('M-best', slot),
                                  recipe.training.eval_batch_groups, resources)
             seed = derive_seed(recipe, task, 'test', 0, 'bootstrap')
-            summary['compare'][task.cipher] = compare(panel.labels, logits['M-best'], logits[slot],
+            comparison = compare(panel.labels, logits['M-best'], logits[slot],
                                   replicates=recipe.statistics.replicates, seed=seed)
+            save()  # preserve paid forwards but do not expose TEST before its payload
             store.write_payload(f'predictions-{task.cipher}', dict(labels=panel.labels.tolist(),
                 shared=logits['M-best'].tolist(), dedicated=logits[slot].tolist()))
+            summary['compare'][task.cipher] = comparison
             save()
         check_identity()
         summary['reason'] = 'COMPLETE'
@@ -154,9 +173,10 @@ def run(recipe: Recipe, provider: Any, models: Any, store: RunStore, resources: 
         # The owner has already sealed (possibly no terminal could be persisted).
         return dict(status='FAILED', reason='ARTIFACT_FAILED', summary=summary,
                     counts=resources.snapshot())
-    except Exception as error:
-        stopped = isinstance(error, (Stopped, ResourceStop))
+    except (Exception, KeyboardInterrupt) as error:
+        stopped = isinstance(error, (Stopped, ResourceStop, KeyboardInterrupt))
         summary['reason'] = (error.reason if isinstance(error, (Stopped, ResourceStop))
+                             else 'INTERRUPTED' if isinstance(error, KeyboardInterrupt)
                              else 'EXECUTION_FAILED')
         summary['failure_location'] = location
         result = dict(status='STOPPED' if stopped else 'FAILED', summary=summary,

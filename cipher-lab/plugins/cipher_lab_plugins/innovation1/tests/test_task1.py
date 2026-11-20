@@ -375,7 +375,6 @@ def test_same_seed_feistel_weights_and_native_initialization() -> None:
 
 def test_config_is_stdlib_only(monkeypatch: pytest.MonkeyPatch) -> None:
     import builtins
-    import runpy
 
     original = builtins.__import__
 
@@ -384,9 +383,11 @@ def test_config_is_stdlib_only(monkeypatch: pytest.MonkeyPatch) -> None:
         return original(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, '__import__', guarded)
-    namespace = runpy.run_path(str(ROOT / 'plugins/cipher_lab_plugins/innovation1/config.py'))
-    r = namespace['load_config'](ROOT / 'configs/innovation1-fresh.json')
-    assert namespace['estimate'](r)['real_blocks'] == 413138944
+    from cipher_lab_plugins.innovation1.config import Recipe, estimate, load_config
+
+    r = load_config(ROOT / 'configs/innovation1-fresh.json')
+    assert isinstance(r, Recipe)
+    assert estimate(r)['real_blocks'] == 413138944
 
 
 @pytest.mark.parametrize('cipher,rotations', [('simeck64', (0, 5, 1)),
@@ -438,12 +439,12 @@ def test_duplicate_fields_and_bad_task_declarations(tmp_path: Path) -> None:
     from cipher_lab_plugins.innovation1.config import load_config
     path = tmp_path / 'config.json'
     path.write_text('{"method":"one","method":"two"}')
-    with pytest.raises(ValueError, match='duplicate'):
+    with pytest.raises(ValueError, match='CONFIG_EXACT'):
         load_config(path)
     raw = recipe().to_dict()
     raw['tasks'][0]['rounds'] = 15
     path.write_text(json.dumps(raw))
-    with pytest.raises(ValueError, match='identity'):
+    with pytest.raises(ValueError, match='CONFIG_EXACT'):
         load_config(path)
 
 

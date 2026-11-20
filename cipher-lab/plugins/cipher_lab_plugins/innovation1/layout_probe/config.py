@@ -1,19 +1,16 @@
 """Stdlib-only, exact SKINNY single-pair layout training contract."""
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, replace
-from pathlib import Path
 from typing import Any
 
 from cipher_lab.training.early_stopping import Settings
 
-from ..config import Resources, Seeds, _unique
-from ..single_train.config import ARCHITECTURE, TASK, SingleRecipe, canonical
+from ..config import Resources, Seeds, canonical, validate_run_id
+from ..single_train.config import ARCHITECTURE, TASK, SingleRecipe
 
-METHOD = 'innovation1-skinny-layout-train-v1'
-RUN_ID = 'innovation1-skinny-layout-train-20261119-01'
-NAMESPACE = 'innovation1-skinny-layout-train-v1-20261119'
+METHOD = 'innovation1-skinny-layout-early-stop-v1'
+NAMESPACE = 'innovation1-skinny-layout-early-stop-v1-20261120'
 SLOTS = ('A-row-best', 'A-prime-column-best')
 SCANS = ('row', 'column')
 SEEDS = Seeds(init=26111951, sample=26111952, shuffle=26111953)
@@ -23,7 +20,7 @@ PUBLIC_STREAMS = replace(ARCHITECTURE, namespace=NAMESPACE, tasks=(TASK,), seeds
 @dataclass(frozen=True)
 class LayoutRecipe(SingleRecipe):
     method: str = METHOD
-    run_id: str = RUN_ID
+    run_id: str | None = None
     namespace: str = NAMESPACE
     resources: Resources = SingleRecipe.resources
     early_stopping: Settings | None = None
@@ -47,30 +44,19 @@ class LayoutRecipe(SingleRecipe):
         return recipe
 
 
-FIXED = LayoutRecipe()
 EARLY_STOP = LayoutRecipe(
-    training=replace(FIXED.training, epochs=100),
-    resources=replace(FIXED.resources, wall_seconds=43200),
-    method='innovation1-skinny-layout-early-stop-v1',
-    run_id='innovation1-skinny-layout-early-stop-20261120-01',
-    namespace='innovation1-skinny-layout-early-stop-v1-20261120',
+    training=replace(SingleRecipe.training, epochs=100),
+    resources=replace(SingleRecipe.resources, wall_seconds=43200),
     early_stopping=Settings(warmup_epochs=24, patience=12, min_delta=1e-5),
     cosine_epochs=24,
 )
-RECIPES = (FIXED, EARLY_STOP)
 
 
-def load_config(path: Path) -> LayoutRecipe:
-    with path.open('rb') as stream:
-        content = stream.read(16385)
-    if len(content) > 16384:
-        raise ValueError('CONFIG_SIZE')
-    try:
-        raw = json.loads(content.decode('utf-8'), object_pairs_hook=_unique)
-        encoded = canonical(raw)
-        for recipe in RECIPES:
-            if encoded == canonical(recipe.to_dict()):
-                return recipe
-    except (ValueError, RecursionError):
-        pass
-    raise ValueError('CONFIG_EXACT')
+def official(recipe: LayoutRecipe, run_id: str) -> LayoutRecipe:
+    """Compare against the frozen base with ONLY the caller's ID substituted."""
+    validate_run_id(run_id)
+    expected = replace(EARLY_STOP, run_id=run_id)
+    if (type(recipe) is not LayoutRecipe or recipe != expected
+            or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
+        raise ValueError('CONFIG_EXACT')
+    return expected

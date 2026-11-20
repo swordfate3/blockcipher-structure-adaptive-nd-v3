@@ -1,6 +1,6 @@
 {
   "method": "innovation1-skinny-layout-early-stop-v1",
-  "run_id": "innovation1-skinny-layout-early-stop-20261120-01",
+  "run_id": null,
   "namespace": "innovation1-skinny-layout-early-stop-v1-20261120",
   "backend": "ciphers",
   "task": {
@@ -9,8 +9,6 @@
     "difference": 8192
   },
   "device": "cuda:0",
-  "gpu_uuid": "GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7",
-  "gpu_pci": "00000000:3B:00.0",
   "training": {
     "epochs": 100,
     "batches_per_epoch": 1024,

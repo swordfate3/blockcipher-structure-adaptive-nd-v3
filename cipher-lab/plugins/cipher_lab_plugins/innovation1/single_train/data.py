@@ -3,21 +3,19 @@ from __future__ import annotations
 
 import io
 import random
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from ..config import Recipe
+from ..config import Recipe, canonical
 from ..data import BlockMeter, DataError, Oracle, PrivateSource, derive_seed
-from .config import ARCHITECTURE, NAMESPACE, RUN_ID, SLOTS, TASK, SingleRecipe, canonical
+from .config import TASK, SingleRecipe
 
 if TYPE_CHECKING:
     import torch
-
-_PUBLIC_STREAMS = replace(ARCHITECTURE, namespace=NAMESPACE, tasks=(TASK,))
 
 
 @dataclass(frozen=True, eq=False)
@@ -26,7 +24,7 @@ class PairBatch:
     labels: NDArray[np.uint8]
     split: str
     index: int
-    namespace: str = NAMESPACE
+    namespace: str
 
     def __post_init__(self) -> None:
         x, y = self.ciphertext, self.labels
@@ -65,7 +63,7 @@ class PairBatch:
 
 class Provider:
     def __init__(self, recipe: SingleRecipe, oracle: Oracle, private: PrivateSource,
-                 meter: BlockMeter, *, streams: Recipe = _PUBLIC_STREAMS) -> None:
+                 meter: BlockMeter, *, streams: Recipe) -> None:
         self.recipe, self.oracle, self.private, self.meter = recipe, oracle, private, meter
         self._streams = streams
         self._cycle = 0
@@ -136,16 +134,6 @@ class Provider:
             self.meter.check()
         return PairBatch(packed, np.asarray(labels, dtype=np.uint8).reshape(-1, 1), split, index,
                          self._streams.namespace)
-
-
-def encode_panel(batch: PairBatch, recipe: SingleRecipe, source: dict[str, str],
-                 backend: str, *, logits: dict[str, Any] | None = None,
-                 weights: dict[str, Any] | None = None) -> bytes:
-    metadata = dict(schema=1, run_id=RUN_ID, recipe=recipe.to_dict(), source=source,
-                    backend=backend, split=batch.split, digest=batch.digest,
-                    encoding='packed-msb0-single-pair-v1')
-    return pack_panel(batch, recipe, metadata, SLOTS, ('m_logits', 'd_logits'), NAMESPACE,
-                      logits=logits, weights=weights)
 
 
 def pack_panel(batch: PairBatch, recipe: SingleRecipe, metadata: dict[str, Any],

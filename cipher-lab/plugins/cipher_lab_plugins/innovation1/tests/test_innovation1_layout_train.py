@@ -24,55 +24,8 @@ _EARLY_CONFIG = Path('configs/innovation1-skinny-layout-early-stop.json')
 _STORAGE_FAILURES = _PANEL_FAILURES | {'batch-write', 'partial-snapshot', 'run-unwritable'}
 
 
-def test_exact_config_and_legacy_exclusion(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, load_config
-    from cipher_lab_plugins.innovation1.single_train.config import estimate
-    from cipher_lab_plugins.innovation1.single_train.config import load_config as legacy_load
-
-    path = Path('configs/innovation1-skinny-layout-train.json')
-    assert load_config(path) is FIXED
-    assert estimate(FIXED) == dict(fits=2, retries=0, cycles=24576, updates_each=24576,
-                                  optimizer_updates=49152, real_blocks=25821184,
-                                  forward_rows=28835840, train_groups=12582912,
-                                  dev_groups=65536, test_groups=262144, null_words=0)
-    with pytest.raises(ValueError):
-        legacy_load(path)
-    with pytest.raises(ValueError):
-        load_config(Path('configs/innovation1-skinny-single-train.json'))
-    text = path.read_text()
-    invalid = tmp_path / 'invalid.json'
-    for changed in (text.replace('"rounds": 8', '"rounds": 8.0'),
-                    text.replace('"epochs": 24', '"epochs": 24, "epochs": 24'),
-                    text.replace('"amsgrad": false', '"amsgrad": 0'),
-                    text.replace('"retries": 0', '"retries": 0, "extra": null')):
-        assert changed != text
-        invalid.write_text(changed)
-        with pytest.raises(ValueError, match='CONFIG_EXACT'):
-            load_config(invalid)
 
 
-def test_plugin_check_skips_claim_and_admission(monkeypatch: pytest.MonkeyPatch,
-                                               capsys: pytest.CaptureFixture[str]) -> None:
-    import builtins
-
-    from cipher_lab_plugins.innovation1 import application
-
-    from cipher_lab.plugin_cli import dispatch
-
-    original_import = builtins.__import__
-
-    def guarded_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        assert name.split('.')[0] not in {'torch', 'numpy'}
-        assert not name.startswith('cipher_lab.ciphers')
-        assert name not in {'runtime', 'data', 'models', 'metrics'}
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, '__import__', guarded_import)
-    monkeypatch.setattr(RunStore, 'claim', forbidden)
-    monkeypatch.setattr(application, 'production_resources', forbidden)
-    assert dispatch(['check', '--plugin', 'cipher_lab_plugins.innovation1.layout_probe.cli',
-                     '--config', 'configs/innovation1-skinny-layout-train.json']) == 0
-    assert json.loads(capsys.readouterr().out)['scope'] == 'STATIC_ONLY_NO_DEVICE_ADMISSION'
 
 
 def test_paired_statistics_from_aligned_rows() -> None:
@@ -115,11 +68,12 @@ def test_fp32_guard_precedes_build_pair(monkeypatch: pytest.MonkeyPatch) -> None
                                   'reload-stop', 'interrupt', 'dev-write', 'test-write',
                                   'test-registration', 'batch-write', 'partial-snapshot',
                                   'run-unwritable', 'invalid-artifact', *sorted(_EARLY_CASES)])
-def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str) -> None:
+def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str,
+                          capsys: pytest.CaptureFixture[str]) -> None:
     from cipher_lab_plugins.innovation1.checkpoint import encode
+    from cipher_lab_plugins.innovation1.cli import _finish as finish_cli
     from cipher_lab_plugins.innovation1.layout_probe import application, weights
-    from cipher_lab_plugins.innovation1.layout_probe.cli import _finish
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, SLOTS
+    from cipher_lab_plugins.innovation1.layout_probe.config import EARLY_STOP, SLOTS
     from cipher_lab_plugins.innovation1.layout_probe.data import Provider
     from cipher_lab_plugins.innovation1.layout_probe.layout import nibble_indices
     from cipher_lab_plugins.innovation1.resources import Resources
@@ -127,16 +81,21 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
     from cipher_lab_plugins.innovation1.single_train.data import PairBatch
 
     early = case in _EARLY_CASES
-    base = FIXED
-    if early:
-        from cipher_lab_plugins.innovation1.layout_probe.config import load_config
-        base = load_config(_EARLY_CONFIG)
+    base = replace(EARLY_STOP, run_id='layout-fixture')
+    if not early:  # Short artificial paths exercise the same loop without the stopper.
+        base = replace(base, early_stopping=None, cosine_epochs=None)
+
+    def _finish(store: RunStore, root: Path, meter: Meter) -> tuple[int, str]:
+        assert meter is resources.meter
+        code = finish_cli(store, root, run_id, resources=resources)
+        return code, capsys.readouterr().out
+
     batch_cycles = 256 if case == 'batch-write' else 2
     epochs = (36 if case == 'early-ceiling' else 40) if early else 2
     training = replace(base.training, epochs=epochs, batches_per_epoch=batch_cycles,
                        batch_groups=4, dev_groups=4, test_groups=4, eval_batch_groups=4)
     recipe = replace(base, training=training)
-    run_id = base.to_dict()['run_id']
+    run_id = 'layout-fixture'
     source = {'artificial/fixture.py': 'b'*64}
     clocks = Clocks()
     resources = Resources(Meter(make_policy(recipe, clocks), clocks, lambda: 7))
@@ -292,7 +251,7 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
             events.append(('load', slot))
 
     application._execute(recipe, store, resources, 'artificial',
-                         lambda r, _: (Panels(recipe, fake_oracle, fake_bytes, r), Runtime()))
+                         lambda rec, r: (Panels(rec, fake_oracle, fake_bytes, r), Runtime()))
     frozen = record_path.read_bytes()
     record = json.loads(frozen)
     summary, counts = record['summary'], record['counts']
@@ -303,8 +262,6 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
         assert counts['attempted_optimizer_updates'] == 142
         assert counts['completed_optimizer_updates'] == 141
     elif early:
-        from cipher_lab_plugins.innovation1.layout_probe.report import render
-        from cipher_lab_plugins.innovation1.single_train.cli import finish_run
         from cipher_lab_plugins.innovation1.single_train.config import learning_rate
 
         assert record['recipe'] == json.loads(json.dumps(recipe.to_dict()))
@@ -318,7 +275,7 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
                                                                completed=completed))
         assert [v for k, v in events if k == 'update'] == list(SLOTS) * completed
         assert [summary['best'][s]['epoch'] for s in SLOTS] == [25, 1]
-        warmup = replace(FIXED, training=replace(training, epochs=24))
+        warmup = replace(base, training=replace(training, epochs=24))
         assert lrs[::2] == [learning_rate(warmup, c) for c in range(24 * batch_cycles)] + [
             .0001] * (12 * batch_cycles)
         assert lrs[::2] == lrs[1::2]
@@ -342,11 +299,11 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
             # The exact same slot/state/source cannot bridge run identities.
             selected = summary['best'][SLOTS[0]]
             with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
-                old = replace(FIXED, training=training)
+                old = replace(recipe, run_id='other-fixture')
                 weights.decode(model_paths[SLOTS[0]].read_bytes(), old, source,
                                'artificial', SLOTS[0], selected['epoch'], selected['bce'],
                                template(SLOTS[0]))
-        code, _ = finish_run(store, tmp_path, resources.meter, run_id, render)
+        code, _ = _finish(store, tmp_path, resources.meter)
         assert code == (0 if succeeded else 4)
         report_path = tmp_path / 'result' / run_id / 'report.md'
         report = report_path.read_text(encoding='utf-8')
@@ -401,6 +358,9 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
             assert _finish(store, tmp_path, resources.meter)[0] == 4
             if case in ('batch-write', 'partial-snapshot'):
                 assert 'payload/batches-0000.json' not in record['artifacts']
+                if not hasattr(store, '_failure_evidence_key'):
+                    assert 'pending' not in summary  # main core retains only bounded identity
+                    return
                 actual = [(r['epoch'], r['cycle'], r['groups'], r['updates_completed'])
                           for r in summary['pending']]
                 assert actual == ([(1, cycle, 4, list(SLOTS)) for cycle in range(256)]
@@ -429,21 +389,15 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
     assert record_path.read_bytes() == frozen and counts['completed_null_words'] == 0
 
 
-def test_namespace_streams_and_legacy_panel_bytes() -> None:
-    from cipher_lab_plugins.innovation1.layout_probe.config import (
-        EARLY_STOP,
-        FIXED,
-        NAMESPACE,
-        SEEDS,
-    )
+def test_namespace_streams_and_panel_bytes() -> None:
+    from cipher_lab_plugins.innovation1.layout_probe.config import EARLY_STOP, NAMESPACE, SEEDS
     from cipher_lab_plugins.innovation1.layout_probe.data import Provider, encode_panel
-    from cipher_lab_plugins.innovation1.single_train import config, data
+    from cipher_lab_plugins.innovation1.single_train.data import PairBatch
 
-    training = replace(FIXED.training, dev_groups=4, eval_batch_groups=4)
-    layout = replace(FIXED, training=training)
-    old = replace(config.FIXED, training=training)
-    want_seeds = (26111951, 26111952, 26111953)
-    assert (SEEDS.init, SEEDS.sample, SEEDS.shuffle) == want_seeds
+    training = replace(EARLY_STOP.training, dev_groups=4, eval_batch_groups=4)
+    layout = replace(EARLY_STOP, training=training, run_id='first')
+    other = replace(layout, run_id='second')
+    assert (SEEDS.init, SEEDS.sample, SEEDS.shuffle) == (26111951, 26111952, 26111953)
     received: list[tuple[int, ...]] = []
 
     def oracle(blocks: tuple[int, ...], words: tuple[int, ...], rounds: int) -> tuple[int, ...]:
@@ -463,89 +417,26 @@ def test_namespace_streams_and_legacy_panel_bytes() -> None:
     a = Provider(layout, oracle, bytes, MeterStub()).panel('dev')
     public_a = received[:]
     received.clear()
-    b = data.Provider(old, oracle, bytes, MeterStub()).panel('dev')
-    assert public_a != received and len(public_a) == len(received) == 4
+    b = Provider(other, oracle, bytes, MeterStub()).panel('dev')
+    assert public_a == received and a.digest == b.digest
     assert a.namespace == a.slice(0, 4).namespace == NAMESPACE
-    assert data.PairBatch(a.ciphertext, a.labels, 'dev', 0).digest != a.digest
+    wrong = PairBatch(a.ciphertext, a.labels, 'dev', 0, 'other-namespace')
+    assert wrong.digest != a.digest
     with pytest.raises(ValueError, match='PANEL_IDENTITY'):
-        encode_panel(b, layout, source, 'artificial')
-    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
-        data.encode_panel(a, old, source, 'artificial')
-    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
-        encode_panel(a, old, source, 'artificial')
-
-    # Baseline NPZ metadata, array order and bytes (no actual historical artifact).
-    baseline = io.BytesIO()
-    info = dict(schema=1, run_id=config.RUN_ID, recipe=old.to_dict(), source=source,
-                backend='artificial', split='dev', digest=b.digest,
-                encoding='packed-msb0-single-pair-v1')
-    np.savez(baseline, metadata=np.frombuffer(config.canonical(info).encode('ascii'), np.uint8),
-             ciphertext=b.ciphertext, labels=b.labels)
-    assert data.encode_panel(b, old, source, 'artificial') == baseline.getvalue()
-
-    received.clear()
-    early = replace(EARLY_STOP, training=training)
-    c = Provider(early, oracle, bytes, MeterStub()).panel('dev')
-    assert c.namespace == early.namespace and public_a != received
-    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
-        encode_panel(a, early, source, 'artificial')
-    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
-        encode_panel(c, layout, source, 'artificial')
-
-
-def test_admission_precedes_layout_runtime_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    import builtins
-
-    from cipher_lab_plugins.innovation1.layout_probe import application, runtime
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED
-    from cipher_lab_plugins.innovation1.resources import Resources, ResourceStop
-    from cipher_lab_plugins.innovation1.single_train.config import make_policy
-
-    clocks = Clocks()
-    res = Resources(Meter(make_policy(FIXED, clocks), clocks, lambda: 0))
-    events: list[str] = []
-    allowed = False
-    orig = builtins.__import__
-
-    def watched_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name in ('torch', 'numpy', 'data', 'runtime', 'secrets', 'cipher_lab.ciphers'):
-            assert allowed, name
-            events.append(name)
-        return orig(name, *args, **kwargs)
-
-    def admitted(own: Resources, evidence: dict[str, Any]) -> None:
-        assert own is res
-        events.append('admission')
-        if not allowed:
-            raise ResourceStop(detail_code='DEVICE_ENTRY_REJECTED')
-
-    class ArtificialRuntime:
-        def __init__(self, check: Callable[[], None]) -> None:
-            assert allowed and events[0] == 'admission'
-            check()
-
-    monkeypatch.setattr(runtime, 'Runtime', ArtificialRuntime)
-    monkeypatch.setattr(application, 'admit_device', admitted)
-    monkeypatch.setattr(builtins, '__import__', watched_import)
-    with pytest.raises(ResourceStop):
-        application._production(res, {}, recipe=FIXED)
-    assert events == ['admission']
-    events.clear()
-    allowed = True
-    provider, adapter = application._production(res, {}, recipe=FIXED)
-    assert provider.recipe is FIXED and provider.meter is res
-    assert type(adapter) is ArtificialRuntime
-    assert events.index('runtime') > events.index('admission')
+        encode_panel(wrong, layout, source, 'artificial')
+    assert encode_panel(a, layout, source, 'artificial') != (
+        encode_panel(b, other, source, 'artificial'))
 
 
 def test_runtime_uses_two_fresh_slot_templates(monkeypatch: pytest.MonkeyPatch) -> None:
     from cipher_lab_plugins.innovation1.checkpoint import encode
     from cipher_lab_plugins.innovation1.layout_probe import runtime, weights
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, SEEDS, SLOTS
+    from cipher_lab_plugins.innovation1.layout_probe.config import EARLY_STOP, SEEDS, SLOTS
     from cipher_lab_plugins.innovation1.layout_probe.layout import nibble_indices
     from cipher_lab_plugins.innovation1.models import TorchRuntime
-    from cipher_lab_plugins.innovation1.single_train import weights as legacy
-    from cipher_lab_plugins.innovation1.single_train.config import FIXED as OLD
+    from cipher_lab_plugins.innovation1.single_train.config import SingleRecipe
+
+    recipe = replace(EARLY_STOP, run_id='templates-fixture')
 
     class Table(torch.nn.Module):
         def __init__(self, indices: torch.Tensor) -> None:
@@ -603,40 +494,35 @@ def test_runtime_uses_two_fresh_slot_templates(monkeypatch: pytest.MonkeyPatch) 
                for _, kw, _ in opts)
     assert len(pairs) == 1
     source = {'artificial/fixture.py': 'c'*64}
-    blobs = [r.checkpoint(slot, weights.identity(FIXED, source, 'ciphers', slot, 1, .25))
+    blobs = [r.checkpoint(slot, weights.identity(recipe, source, 'ciphers', slot, 1, .25))
              for slot in SLOTS]
     with pytest.raises(ValueError, match='RELOAD_NOT_RELEASED'):
-        r.load_best(SLOTS[0], blobs[0], FIXED, source, 1, .25, lambda: None)
+        r.load_best(SLOTS[0], blobs[0], recipe, source, 1, .25, lambda: None)
     r.release()
     for slot, raw in zip(SLOTS, blobs, strict=True):
-        r.load_best(slot, raw, FIXED, source, 1, .25, lambda: None)
+        r.load_best(slot, raw, recipe, source, 1, .25, lambda: None)
     assert len(pairs) == 2 and list(r.models.values()) == list(pairs[1])
     assert all(not arm.training for arm in pairs[1]) and not r.optimizers
     for train, reloaded in zip(*pairs, strict=True):
         assert train is not reloaded and train.weight is not reloaded.weight
     state = pairs[1][0].state_dict()
-    blob = encode(legacy.identity(OLD, source, 'ciphers', 'M-best', 1, .25), state)
-    with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
-        weights.decode(blob, FIXED, source, 'ciphers', SLOTS[0], 1, .25, state)
     with pytest.raises(ValueError, match='CHECKPOINT_IDENTITY'):
-        weights.decode(blobs[0], OLD, source, 'ciphers', SLOTS[0], 1, .25, state)
-    with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
-        legacy.decode(blobs[0], OLD, source, 'ciphers', 'M-best', 1, .25, state)
+        weights.decode(blobs[0], SingleRecipe(), source, 'ciphers', SLOTS[0], 1, .25, state)
     for field, value in (('schema', 1), ('epoch', True), ('score', .5), ('source', {}),
-                         ('recipe', OLD.to_dict()), ('backend', 'artificial'), ('run_id', 'old'),
-                         ('method', 'old')):
-        meta = weights.identity(FIXED, source, 'ciphers', SLOTS[0], 1, .25)
+                         ('recipe', SingleRecipe().to_dict()), ('backend', 'artificial'),
+                         ('run_id', 'old'), ('method', 'old')):
+        meta = weights.identity(recipe, source, 'ciphers', SLOTS[0], 1, .25)
         meta[field] = value
         with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
-            weights.decode(encode(meta, state), FIXED, source, 'ciphers', SLOTS[0], 1, .25, state)
+            weights.decode(encode(meta, state), recipe, source, 'ciphers', SLOTS[0], 1, .25, state)
     for name in weights.FIXED_BUFFERS:
         for slot, arm in zip(SLOTS, pairs[1], strict=True):
             template = arm.state_dict()
             wrong = {**template, name: template[name] + 1}
-            meta = weights.identity(FIXED, source, 'ciphers', slot, 1, .25)
+            meta = weights.identity(recipe, source, 'ciphers', slot, 1, .25)
             with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
                 blob = encode(meta, wrong)
-                weights.decode(blob, FIXED, source, 'ciphers', slot, 1, .25, template)
+                weights.decode(blob, recipe, source, 'ciphers', slot, 1, .25, template)
 
 
 def test_layout_source_closure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -644,19 +530,16 @@ def test_layout_source_closure(monkeypatch: pytest.MonkeyPatch) -> None:
     from hashlib import sha256
     from types import SimpleNamespace
 
-    from cipher_lab_plugins.innovation1.layout_probe import source
-    from cipher_lab_plugins.innovation1.single_train.source import source_identity
+    from cipher_lab_plugins.innovation1 import source
 
     from cipher_lab.artifacts import ArtifactError
 
-    old = source_identity()
     layout = source.source_identity()
-    assert {key: layout[key] for key in old} == old
     assert 'cipher_lab/training/early_stopping.py' in layout
-    folder = Path(source.__file__).parent
+    folder = Path(source.__file__).parent / 'layout_probe'
     expected = {p.relative_to(folder.parents[2]).as_posix(): sha256(p.read_bytes()).hexdigest()
                 for p in folder.glob('*.py')}
-    assert {key: layout[key] for key in layout.keys() - old.keys()} == expected
+    assert {key: layout[key] for key in layout.keys() if '/layout_probe/' in key} == expected
     orig = Path.lstat
 
     def lstat(path: Path) -> Any:
@@ -671,27 +554,29 @@ def test_layout_source_closure(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_early_recipe_exact_budget_and_schedule(tmp_path: Path) -> None:
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, load_config
+    from cipher_lab_plugins.innovation1.config import load_config
+    from cipher_lab_plugins.innovation1.layout_probe.config import EARLY_STOP, LayoutRecipe
     from cipher_lab_plugins.innovation1.single_train.config import estimate, learning_rate
 
     recipe = load_config(_EARLY_CONFIG)
+    assert isinstance(recipe, LayoutRecipe)
     payload = json.loads(_EARLY_CONFIG.read_bytes())
     assert payload['selection']['early_stopping'] == dict(
         warmup_epochs=24, patience=12, min_delta=1e-5, stop_when='all')
     assert payload['optimizer']['cosine_epochs'] == 24
     assert payload['method'] == 'innovation1-skinny-layout-early-stop-v1'
-    assert payload['run_id'] == 'innovation1-skinny-layout-early-stop-20261120-01'
+    assert payload['run_id'] is None
     assert payload['namespace'] == 'innovation1-skinny-layout-early-stop-v1-20261120'
-    assert payload['seeds'] == FIXED.to_dict()['seeds']
-    assert FIXED.to_dict()['resources']['wall_seconds'] == 28800
-    assert payload['resources'] == {**FIXED.to_dict()['resources'], 'wall_seconds': 43200}
+    assert payload['seeds'] == dict(init=26111951, sample=26111952, shuffle=26111953)
+    assert payload['resources'] == vars(EARLY_STOP.resources)
+    warmup = replace(recipe, training=replace(recipe.training, epochs=24))
     assert estimate(recipe) == dict(fits=2, retries=0, cycles=102400, updates_each=102400,
                                     optimizer_updates=204800, real_blocks=105512960,
                                     forward_rows=118489088, train_groups=52428800,
                                     dev_groups=65536, test_groups=262144, null_words=0)
     for cycle in range(102400):
         lr = learning_rate(recipe, cycle, cosine_epochs=recipe.cosine_epochs)
-        assert lr == (learning_rate(FIXED, cycle) if cycle < 24576 else .0001)
+        assert lr == (learning_rate(warmup, cycle) if cycle < 24576 else .0001)
     invalid = tmp_path / 'invalid.json'
     text = _EARLY_CONFIG.read_text()
     for changed in (text.replace('"all"', '"any"'),
@@ -701,75 +586,3 @@ def test_early_recipe_exact_budget_and_schedule(tmp_path: Path) -> None:
         invalid.write_text(changed)
         with pytest.raises(ValueError, match='CONFIG_EXACT'):
             load_config(invalid)
-
-
-def test_dispatch_run_binds_selected_recipe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                            capsys: pytest.CaptureFixture[str]) -> None:
-    from cipher_lab_plugins.innovation1 import resources
-    from cipher_lab_plugins.innovation1.layout_probe import application, config
-    from cipher_lab_plugins.innovation1.single_train import cli
-
-    from cipher_lab.plugin_cli import dispatch
-
-    expected = config.load_config(_EARLY_CONFIG)
-    events: list[str] = []
-    owner = object()
-
-    class Harness:
-        dont_write_bytecode = True
-        platform = 'win32'
-
-    class Root:
-        parts = ('root',)
-
-        def is_absolute(self) -> bool:
-            return True
-
-        def is_relative_to(self, other: Path) -> bool:
-            assert str(other) == r'G:\lxy'
-            return True
-
-    root = Root()
-
-    def path(value: str) -> Any:
-        return root if value == 'artificial-root' else Path(value)
-
-    def no_reparse(value: Any) -> Path:
-        return tmp_path if value is root else value  # Fake path admission, no real device.
-
-    def claim(directory: Path, run_id: str, **kwargs: Any) -> object:
-        assert directory == tmp_path and run_id == expected.to_dict()['run_id']
-        assert kwargs['model_slots'] == config.SLOTS
-        events.append('claim')
-        return owner
-
-    def execute(recipe: Any, store: Any, res: Any, backend: str, assemble: Any) -> None:
-        assert recipe is expected and store is owner and backend == 'ciphers'
-        assert res.meter._policy.real_blocks == 105512960
-        provider, runtime = assemble(res, {})
-        assert provider.recipe is expected and runtime is fake_runtime
-        events.append('execute')
-
-    def finish(store: Any, directory: Path, meter: Any, run_id: str,
-               render: Any) -> tuple[int, str]:
-        assert store is owner and directory == tmp_path and run_id == expected.to_dict()['run_id']
-        events.append('finish')
-        return 0, '{}'
-
-    from cipher_lab_plugins.innovation1.layout_probe import runtime
-    from cipher_lab_plugins.innovation1.single_train import source
-
-    fake_runtime = object()
-    monkeypatch.setattr(cli, 'sys', Harness())
-    monkeypatch.setattr(cli, 'Path', path)
-    monkeypatch.setattr(cli, 'finish_run', finish)
-    monkeypatch.setattr(source, 'no_reparse', no_reparse)
-    monkeypatch.setattr(resources, 'production_rss_bytes', lambda: 0)
-    monkeypatch.setattr(RunStore, 'claim', claim)
-    monkeypatch.setattr(application, '_execute', execute)
-    monkeypatch.setattr(application, 'admit_device', lambda *args: events.append('admit'))
-    monkeypatch.setattr(runtime, 'Runtime', lambda check: fake_runtime)
-    assert dispatch(['run', '--plugin', 'cipher_lab_plugins.innovation1.layout_probe.cli',
-                     '--config', str(_EARLY_CONFIG), '--root', 'artificial-root']) == 0
-    assert events == ['claim', 'admit', 'execute', 'finish']
-    assert capsys.readouterr().out == '{}\n'

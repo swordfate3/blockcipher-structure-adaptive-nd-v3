@@ -1,32 +1,20 @@
 """Exact stdlib recipe and independent quantitative ledger limits."""
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, replace
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 from cipher_lab.config import Policy
 from cipher_lab.execution import Clocks
 
-from ..config import TASKS, Recipe, Training, _unique
+from ..config import TASKS, Recipe, Training
 from ..config import learning_rate as cosine
 
-METHOD = 'innovation1-skinny-single-train-v1'
-RUN_ID = 'innovation1-skinny-single-train-20261119-01'
-NAMESPACE = 'innovation1-skinny-single-train-v1-20261119'
 BACKEND = 'ciphers'
 DEVICE = 'cuda:0'
-GPU_UUID = 'GPU-171dfbbe-c1a7-d93b-549d-8824cb8a18c7'
-GPU_PCI = '00000000:3B:00.0'
 TASK = TASKS[-1]
-SLOTS = ('M-best', 'D-SKINNY-best')
 ARCHITECTURE = Recipe()
-
-
-def canonical(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
 
 
 @dataclass(frozen=True)
@@ -37,31 +25,11 @@ class SingleRecipe:
 
     def to_dict(self) -> dict[str, Any]:
         model = asdict(ARCHITECTURE.model)
-        model['dedicated'] = ARCHITECTURE.model.dedicated[-1]
-        return dict(method=METHOD, run_id=RUN_ID, namespace=NAMESPACE, backend=BACKEND,
-                    task=asdict(TASK), device=DEVICE, gpu_uuid=GPU_UUID, gpu_pci=GPU_PCI,
+        return dict(backend=BACKEND, task=asdict(TASK), device=DEVICE,
                     training=asdict(self.training), optimizer=asdict(ARCHITECTURE.optimizer),
                     seeds=asdict(ARCHITECTURE.seeds), model=model, resources=asdict(self.resources),
                     selection=dict(metric='per-model-dev-bce', ties='earliest',
                                    interval='epoch-end', test='after-two-persisted-best-reloads'))
-
-
-FIXED = SingleRecipe()
-
-
-def load_config(path: Path) -> SingleRecipe:
-    with path.open('rb') as stream:
-        content = stream.read(16385)
-    if len(content) > 16384:
-        raise ValueError('CONFIG_SIZE')
-    try:
-        raw = json.loads(content.decode('utf-8'), object_pairs_hook=_unique)
-        # Distinguish types (e.g. true, 1, 1.0) as well as values, with no overrides.
-        if canonical(raw) == canonical(FIXED.to_dict()):
-            return FIXED
-    except (ValueError, RecursionError):
-        pass
-    raise ValueError('CONFIG_EXACT')
 
 
 def estimate(recipe: SingleRecipe) -> dict[str, int]:

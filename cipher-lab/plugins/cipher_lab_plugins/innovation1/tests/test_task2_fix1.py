@@ -103,7 +103,6 @@ def test_report_budget_keeps_scientific_terminal_and_stops_command(
     from cipher_lab_plugins.innovation1.resources import Resources, policy
     from cipher_lab_plugins.innovation1.training import run
 
-    from cipher_lab import artifacts
     from cipher_lab.execution import Clocks, Meter
     r, provider, runtime, store, _ = setup(tmp_path)
     now = dict(wall=0., cpu=0., rss=0)
@@ -122,18 +121,13 @@ def test_report_budget_keeps_scientific_terminal_and_stops_command(
     result = run(r, provider, runtime, store, resources)
     assert result['status'] == 'SUCCEEDED'
     sealed = (tmp_path / 'data/manual/run.json').read_bytes()
-    # A finalized report must not use the science GPU gate, even if expired.
-    class NoGPU:
-        def check(self) -> None:
-            raise AssertionError('report cannot touch GPU')
-    resources.gpu = NoGPU()  # type: ignore[assignment]
     if phase == 'read':
-        original_read = artifacts.read_saved
+        original_read = cli._owner_record
         def read(*args: Any) -> Any:
             value = original_read(*args)
             now[limit] = 1000
             return value
-        monkeypatch.setattr(artifacts, 'read_saved', read)
+        monkeypatch.setattr(cli, '_owner_record', read)
     elif phase == 'render':
         original_render = report.render
         def render(saved: Any) -> Any:
@@ -159,36 +153,14 @@ def test_report_budget_keeps_scientific_terminal_and_stops_command(
     assert len(finalizes) == 1 and len(provider.test_calls) == 4
 
 
-def test_execute_retains_same_resource_lifecycle_and_normal_finish(
-        tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:
-    import json
-
-    from cipher_lab_plugins.innovation1 import application, cli
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    from cipher_lab_plugins.innovation1.tests.test_task2 import owner
-    r = small()
-    resources = manual_resources(r)
-    monkeypatch.setattr(application, 'manual_resources', lambda recipe: resources)
-    store = owner(tmp_path, r)
-    execution = application.execute(r, store, backend='demo', device='cpu')
-    assert execution.resources is resources
-    assert execution.result['status'] == 'SUCCEEDED'
-    assert cli._finish(store, tmp_path, 'manual', resources=execution.resources) == 0
-    output = json.loads(capsys.readouterr().out)
-    assert output['scientific_status'] == output['command_status'] == 'SUCCEEDED'
-    assert output['report_status'] == 'SAVED'
-    assert output['command_resources']['completed_forward_rows'] == 80
-    assert 'science finalize' in output['counts_scope']
-    md = (tmp_path / 'result/manual/report.md').read_text()
-    assert 'pre_render_resources' in md and 'command output' in md
 
 
 @pytest.mark.parametrize('failure', ['read', 'write', 'running'])
-def test_finish_failure_unknown_without_resources_never_refinalizes(
+def test_finish_failure_never_refinalizes(
         tmp_path: Path, monkeypatch: Any, capsys: Any, failure: str) -> None:
     import json
 
-    from cipher_lab_plugins.innovation1.cli import _finish
+    from cipher_lab_plugins.innovation1 import cli
     from cipher_lab_plugins.innovation1.training import run
 
     from cipher_lab import artifacts
@@ -201,31 +173,16 @@ def test_finish_failure_unknown_without_resources_never_refinalizes(
     def fail(*args: Any) -> Any:
         raise artifacts.ArtifactError('READ_FAILED' if failure == 'read' else 'WRITE_FAILED')
     if failure == 'read':
-        monkeypatch.setattr(artifacts, 'read_saved', fail)
+        monkeypatch.setattr(cli, '_owner_record', fail)
     elif failure == 'write':
         monkeypatch.setattr(store, 'write_report_files', fail)
-    assert _finish(store, tmp_path, 'manual', resources=None) != 0
+    assert cli._finish(store, tmp_path, 'manual', resources=resources) != 0
     output = json.loads(capsys.readouterr().out)
     assert output['command_status'] == ('FAILED' if failure == 'write' else 'UNKNOWN')
     assert output['report_status'] != 'SAVED'
-    assert output['command_resources'] is None
+    assert output['scientific_status'] == ('SUCCEEDED' if failure == 'write' else 'UNKNOWN')
 
 
-def test_cli_passes_retained_resources_to_report(tmp_path: Path, monkeypatch: Any) -> None:
-    from cipher_lab_plugins.innovation1 import application, cli
-    from cipher_lab_plugins.innovation1.resources import manual_resources
-    resources = manual_resources(small())
-    monkeypatch.setattr(application, 'manual_resources', lambda recipe: resources)
-    calls: list[Any] = []
-    original = cli._finish
-    def finish(store: Any, root: Path, run_id: str, *, resources: Any = None) -> int:
-        calls.append(resources)
-        return original(store, root, run_id, resources=resources)
-    monkeypatch.setattr(cli, '_finish', finish)
-    assert cli.main(['run', '--config', 'configs/innovation1-manual-demo.json',
-                     '--backend', 'demo', '--device', 'cpu', '--root', str(tmp_path),
-                     '--id', 'manual']) == 0
-    assert calls == [resources]
 
 
 def test_dedicated_dynamic_buffers_have_no_fixed_geometry() -> None:
@@ -265,7 +222,7 @@ def test_report_failing_io_still_samples_final_command_budget(
         now[0] = 20.
         raise artifacts.ArtifactError('READ_FAILED')
     if failure == 'read':
-        monkeypatch.setattr(artifacts, 'read_saved', fail)
+        monkeypatch.setattr(cli, '_owner_record', fail)
     elif failure == 'render':
         monkeypatch.setattr(report, 'render', fail)
     else:

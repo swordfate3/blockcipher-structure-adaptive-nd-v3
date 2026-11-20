@@ -10,16 +10,9 @@ from typing import Any
 import torch
 
 from ..checkpoint import preflight
+from ..config import canonical
 from ..contracts import MAX_CHECKPOINT
-from .config import BACKEND, FIXED, METHOD, RUN_ID, SLOTS, SingleRecipe, canonical
-
-_FIXED_M = ('stems.local.indices', 'stems.word.indices', 'stems.nibble.indices')
-
-
-def identity(recipe: SingleRecipe, source: dict[str, str], backend: str,
-             slot: str, epoch: int, score: float) -> dict[str, Any]:
-    return bound_identity(recipe, source, backend, slot, epoch, score, slots=SLOTS,
-                          fixed=FIXED, schema=1, method=METHOD, run_id=RUN_ID)
+from .config import BACKEND, SingleRecipe
 
 
 def bound_identity(recipe: SingleRecipe, source: dict[str, str], backend: str,
@@ -35,13 +28,6 @@ def bound_identity(recipe: SingleRecipe, source: dict[str, str], backend: str,
         raise ValueError('CHECKPOINT_IDENTITY')
     return dict(schema=schema, method=method, run_id=run_id, recipe=recipe.to_dict(),
                 source=dict(source), backend=backend, slot=slot, epoch=epoch, score=float(score))
-
-
-def decode(raw: bytes, recipe: SingleRecipe, source: dict[str, str], backend: str,
-           slot: str, epoch: int, score: float,
-           template: Mapping[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-    return decode_state(raw, lambda: identity(recipe, source, backend, slot, epoch, score),
-                        template, _FIXED_M if slot == SLOTS[0] else ())
 
 
 def decode_state(raw: bytes, expected: Callable[[], dict[str, Any]],

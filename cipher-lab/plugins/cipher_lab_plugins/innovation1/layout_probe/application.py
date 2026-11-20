@@ -2,24 +2,22 @@
 from __future__ import annotations
 
 import math
-from functools import partial
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from ..single_train.application import Assemble, admit_device, execute_pair, summary_for
+from cipher_lab.artifacts import ArtifactError, RunStore
+from cipher_lab.execution import Stopped
+
+from ..resources import Resources, ResourceStop
 from ..single_train.config import BACKEND
-from .config import FIXED, RECIPES, SLOTS, LayoutRecipe
+from .config import SLOTS, LayoutRecipe, official
 
 if TYPE_CHECKING:
-    from cipher_lab.artifacts import RunStore
-
-    from ..resources import Resources
     from ..single_train.config import SingleRecipe
     from ..single_train.data import PairBatch
 
 
-def _production(resources: Resources, evidence: dict[str, Any], *,
-                recipe: LayoutRecipe) -> tuple[Any, Any]:
-    admit_device(resources, evidence)
+def assemble(recipe: LayoutRecipe, resources: Resources) -> tuple[Any, Any]:
     from secrets import token_bytes
 
     from cipher_lab.ciphers import skinny
@@ -55,12 +53,49 @@ def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
 
 
 def _execute(recipe: LayoutRecipe, store: RunStore, resources: Resources, backend: str,
-             assemble: Assemble) -> None:
-    execute_pair(recipe, store, resources, backend, assemble, _train,
-                 summary_for(backend, method=recipe.method, slots=SLOTS))
-
-
-def execute(store: RunStore, resources: Resources, *, recipe: LayoutRecipe = FIXED) -> None:
-    if not any(recipe is exact for exact in RECIPES):
-        raise ValueError('CONFIG_EXACT')
-    _execute(recipe, store, resources, BACKEND, partial(_production, recipe=recipe))
+             assemble_pair: Callable[[LayoutRecipe, Resources], tuple[Any, Any]] | None = None, *,
+             launch: dict[str, str] | None = None) -> None:
+    # Only the guarded synthetic loop tests use the artificial identity.
+    if recipe.run_id != store._run_id:
+        raise ValueError('RUN_IDENTITY')
+    if backend == BACKEND and assemble_pair is None:
+        official(recipe, store._run_id)
+        assemble_pair = assemble
+    elif backend != 'artificial' or assemble_pair is None:
+        raise ValueError('BACKEND_MISMATCH')
+    summary: dict[str, Any] = dict(method=recipe.method, backend_identity=backend,
+        synthetic=backend != BACKEND, scientific_validation=False,
+        updates={s: dict(attempted=0, completed=0) for s in SLOTS},
+        paired_completed=0, best={}, curves=[], pending=[], batch_refs=[], persisted_reloads={},
+        location=dict(phase='assembly'))
+    if launch is not None:
+        summary['launch'] = launch
+    status = 'FAILED'
+    try:
+        resources.check()
+        policy = dict(vars(recipe.resources))
+        if launch is not None:
+            policy['request'] = dict(launch)  # never overwrite the saved request identity
+        store.write_snapshot(dict(recipe=recipe.to_dict(), policy=policy,
+                                  summary=summary, counts=resources.snapshot()))
+        resources.check()
+        provider, runtime = assemble_pair(recipe, resources)
+        resources.check()
+        _train(recipe, provider, runtime, store, resources, summary, backend)
+        resources.check()
+        summary['reason'] = 'COMPLETE'
+        status = 'SUCCEEDED'
+    except ArtifactError:
+        return  # storage owns its failure transition; no second seal
+    except (ResourceStop, Stopped) as error:
+        status = 'STOPPED'
+        summary['reason'] = error.reason
+    except KeyboardInterrupt:
+        status = 'STOPPED'
+        summary['reason'] = 'INTERRUPTED'
+    except Exception:
+        summary['reason'] = 'EXECUTION_FAILED'
+    try:
+        store.finalize(dict(status=status, summary=summary, counts=resources.snapshot()))
+    except ArtifactError:
+        return

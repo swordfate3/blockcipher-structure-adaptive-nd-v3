@@ -10,7 +10,8 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
     summary = saved['summary']
     rows = []
     bars = []
-    for index, (task, comparison) in enumerate(summary.get('compare', {}).items()):
+    comparisons = summary.get('compare', {}) if saved['status'] == 'SUCCEEDED' else {}
+    for index, (task, comparison) in enumerate(comparisons.items()):
         m, d = comparison['shared'], comparison['dedicated']
         difference = 100 * comparison['accuracy_difference']
         interval = [100 * value for value in comparison['interval']]
@@ -30,12 +31,10 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                    '包含0不表示等效，不推及每个key/最差key。共同新配方不是旧结果复现。'
                    'M总更新为每D的4倍；原生初始化/BN及选模策略不同；参数少不等于更快。'
                    '采样资源门禁不是OS硬隔离，GPU/Windows现场能力尚未验证。'
-                   '保存science counts仅截至science finalize；报告前快照不包含报告后段消耗，'
-                   '报告写后资源/命令状态只在command output给出，不能由保存科学终态推断命令成功。'
-                   '报告阶段仅复用wall/CPU/RSS Meter，不触发GPU探针。')
+                   '保存计数仅截至科学封存；命令输出另给出报告阶段用量与请求退出码，'
+                   '不能由保存科学终态推断命令成功。')
     evidence = json.dumps(dict(status=saved['status'], summary=summary, counts=saved['counts'],
-                               source=saved['source'],
-                               report_resources=saved.get('report_resources')),
+                               source=saved['source'], artifacts=saved['artifacts']),
                           ensure_ascii=False, indent=2)
     markdown = ('# 创新1共享/专用同批对照\n\n'
                 f"状态：{saved['status']}；"

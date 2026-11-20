@@ -5,10 +5,10 @@ from dataclasses import replace
 from typing import Any
 
 from ..data import BlockMeter, Oracle, PrivateSource
-from ..single_train.config import SingleRecipe
+from ..single_train.config import BACKEND, SingleRecipe
 from ..single_train.data import PairBatch, pack_panel
 from ..single_train.data import Provider as SingleProvider
-from .config import PUBLIC_STREAMS, SLOTS, LayoutRecipe
+from .config import PUBLIC_STREAMS, SLOTS, LayoutRecipe, official
 
 
 class Provider(SingleProvider):
@@ -21,8 +21,10 @@ class Provider(SingleProvider):
 def encode_panel(batch: PairBatch, recipe: SingleRecipe, source: dict[str, str],
                  backend: str, *, logits: dict[str, Any] | None = None,
                  weights: dict[str, Any] | None = None) -> bytes:
-    if type(recipe) is not LayoutRecipe:
+    if type(recipe) is not LayoutRecipe or recipe.run_id is None:
         raise ValueError('PANEL_IDENTITY')
+    if backend == BACKEND:
+        official(recipe, recipe.run_id)
     metadata = dict(schema=2, method=recipe.method, run_id=recipe.run_id, recipe=recipe.to_dict(),
                     source=source, backend=backend, split=batch.split, digest=batch.digest,
                     encoding='packed-msb0-single-pair-v1', slots=list(SLOTS))

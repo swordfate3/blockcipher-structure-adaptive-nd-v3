@@ -1,103 +1,148 @@
-"""Explicit stdlib help/check; lazy run/evaluate. No discovery or auto-run."""
+"""Single explicit stdlib check/run interface; no scientific imports on check."""
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-from collections.abc import Sequence
-from pathlib import Path
-from typing import Any
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
+from hashlib import sha256
+from pathlib import Path, PureWindowsPath
+from typing import TYPE_CHECKING, Any, cast
 
-from .config import Recipe, estimate, load_config
+from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
+from .layout_probe.config import METHOD, LayoutRecipe
+from .single_train.config import estimate as estimate_pair
+
+if TYPE_CHECKING:
+    from cipher_lab.artifacts import RunStore
+
+    from .resources import Resources
+
+_MAX_RUN_RECORD = 2**20
 
 
-def _device_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--backend', required=True, choices=('demo', 'ciphers'))
-    parser.add_argument('--device', required=True, choices=('cpu', 'cuda:0'))
-    parser.add_argument('--gpu-uuid', default='')
-    parser.add_argument('--gpu-pci', default='')
-    parser.add_argument('--root', type=Path, required=True)
-    parser.add_argument('--id', required=True)
+def _windows_root(root: PureWindowsPath) -> bool:
+    return (root.is_absolute() and root.is_relative_to(PureWindowsPath(r'G:\lxy'))
+            and '..' not in root.parts
+            and all(not part.endswith(('.', ' ')) and not PureWindowsPath(part).is_reserved()
+                    and not any(ord(ch) < 32 or ch in ':<>\"|?*' for ch in part)
+                    for part in root.parts[1:]))
 
 
-def _finish(store: Any, root: Path, run_id: str, *, resources: Any = None) -> int:
-    """Close command, never rewrite the already sealed scientific record.
+def _owner_record(store: RunStore, root: Path, run_id: str) -> tuple[dict[str, Any], str]:
+    from cipher_lab.artifacts import ArtifactError, _decode, _validate
 
-    Report is saved-only CPU I/O. Same Meter wall/CPU/RSS remains active, not the
-    science GPU gate (no new CUDA/telemetry calls). Pre-render evidence is saved;
-    post-write counts cannot be written atomically into their own report and are
-    explicitly returned in command output instead of pretending otherwise.
-    """
-    from cipher_lab.artifacts import read_saved
+    from .source import no_reparse
+
+    # RunStore exposes no public frozen digest. Confirm this owner's existing seal,
+    # not just a terminal-looking JSON read from disk (also works on main core).
+    path = no_reparse(root / 'data' / run_id / 'run.json')
+    frozen = store._frozen_sha
+    if not store._sealed or frozen is None or path != store._data / 'run.json':
+        raise ArtifactError('OWNER_RECORD_UNVERIFIED')
+    with path.open('rb') as stream:
+        raw = stream.read(_MAX_RUN_RECORD + 1)
+    if not raw or len(raw) > _MAX_RUN_RECORD or sha256(raw).hexdigest() != frozen:
+        raise ArtifactError('OWNER_RECORD_UNVERIFIED')
+    saved = cast(dict[str, Any], _validate(_decode(raw), run_id))
+    if saved['status'] not in ('SUCCEEDED', 'STOPPED', 'FAILED'):
+        raise ArtifactError('OWNER_RECORD_UNVERIFIED')
+    return saved, frozen
+
+
+def _verified_artifacts(root: Path, saved: dict[str, Any], run_id: str) -> None:
+    from cipher_lab.artifacts import _location, _stream
+
+    from .source import no_reparse
+
+    for ref, metadata in saved['artifacts'].items():
+        _stream(no_reparse(_location(root, run_id, ref)), metadata)
+
+
+def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
+            requested: Mapping[str, str] | None = None) -> int:
     from cipher_lab.execution import Stopped
 
-    scientific_status, backend = 'UNKNOWN', 'UNVERIFIED'
-    command_status, report_status = 'UNKNOWN', 'NOT_ATTEMPTED'
-    reason: str | None = None
-    written = False
-    code = 7
+    from .source import no_reparse
 
-    def check() -> None:
-        if resources is not None:
-            resources.meter.check()
-
-    def snapshot() -> Any:
-        return None if resources is None else resources.meter.snapshot()
-
-    # Even if the after-finalize check stops, read the sealed record to preserve
-    # authoritative science identity. No render/write is admitted after a stop.
+    scientific, command, report, code = 'UNKNOWN', 'UNKNOWN', 'NOT_ATTEMPTED', 7
+    reason, scientific_reason, written = None, None, False
+    integrity = 'NOT_CHECKED'
+    request_identity: dict[str, object] | None = None
     try:
-        check()
+        resources.check()
     except Stopped as error:
-        reason, command_status, report_status, code = error.reason, 'STOPPED', 'STOPPED', 3
+        command, report, code, reason = 'STOPPED', 'STOPPED', 3, error.reason
     try:
-        saved: Any = read_saved(root, run_id)
+        saved, frozen = _owner_record(store, root, run_id)
     except Exception:
-        reason, report_status = 'SAVED_READ_FAILED', 'FAILED'
+        if reason is None:
+            reason = 'OWNER_RECORD_UNVERIFIED'
     else:
-        status = str(saved['status'])
-        scientific_status = status if status != 'RUNNING' else 'UNKNOWN'
-        backend = saved['summary'].get('backend_identity', 'UNVERIFIED')
+        scientific = saved['status']
+        scientific_reason = saved['summary'].get('reason')
+        request = saved['policy'].get('request')
+        if isinstance(request, Mapping) and isinstance(request.get('gpu_uuid'), str):
+            request_identity = {**request, 'scope': 'PERSISTED_POLICY'}
+        elif requested is not None:
+            request_identity = {**requested, 'scope': 'REQUESTED_ONLY_NOT_PERSISTED'}
         if reason is None:
             try:
-                check()  # read_saved (including SHA verification) consumed this run budget
-                code = {'SUCCEEDED': 0, 'STOPPED': 3, 'FAILED': 4}.get(status, 7)
-                command_status = scientific_status
-                if scientific_status != 'UNKNOWN':
-                    from .report import render
-                    check()
-                    saved = {**saved, 'report_resources': {
-                        'pre_render_resources': snapshot(),
-                        'scope': ('saved science counts stop at science finalize; '
-                                  'command output carries post-report wall/CPU/RSS status; '
-                                  'report checks are meter-only, no GPU probe')}}
-                    files = render(saved)
-                    check()  # after render / before report persistence
+                _verified_artifacts(root, saved, run_id)
+                integrity = 'VERIFIED'
+                resources.check()
+                if not saved['recipe']:
+                    # The owner sealed before its first business snapshot: there is no
+                    # scientific setup or recipe to render. This is a storage failure,
+                    # not a report failure; the seal reason remains scientific_reason.
+                    detail = (scientific_reason if isinstance(scientific_reason, str)
+                              else 'SEALED_WITHOUT_RECIPE')
+                    command, report, code = 'FAILED', 'NOT_ATTEMPTED', 4
+                    reason = f'ARTIFACT_{detail}'
+                else:
+                    method = saved['recipe'].get('method')
+                    if method == METHOD:
+                        from .layout_probe.report import render
+                    elif method == Recipe().method:
+                        from .report import render
+                    else:
+                        raise ValueError('SAVED_METHOD_UNVERIFIED')
+                    command = scientific
+                    code = {'SUCCEEDED': 0, 'STOPPED': 3, 'FAILED': 4}[scientific]
+                    files = render({**saved, 'run_ref': f'data/{run_id}/run.json',
+                                    'run_sha256': frozen})
+                    for name in ('report.md', 'index.html', 'source.json'):
+                        no_reparse(root / 'result' / run_id / name)
+                    resources.check()
                     store.write_report_files(files)
                     written = True
-                    check()
-                    report_status = 'SAVED'
+                    resources.check()
+                    report = 'SAVED'
             except Stopped as error:
-                reason, command_status, report_status, code = (
-                    error.reason, 'STOPPED', 'STOPPED', 3)
+                command, report, code, reason = 'STOPPED', 'STOPPED', 3, error.reason
             except Exception:
-                reason, command_status, report_status, code = (
-                    'REPORT_FAILED', 'FAILED', 'FAILED', 6)
-    # Failed reads/render/writes also consume the same command clock/RSS budget.
-    # Retain a first public failure separately if this final check hits a limit.
+                command, report, code = 'FAILED', 'FAILED', 6
+                if integrity != 'VERIFIED':
+                    integrity, reason = 'FAILED', 'SAVED_ARTIFACT_INTEGRITY_FAILED'
+                else:
+                    reason = 'REPORT_FAILED'
+    if request_identity is None and requested is not None:
+        # The sealed record could not be read, so never claim the value was saved.
+        request_identity = {**requested, 'scope': 'REQUESTED_UNVERIFIED'}
     phase_reason = reason
     try:
-        check()
+        resources.check()
     except Stopped as error:
-        reason, command_status, report_status, code = error.reason, 'STOPPED', 'STOPPED', 3
-    print(json.dumps(dict(status=scientific_status, scientific_status=scientific_status,
-        command_status=command_status, backend=backend, scientific_validation=False,
-        report_status=report_status, report_files_written=written, reason=reason,
-        phase_reason=phase_reason,
-        command_resources=snapshot(), exit_code=code,
-        counts_scope=('science counts stop at science finalize; command_resources are '
-                      'report-inclusive sampled wall/CPU/RSS; '
-                      'post-write evidence is stdout only'))))
+        command, report, code, reason = 'STOPPED', 'STOPPED', 3, error.reason
+    print(json.dumps(dict(run_id=run_id, scientific_status=scientific, command_status=command,
+                          scientific_reason=scientific_reason, artifact_integrity=integrity,
+                          report_status=report, report_files_written=written, reason=reason,
+                          phase_reason=phase_reason, request_identity=request_identity,
+                          exit_code=code, exit_code_scope='REQUESTED_NOT_NATIVE',
+                          command_resources=resources.snapshot(),
+                          counts_scope='science finalize; command_resources pre-stdout'),
+                     allow_nan=False), flush=True)
     return code
 
 
@@ -106,59 +151,61 @@ def main(argv: Sequence[str] | None = None) -> int:
                                      allow_abbrev=False)
     commands = parser.add_subparsers(dest='command', required=True)
     check = commands.add_parser('check', allow_abbrev=False)
-    check.add_argument('--config', type=Path, required=True)
     run = commands.add_parser('run', allow_abbrev=False)
-    run.add_argument('--config', type=Path, required=True)
-    _device_args(run)
-    evaluation = commands.add_parser('evaluate', allow_abbrev=False)
-    _device_args(evaluation)
-    evaluation.add_argument('--max-forward-rows', type=int, required=True)
-    evaluation.add_argument('--batch-groups', type=int, required=True)
-    evaluation.add_argument('--run-root', type=Path, required=True)
-    evaluation.add_argument('--run-id', required=True)
-    evaluation.add_argument('--run-sha256', required=True)
-    for kind in ('checkpoint', 'dataset'):
-        evaluation.add_argument(f'--{kind}-ref', required=True)
-        evaluation.add_argument(f'--{kind}-sha256', required=True)
+    for command in (check, run):
+        command.add_argument('--config', type=Path, required=True)
+    run.add_argument('--root', type=Path, required=True)
+    run.add_argument('--id', required=True)
+    run.add_argument('--gpu-uuid', required=True)
     args = parser.parse_args(argv)
-    recipe: Recipe | None = None
     try:
-        if args.command in ('run', 'check'):
-            recipe = load_config(args.config)
-        if args.command != 'check':
-            if ((args.backend == 'demo' and args.device != 'cpu') or
-                (args.backend == 'ciphers' and (args.device != 'cuda:0'
-                                               or not args.gpu_uuid or not args.gpu_pci))):
-                raise ValueError
+        recipe = load_config(args.config)
+        if args.command == 'check':
+            print(json.dumps(dict(recipe=recipe.to_dict(), estimate=(
+                estimate_pair(recipe) if isinstance(recipe, LayoutRecipe) else estimate(recipe)),
+                scope='STATIC_ONLY_NO_DEVICE_ADMISSION'), allow_nan=False))
+            return 0
+        validate_run_id(args.id)
+        if not GPU_UUID.fullmatch(args.gpu_uuid):
+            raise ValueError
+        if sys.platform == 'win32' and (not sys.dont_write_bytecode
+                                        or not _windows_root(PureWindowsPath(args.root))):
+            raise ValueError
+        if isinstance(recipe, LayoutRecipe):
+            recipe = replace(recipe, run_id=args.id)
     except (ValueError, OSError):
         print('innovation1: invalid settings', file=sys.stderr)
         return 2
-    if args.command == 'check':
-        assert recipe is not None
-        print(json.dumps(dict(recipe=recipe.to_dict(), estimate=estimate(recipe),
-            limits='static only; not device proof, authorization or scientific validation'),
-            ensure_ascii=False, allow_nan=False))
-        return 0
-    from cipher_lab.artifacts import RunStore
 
+    from cipher_lab.artifacts import RunStore
+    from cipher_lab.execution import Stopped
+
+    from .application import execute, make_resources
     from .contracts import SLOTS
-    from .source import source_identity
+    from .layout_probe.config import SLOTS as LAYOUT_SLOTS
+    from .source import no_reparse, source_identity
+
     try:
-        store = RunStore.claim(args.root, args.id, output_bytes=(
-            recipe.resources.artifact_bytes if recipe else Recipe().resources.artifact_bytes),
-            needs_models=args.command == 'run', model_slots=SLOTS,
-            source_supplier=source_identity)
+        root = no_reparse(args.root)
+        for kind in ('data', 'models', 'result'):
+            no_reparse(root / kind / args.id)
+        resources = make_resources(recipe)
+        resources.check()
+        store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
+                               needs_models=True, source_supplier=source_identity,
+                               model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
+                               else SLOTS)
+    except Stopped as error:
+        print(json.dumps(dict(scientific_status='UNKNOWN', command_status='STOPPED',
+                              report_status='NOT_ATTEMPTED', reason=error.reason, exit_code=3,
+                              exit_code_scope='REQUESTED_NOT_NATIVE')), flush=True)
+        return 3
     except Exception:
         print('innovation1: CLAIM_FAILED', file=sys.stderr)
         return 2
-    from .application import execute, execute_evaluation
-    if args.command == 'run':
-        assert recipe is not None
-        execution = execute(recipe, store, backend=args.backend, device=args.device,
-                gpu_uuid=args.gpu_uuid, gpu_pci=args.gpu_pci)
-    else:
-        execution = execute_evaluation(args, store)
-    return _finish(store, args.root, args.id, resources=execution.resources)
+    execute(recipe, store, resources, gpu_uuid=args.gpu_uuid, run_id=args.id)
+    return _finish(store, root, args.id, resources=resources,
+                   requested=dict(gpu_uuid=args.gpu_uuid))
 
 
 if __name__ == '__main__':

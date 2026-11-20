@@ -29,12 +29,9 @@ def innovation1_guard(monkeypatch: pytest.MonkeyPatch,
     for cls in (FeistelSEExpert, PresentExpert, SkinnyExpert):
         monkeypatch.setattr(cls, 'forward', forbidden)
     monkeypatch.setattr(torch.Tensor, 'cuda', forbidden)
-    # Task2 resource owners must be poisoned at their entry, not only at an
-    # underlying syscall whose public error sanitizer could hide the guard.
-    from cipher_lab_plugins.innovation1 import device, resources
+    from cipher_lab_plugins.innovation1 import application, resources
     monkeypatch.setattr(resources, 'production_rss_bytes', forbidden)
-    monkeypatch.setattr(resources, 'gpu_sample', forbidden)
-    monkeypatch.setattr(device, 'actual_attestor', forbidden)
+    monkeypatch.setattr(application, 'prepare_device', forbidden)
     import ctypes
     monkeypatch.setattr(ctypes, 'CDLL', forbidden)
     if hasattr(ctypes, 'WinDLL'):
