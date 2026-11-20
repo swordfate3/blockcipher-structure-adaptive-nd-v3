@@ -5,14 +5,16 @@ import html
 import json
 from typing import Any
 
-from .config import METHOD, RUN_ID, SLOTS
+from .config import RECIPES, SLOTS
 
 
 def render(saved: dict[str, Any]) -> dict[str, bytes]:
     summary = saved['summary']
-    if (saved['run_id'] != RUN_ID or summary.get('method', METHOD) != METHOD
-            or (saved['status'] == 'SUCCEEDED' and summary.get('method') != METHOD)):
+    recipe = next((r for r in RECIPES if r.run_id == saved['run_id']), None)
+    if (recipe is None or summary.get('method', recipe.method) != recipe.method
+            or (saved['status'] == 'SUCCEEDED' and summary.get('method') != recipe.method)):
         raise ValueError('LAYOUT_REPORT_IDENTITY')
+    termination = summary.get('training_termination')
     text = ['# 创新 1：SKINNY 单对行扫 A 与列扫 A′', '',
             f"保存科学状态：{saved['status']}；原因：{summary.get('reason', 'UNKNOWN')}。", '',
             '配方：SKINNY64/64、8 轮、差分 0x2000。每组一对、组间独立抽密钥。',
@@ -21,6 +23,9 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
             '平分取早；两份磁盘 best 严格重载后才生成共同 TEST。',
             '这不是历史 D 对照、严格二维网格、四密码联合训练或可训练路由的证据。',
             '科学封存不等于命令成功；原生退出以独立监督为准。']
+    if recipe.early_stopping is not None and termination is not None:
+        text.append(f"训练循环结束：{termination['reason']}；"
+                    f"完整轮数：{termination['completed_epochs']}。")
     if summary.get('synthetic'):
         text.append('此记录使用人工输入／替身，不是科学训练结果。')
     if saved['status'] == 'SUCCEEDED':

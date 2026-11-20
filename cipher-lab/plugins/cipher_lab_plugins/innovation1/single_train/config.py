@@ -90,5 +90,14 @@ def make_policy(recipe: SingleRecipe, clocks: Clocks) -> Policy:
                   n['optimizer_updates'], n['forward_rows'])
 
 
-def learning_rate(recipe: SingleRecipe, cycle: int) -> float:
-    return cosine(replace(ARCHITECTURE, training=recipe.training), cycle)
+def learning_rate(recipe: SingleRecipe, cycle: int, *, cosine_epochs: int | None = None) -> float:
+    tr = recipe.training
+    if cosine_epochs is not None:
+        if (type(cosine_epochs) is not int or not 1 <= cosine_epochs <= tr.epochs
+                or cosine_epochs * tr.batches_per_epoch < 2
+                or type(cycle) is not int or not 0 <= cycle < tr.epochs * tr.batches_per_epoch):
+            raise ValueError('cycle outside schedule')
+        if cycle >= cosine_epochs * tr.batches_per_epoch:
+            return ARCHITECTURE.optimizer.lr_min
+        tr = replace(tr, epochs=cosine_epochs)
+    return cosine(replace(ARCHITECTURE, training=tr), cycle)

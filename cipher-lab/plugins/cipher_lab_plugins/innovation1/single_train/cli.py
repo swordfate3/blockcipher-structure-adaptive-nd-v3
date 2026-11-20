@@ -134,7 +134,7 @@ def finish_run(store: Any, root: Path, meter: Any, run_id: str, render: Render) 
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    def wiring() -> tuple[Execute, Source, Render]:
+    def wiring(_recipe: SingleRecipe) -> tuple[Execute, Source, Render]:
         from .application import execute
         from .report import render
         from .source import source_identity
@@ -144,12 +144,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     return fixed_cli(argv, name='single_train',
                      description='Fixed SKINNY single-pair M/D fresh training; '
                                  'no resume or fallback.',
-                     load=load_config, run_id=RUN_ID, slots=SLOTS, wiring=wiring)
+                     load=load_config, run_id=lambda _: RUN_ID, slots=SLOTS, wiring=wiring)
 
 
-def fixed_cli(argv: Sequence[str] | None, *, name: str, description: str,
-              load: Callable[[Path], SingleRecipe], run_id: str, slots: tuple[str, str],
-              wiring: Callable[[], tuple[Execute, Source, Render]]) -> int:
+def fixed_cli[RecipeT: SingleRecipe](
+        argv: Sequence[str] | None, *, name: str, description: str,
+        load: Callable[[Path], RecipeT], run_id: Callable[[RecipeT], str],
+        slots: tuple[str, str], wiring: Callable[[RecipeT], tuple[Execute, Source, Render]]) -> int:
     parser = argparse.ArgumentParser(
         prog=f'cipher-lab --plugin cipher_lab_plugins.innovation1.{name}.cli',
         description=description,
@@ -184,13 +185,14 @@ def fixed_cli(argv: Sequence[str] | None, *, name: str, description: str,
 
     clocks = Clocks()
     try:
-        execute, source_identity, render = wiring()
+        selected_id = run_id(recipe)
+        execute, source_identity, render = wiring(recipe)
         resources = Resources(Meter(make_policy(recipe, clocks), clocks, production_rss_bytes))
         resources.check()
         root = no_reparse(args.root)
         for kind in ('data', 'models', 'result'):
-            no_reparse(root / kind / run_id)
-        store = RunStore.claim(root, run_id, output_bytes=recipe.resources.artifact_bytes,
+            no_reparse(root / kind / selected_id)
+        store = RunStore.claim(root, selected_id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=True, model_slots=slots,
                                source_supplier=source_identity)
     except Stopped as error:
@@ -202,6 +204,6 @@ def fixed_cli(argv: Sequence[str] | None, *, name: str, description: str,
         print(f'{name}: CLAIM_FAILED', file=sys.stderr)
         return 2
     execute(store, resources)
-    code, message = finish_run(store, root, resources.meter, run_id, render)
+    code, message = finish_run(store, root, resources.meter, selected_id, render)
     print(message, flush=True)
     return code

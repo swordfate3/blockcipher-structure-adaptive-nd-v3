@@ -537,14 +537,35 @@ def test_report_budget_failure_does_not_change_scientific_terminal(
 
 
 def test_events_and_payload_share_budget(tmp_path: Path) -> None:
-    store = claim(tmp_path, 30_000)
+    # Fix the size of the source identity so adding a module cannot change this test's budget.
+    source = {"cipher_lab/public.py": "0" * 64}
+    without_event = tmp_path / "without-event"
+    control = RunStore.claim(without_event, "sample-1", output_bytes=30_000,
+                             source_supplier=lambda: dict(source))
+    first, second = {"text": "b" * 9000}, {"text": "c" * 19_000}
+    control.write_payload("one", first)
+    control.write_payload("two", second)
+
+    with_event = tmp_path / "with-event"
+    store = RunStore.claim(with_event, "sample-1", output_bytes=30_000,
+                           source_supplier=lambda: dict(source))
     store.append_event({"kind": "progress", "summary": {"text": "a" * 9000}})
-    store.write_payload("one", {"text": "b" * 9000})
+    store.write_payload("one", first)
+    data = with_event / "data/sample-1"
+    committed = {name: (data / name).read_bytes()
+                 for name in ("events.jsonl", "payload/one.json")}
     with pytest.raises(ArtifactError, match="OUTPUT_LIMIT"):
-        store.write_payload("two", {"text": "c" * 20_000})
-    assert disk_bytes(tmp_path) <= 30_000
-    assert (tmp_path / "data/sample-1/payload/one.json").exists()
-    assert not (tmp_path / "data/sample-1/payload/two.json").exists()
+        store.write_payload("two", second)
+    assert disk_bytes(with_event) <= 30_000
+    assert not (data / "payload/two.json").exists()
+    assert not list(data.rglob("*.tmp"))
+    assert all((data / name).read_bytes() == content for name, content in committed.items())
+    saved = read_saved(with_event, "sample-1")
+    assert saved["status"] == "FAILED"
+    assert saved["summary"] == {"reason": "OUTPUT_LIMIT"}
+    assert saved["artifacts"] == {"payload/one.json": {
+        "kind": "payload", "sha256": sha256(committed["payload/one.json"]).hexdigest(),
+        "bytes": len(committed["payload/one.json"])}}
 
 
 @pytest.mark.parametrize("mutation", ["schema", "source", "summary", "escape", "hash", "size",

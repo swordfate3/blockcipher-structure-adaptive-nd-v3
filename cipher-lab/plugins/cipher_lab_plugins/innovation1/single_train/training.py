@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from dataclasses import replace
 from hashlib import sha256
 from typing import Any, Protocol
 
 import numpy as np
 
 from cipher_lab.artifacts import ArtifactError, RunStore
+from cipher_lab.training.early_stopping import EarlyStopping, Settings
 
 from ..contracts import MAX_CHECKPOINT
 from ..resources import Resources, ResourceStop
@@ -43,9 +45,13 @@ def train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
 def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
                resources: Resources, summary: dict[str, Any], backend: str, *,
                slots: tuple[str, str], panel_bytes: PanelEncoder,
-               checkpoint_identity: CheckpointIdentity, test_result: TestResult) -> None:
+               checkpoint_identity: CheckpointIdentity, test_result: TestResult,
+               early_stopping: Settings | None = None, cosine_epochs: int | None = None) -> None:
     """Compute and snapshot only; application owns the single terminal transition."""
     tr = recipe.training
+    stopper = (None if early_stopping is None else
+               EarlyStopping(slots, early_stopping, epoch_ceiling=tr.epochs))
+    counted_recipe = recipe
     source = store.source_snapshot()
     best: dict[str, Any] = summary['best']
     pending: list[dict[str, Any]] = summary['pending']
@@ -118,7 +124,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             batch = provider.train(cycle)
             x, y = runtime.prepare(batch)
             digest = tensor_digest(x, y)
-            lr = learning_rate(recipe, cycle)
+            lr = learning_rate(recipe, cycle, cosine_epochs=cosine_epochs)
             row: dict[str, Any] = dict(epoch=epoch, cycle=cycle, lr=lr, groups=batch.groups,
                                       ciphertext_labels_sha256=batch.digest, input_sha256=digest,
                                       loss={}, updates_completed=[])
@@ -168,6 +174,14 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                               dev_digest=dev.digest)
             del raw
             snapshot()
+        if stopper is not None:
+            reason = stopper.observe(epoch, {slot: scores[slot]['bce'] for slot in slots})
+            if reason is not None:
+                summary['training_termination'] = dict(reason=reason, completed_epochs=epoch)
+                snapshot()  # Normal training end is evidence, not a run success seal.
+                if reason == 'EARLY_STOPPING':
+                    counted_recipe = replace(recipe, training=replace(tr, epochs=epoch))
+                break
     summary['location'] = dict(phase='persisted-best-reload')
     check_source()
     if set(best) != set(slots):
@@ -202,8 +216,11 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     snapshot()
     check_source()
     counts = resources.snapshot()
-    totals = estimate(recipe)
-    if any(counts[f'{kind}_{unit}'] != totals[unit]
-           for kind in ('attempted', 'completed')
-           for unit in ('real_blocks', 'optimizer_updates', 'forward_rows', 'null_words')):
+    totals = estimate(counted_recipe)
+    if (any(counts[f'{kind}_{unit}'] != totals[unit]
+            for kind in ('attempted', 'completed')
+            for unit in ('real_blocks', 'optimizer_updates', 'forward_rows', 'null_words'))
+            or (stopper is not None and (summary['paired_completed'] != totals['cycles']
+                or any(summary['updates'][slot][kind] != totals['updates_each']
+                       for slot in slots for kind in ('attempted', 'completed'))))):
         raise ValueError('COUNT_MISMATCH')

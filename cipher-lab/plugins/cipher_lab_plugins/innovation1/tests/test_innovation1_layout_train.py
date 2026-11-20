@@ -18,6 +18,9 @@ from cipher_lab.artifacts import RunStore
 from cipher_lab.execution import Clocks, Meter, Stopped
 
 _PANEL_FAILURES = {'dev-write', 'test-write', 'test-registration'}
+_EARLY_CASES = {'early-stop', 'early-ceiling', 'early-reload-fails', 'early-count-mismatch',
+                'early-wall-stop'}
+_EARLY_CONFIG = Path('configs/innovation1-skinny-layout-early-stop.json')
 _STORAGE_FAILURES = _PANEL_FAILURES | {'batch-write', 'partial-snapshot', 'run-unwritable'}
 
 
@@ -111,31 +114,39 @@ def test_fp32_guard_precedes_build_pair(monkeypatch: pytest.MonkeyPatch) -> None
                                   'dropped-table', 'cross-slot', 'both-fail', 'mutated',
                                   'reload-stop', 'interrupt', 'dev-write', 'test-write',
                                   'test-registration', 'batch-write', 'partial-snapshot',
-                                  'run-unwritable', 'invalid-artifact'])
+                                  'run-unwritable', 'invalid-artifact', *sorted(_EARLY_CASES)])
 def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case: str) -> None:
     from cipher_lab_plugins.innovation1.checkpoint import encode
     from cipher_lab_plugins.innovation1.layout_probe import application, weights
     from cipher_lab_plugins.innovation1.layout_probe.cli import _finish
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, RUN_ID, SLOTS
+    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, SLOTS
     from cipher_lab_plugins.innovation1.layout_probe.data import Provider
     from cipher_lab_plugins.innovation1.layout_probe.layout import nibble_indices
     from cipher_lab_plugins.innovation1.resources import Resources
-    from cipher_lab_plugins.innovation1.single_train.config import make_policy
+    from cipher_lab_plugins.innovation1.single_train.config import estimate, make_policy
     from cipher_lab_plugins.innovation1.single_train.data import PairBatch
 
+    early = case in _EARLY_CASES
+    base = FIXED
+    if early:
+        from cipher_lab_plugins.innovation1.layout_probe.config import load_config
+        base = load_config(_EARLY_CONFIG)
     batch_cycles = 256 if case == 'batch-write' else 2
-    training = replace(FIXED.training, epochs=2, batches_per_epoch=batch_cycles,
+    epochs = (36 if case == 'early-ceiling' else 40) if early else 2
+    training = replace(base.training, epochs=epochs, batches_per_epoch=batch_cycles,
                        batch_groups=4, dev_groups=4, test_groups=4, eval_batch_groups=4)
-    recipe = replace(FIXED, training=training)
+    recipe = replace(base, training=training)
+    run_id = base.to_dict()['run_id']
     source = {'artificial/fixture.py': 'b'*64}
     clocks = Clocks()
     resources = Resources(Meter(make_policy(recipe, clocks), clocks, lambda: 7))
-    store = RunStore.claim(tmp_path, RUN_ID, output_bytes=2**24, needs_models=True,
+    store = RunStore.claim(tmp_path, run_id, output_bytes=2**24, needs_models=True,
                            model_slots=SLOTS, source_supplier=lambda: source)
-    record_path = tmp_path / 'data' / RUN_ID / 'run.json'
-    model_paths = {s: tmp_path / 'models' / RUN_ID / f'{s}.pt' for s in SLOTS}
+    record_path = tmp_path / 'data' / run_id / 'run.json'
+    model_paths = {s: tmp_path / 'models' / run_id / f'{s}.pt' for s in SLOTS}
     events: list[tuple[str, str]] = []
     calls: list[str] = []
+    lrs: list[float] = []
     draws = 0
     carrier: tuple[torch.Tensor, torch.Tensor]
     finalize = store.finalize
@@ -202,6 +213,10 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
                     (action, slot) for slot in SLOTS for action in ('disk', 'load')]
                 record = json.loads(record_path.read_bytes())
                 assert set(record['summary']['persisted_reloads']) == set(SLOTS)
+                if early:
+                    assert record['summary']['training_termination'] == dict(
+                        reason='EPOCH_CEILING' if case == 'early-ceiling' else 'EARLY_STOPPING',
+                        completed_epochs=36)
             events.append(('panel', split))
             return super().panel(split)
 
@@ -225,13 +240,20 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
                    meter: Resources) -> float:
             assert x is carrier[0] and y is carrier[1] and task.cipher == 'SKINNY'
             events.append(('update', slot))
+            lrs.append(lr)
             meter.reserve('forward_rows', 4)
             if slot == SLOTS[1]:
+                if case == 'early-wall-stop' and len(lrs) == 71 * len(SLOTS):
+                    raise Stopped('WALL_LIMIT')  # Partway through the first eligible stop epoch.
                 if case == 'second-fails':
                     raise ValueError('fake failure')
                 if case == 'interrupt':
                     raise KeyboardInterrupt
-            meter.complete('forward_rows', 4)
+            if case == 'early-count-mismatch' and len(lrs) == 2:
+                # Both attempted and completed must match, not merely stay under the cap.
+                meter.complete('forward_rows', 3)
+            else:
+                meter.complete('forward_rows', 4)
             if case == 'mutated':
                 x[0, 0, 0, 0] = 1 - x[0, 0, 0, 0]
             if case == 'both-fail' or (case == 'stop' and slot == SLOTS[0]):
@@ -240,13 +262,15 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
 
         def predict(self, slot: str, task: Any, x: torch.Tensor) -> Any:
             assert x is carrier[0] and task.rounds == 8
-            return (2*carrier[1].numpy()-1) * (1 if slot == SLOTS[0] else 2)
+            # Arm A makes a sub-delta improvement at epoch 25 that must still win selection.
+            gain = 1e-6 if early and len(lrs) >= 25 * batch_cycles * len(SLOTS) else 0.
+            return (2*carrier[1].numpy()-1) * (1 + gain if slot == SLOTS[0] else 2)
 
         def checkpoint(self, slot: str, meta: dict[str, Any]) -> bytes:
             state = template(slot)
             key = 'shared.stems.nibble.indices'
             if slot == SLOTS[1]:
-                if case == 'wrong-table':
+                if case in ('wrong-table', 'early-reload-fails'):
                     state[key] = template(SLOTS[0])[key]
                 if case == 'dropped-table':
                     del state[key]
@@ -272,20 +296,76 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
     frozen = record_path.read_bytes()
     record = json.loads(frozen)
     summary, counts = record['summary'], record['counts']
-    if case == 'success':
+    if case == 'early-wall-stop':
+        assert record['status'] == 'STOPPED' and summary['reason'] == 'WALL_LIMIT'
+        assert 'training_termination' not in summary and ('panel', 'test') not in events
+        assert len(summary['curves']) == 35
+        assert counts['attempted_optimizer_updates'] == 142
+        assert counts['completed_optimizer_updates'] == 141
+    elif early:
+        from cipher_lab_plugins.innovation1.layout_probe.report import render
+        from cipher_lab_plugins.innovation1.single_train.cli import finish_run
+        from cipher_lab_plugins.innovation1.single_train.config import learning_rate
+
+        assert record['recipe'] == json.loads(json.dumps(recipe.to_dict()))
+        assert summary['method'] == record['recipe']['method']
+        assert summary['training_termination'] == dict(
+            reason='EPOCH_CEILING' if case == 'early-ceiling' else 'EARLY_STOPPING',
+            completed_epochs=36)
+        completed = 36 * batch_cycles
+        assert summary['paired_completed'] == completed
+        assert summary['updates'] == dict.fromkeys(SLOTS, dict(attempted=completed,
+                                                               completed=completed))
+        assert [v for k, v in events if k == 'update'] == list(SLOTS) * completed
+        assert [summary['best'][s]['epoch'] for s in SLOTS] == [25, 1]
+        warmup = replace(FIXED, training=replace(training, epochs=24))
+        assert lrs[::2] == [learning_rate(warmup, c) for c in range(24 * batch_cycles)] + [
+            .0001] * (12 * batch_cycles)
+        assert lrs[::2] == lrs[1::2]
+        succeeded = case in ('early-stop', 'early-ceiling')
+        assert record['status'] == ('SUCCEEDED' if succeeded else 'FAILED')
+        assert summary['reason'] == ('COMPLETE' if succeeded else 'EXECUTION_FAILED')
+        if case == 'early-reload-fails':
+            assert ('panel', 'test') not in events and 'test_scores' not in summary
+            assert set(summary['persisted_reloads']) == {SLOTS[0]}
+        if succeeded:
+            totals = estimate(replace(recipe, training=replace(training, epochs=36)))
+            for kind in ('attempted', 'completed'):
+                for unit in ('real_blocks', 'forward_rows', 'optimizer_updates', 'null_words'):
+                    assert counts[f'{kind}_{unit}'] == totals[unit]
+            for split in ('dev', 'test'):
+                panel_path = record_path.parent / summary[f'{split}_panel']['ref']
+                with np.load(io.BytesIO(panel_path.read_bytes()), allow_pickle=False) as saved:
+                    meta = json.loads(saved['metadata'].tobytes())
+                    assert meta['run_id'] == run_id and meta['recipe'] == record['recipe']
+                    assert meta['method'] == summary['method']
+            # The exact same slot/state/source cannot bridge run identities.
+            selected = summary['best'][SLOTS[0]]
+            with pytest.raises(ValueError, match='CHECKPOINT_INVALID'):
+                old = replace(FIXED, training=training)
+                weights.decode(model_paths[SLOTS[0]].read_bytes(), old, source,
+                               'artificial', SLOTS[0], selected['epoch'], selected['bce'],
+                               template(SLOTS[0]))
+        code, _ = finish_run(store, tmp_path, resources.meter, run_id, render)
+        assert code == (0 if succeeded else 4)
+        report_path = tmp_path / 'result' / run_id / 'report.md'
+        report = report_path.read_text(encoding='utf-8')
+        assert summary['training_termination']['reason'] in report
+        assert ('ΔBCE' in report) == succeeded
+    elif case == 'success':
         assert calls == ['SUCCEEDED'] and counts['completed_forward_rows'] == 56 and draws == 24
         assert [v for k, v in events if k == 'update'] == list(SLOTS) * 4
         assert [summary['best'][s]['epoch'] for s in SLOTS] == [1, 1]
         assert summary['paired_test']['delta_bce'] < 0
-        assert 'm_minus_d' not in summary
+        assert 'm_minus_d' not in summary and 'training_termination' not in summary
         panel_path = record_path.parent / summary['test_panel']['ref']
         with np.load(io.BytesIO(panel_path.read_bytes()), allow_pickle=False) as saved:
             assert set(saved.files) == {'metadata', 'ciphertext', 'labels', 'a_logits',
                                         'a_prime_logits'}
             meta = json.loads(saved['metadata'].tobytes())
-            assert meta['run_id'] == RUN_ID and meta['weights'] == summary['persisted_reloads']
+            assert meta['run_id'] == run_id and meta['weights'] == summary['persisted_reloads']
         assert _finish(store, tmp_path, resources.meter)[0] == 0
-        report = (tmp_path / 'result' / RUN_ID / 'report.md').read_text(encoding='utf-8')
+        report = (tmp_path / 'result' / run_id / 'report.md').read_text(encoding='utf-8')
         assert 'A′' in report and 'ΔBCE' in report
         monkeypatch.setattr(store, 'write_report_files', forbidden)
         assert _finish(store, tmp_path, resources.meter)[0] == 6
@@ -308,7 +388,7 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
             code, message = _finish(store, tmp_path, resources.meter)
             assert code == 7
             assert json.loads(message)['scientific_status'] == 'UNKNOWN'
-            assert not list((tmp_path / 'result' / RUN_ID).iterdir())
+            assert not list((tmp_path / 'result' / run_id).iterdir())
         else:
             assert len(faults) == 1 and record['status'] == 'FAILED'
             assert summary['reason'] == 'WRITE_FAILED'
@@ -344,13 +424,18 @@ def test_layout_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, case:
         if case != 'disk-tamper':
             code, _ = _finish(store, tmp_path, resources.meter)
             assert code == {'FAILED': 4, 'STOPPED': 3}[expected]
-            report = (tmp_path / 'result' / RUN_ID / 'report.md').read_text(encoding='utf-8')
+            report = (tmp_path / 'result' / run_id / 'report.md').read_text(encoding='utf-8')
             assert '未成功封存，不报告 TEST 成绩' in report and 'ΔBCE' not in report
     assert record_path.read_bytes() == frozen and counts['completed_null_words'] == 0
 
 
 def test_namespace_streams_and_legacy_panel_bytes() -> None:
-    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, NAMESPACE, SEEDS
+    from cipher_lab_plugins.innovation1.layout_probe.config import (
+        EARLY_STOP,
+        FIXED,
+        NAMESPACE,
+        SEEDS,
+    )
     from cipher_lab_plugins.innovation1.layout_probe.data import Provider, encode_panel
     from cipher_lab_plugins.innovation1.single_train import config, data
 
@@ -398,6 +483,15 @@ def test_namespace_streams_and_legacy_panel_bytes() -> None:
              ciphertext=b.ciphertext, labels=b.labels)
     assert data.encode_panel(b, old, source, 'artificial') == baseline.getvalue()
 
+    received.clear()
+    early = replace(EARLY_STOP, training=training)
+    c = Provider(early, oracle, bytes, MeterStub()).panel('dev')
+    assert c.namespace == early.namespace and public_a != received
+    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
+        encode_panel(a, early, source, 'artificial')
+    with pytest.raises(ValueError, match='PANEL_IDENTITY'):
+        encode_panel(c, layout, source, 'artificial')
+
 
 def test_admission_precedes_layout_runtime_import(monkeypatch: pytest.MonkeyPatch) -> None:
     import builtins
@@ -434,11 +528,11 @@ def test_admission_precedes_layout_runtime_import(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(application, 'admit_device', admitted)
     monkeypatch.setattr(builtins, '__import__', watched_import)
     with pytest.raises(ResourceStop):
-        application._production(res, {})
+        application._production(res, {}, recipe=FIXED)
     assert events == ['admission']
     events.clear()
     allowed = True
-    provider, adapter = application._production(res, {})
+    provider, adapter = application._production(res, {}, recipe=FIXED)
     assert provider.recipe is FIXED and provider.meter is res
     assert type(adapter) is ArtificialRuntime
     assert events.index('runtime') > events.index('admission')
@@ -558,6 +652,7 @@ def test_layout_source_closure(monkeypatch: pytest.MonkeyPatch) -> None:
     old = source_identity()
     layout = source.source_identity()
     assert {key: layout[key] for key in old} == old
+    assert 'cipher_lab/training/early_stopping.py' in layout
     folder = Path(source.__file__).parent
     expected = {p.relative_to(folder.parents[2]).as_posix(): sha256(p.read_bytes()).hexdigest()
                 for p in folder.glob('*.py')}
@@ -573,3 +668,108 @@ def test_layout_source_closure(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Path, 'lstat', lstat)
     with pytest.raises(ArtifactError, match='SOURCE_UNAVAILABLE'):
         source.source_identity()
+
+
+def test_early_recipe_exact_budget_and_schedule(tmp_path: Path) -> None:
+    from cipher_lab_plugins.innovation1.layout_probe.config import FIXED, load_config
+    from cipher_lab_plugins.innovation1.single_train.config import estimate, learning_rate
+
+    recipe = load_config(_EARLY_CONFIG)
+    payload = json.loads(_EARLY_CONFIG.read_bytes())
+    assert payload['selection']['early_stopping'] == dict(
+        warmup_epochs=24, patience=12, min_delta=1e-5, stop_when='all')
+    assert payload['optimizer']['cosine_epochs'] == 24
+    assert payload['method'] == 'innovation1-skinny-layout-early-stop-v1'
+    assert payload['run_id'] == 'innovation1-skinny-layout-early-stop-20261120-01'
+    assert payload['namespace'] == 'innovation1-skinny-layout-early-stop-v1-20261120'
+    assert payload['seeds'] == FIXED.to_dict()['seeds']
+    assert FIXED.to_dict()['resources']['wall_seconds'] == 28800
+    assert payload['resources'] == {**FIXED.to_dict()['resources'], 'wall_seconds': 43200}
+    assert estimate(recipe) == dict(fits=2, retries=0, cycles=102400, updates_each=102400,
+                                    optimizer_updates=204800, real_blocks=105512960,
+                                    forward_rows=118489088, train_groups=52428800,
+                                    dev_groups=65536, test_groups=262144, null_words=0)
+    for cycle in range(102400):
+        lr = learning_rate(recipe, cycle, cosine_epochs=recipe.cosine_epochs)
+        assert lr == (learning_rate(FIXED, cycle) if cycle < 24576 else .0001)
+    invalid = tmp_path / 'invalid.json'
+    text = _EARLY_CONFIG.read_text()
+    for changed in (text.replace('"all"', '"any"'),
+                    text.replace('"patience": 12', '"patience": 12.0'),
+                    text.replace('"min_delta":', '"extra": 0, "min_delta":')):
+        assert changed != text
+        invalid.write_text(changed)
+        with pytest.raises(ValueError, match='CONFIG_EXACT'):
+            load_config(invalid)
+
+
+def test_dispatch_run_binds_selected_recipe(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                            capsys: pytest.CaptureFixture[str]) -> None:
+    from cipher_lab_plugins.innovation1 import resources
+    from cipher_lab_plugins.innovation1.layout_probe import application, config
+    from cipher_lab_plugins.innovation1.single_train import cli
+
+    from cipher_lab.plugin_cli import dispatch
+
+    expected = config.load_config(_EARLY_CONFIG)
+    events: list[str] = []
+    owner = object()
+
+    class Harness:
+        dont_write_bytecode = True
+        platform = 'win32'
+
+    class Root:
+        parts = ('root',)
+
+        def is_absolute(self) -> bool:
+            return True
+
+        def is_relative_to(self, other: Path) -> bool:
+            assert str(other) == r'G:\lxy'
+            return True
+
+    root = Root()
+
+    def path(value: str) -> Any:
+        return root if value == 'artificial-root' else Path(value)
+
+    def no_reparse(value: Any) -> Path:
+        return tmp_path if value is root else value  # Fake path admission, no real device.
+
+    def claim(directory: Path, run_id: str, **kwargs: Any) -> object:
+        assert directory == tmp_path and run_id == expected.to_dict()['run_id']
+        assert kwargs['model_slots'] == config.SLOTS
+        events.append('claim')
+        return owner
+
+    def execute(recipe: Any, store: Any, res: Any, backend: str, assemble: Any) -> None:
+        assert recipe is expected and store is owner and backend == 'ciphers'
+        assert res.meter._policy.real_blocks == 105512960
+        provider, runtime = assemble(res, {})
+        assert provider.recipe is expected and runtime is fake_runtime
+        events.append('execute')
+
+    def finish(store: Any, directory: Path, meter: Any, run_id: str,
+               render: Any) -> tuple[int, str]:
+        assert store is owner and directory == tmp_path and run_id == expected.to_dict()['run_id']
+        events.append('finish')
+        return 0, '{}'
+
+    from cipher_lab_plugins.innovation1.layout_probe import runtime
+    from cipher_lab_plugins.innovation1.single_train import source
+
+    fake_runtime = object()
+    monkeypatch.setattr(cli, 'sys', Harness())
+    monkeypatch.setattr(cli, 'Path', path)
+    monkeypatch.setattr(cli, 'finish_run', finish)
+    monkeypatch.setattr(source, 'no_reparse', no_reparse)
+    monkeypatch.setattr(resources, 'production_rss_bytes', lambda: 0)
+    monkeypatch.setattr(RunStore, 'claim', claim)
+    monkeypatch.setattr(application, '_execute', execute)
+    monkeypatch.setattr(application, 'admit_device', lambda *args: events.append('admit'))
+    monkeypatch.setattr(runtime, 'Runtime', lambda check: fake_runtime)
+    assert dispatch(['run', '--plugin', 'cipher_lab_plugins.innovation1.layout_probe.cli',
+                     '--config', str(_EARLY_CONFIG), '--root', 'artificial-root']) == 0
+    assert events == ['claim', 'admit', 'execute', 'finish']
+    assert capsys.readouterr().out == '{}\n'

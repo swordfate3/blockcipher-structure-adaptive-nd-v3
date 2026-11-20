@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import math
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from ..single_train.application import Assemble, admit_device, execute_pair, summary_for
 from ..single_train.config import BACKEND
-from .config import FIXED, METHOD, SLOTS
+from .config import FIXED, RECIPES, SLOTS, LayoutRecipe
 
 if TYPE_CHECKING:
     from cipher_lab.artifacts import RunStore
@@ -16,7 +17,8 @@ if TYPE_CHECKING:
     from ..single_train.data import PairBatch
 
 
-def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, Any]:
+def _production(resources: Resources, evidence: dict[str, Any], *,
+                recipe: LayoutRecipe) -> tuple[Any, Any]:
     admit_device(resources, evidence)
     from secrets import token_bytes
 
@@ -27,7 +29,7 @@ def _production(resources: Resources, evidence: dict[str, Any]) -> tuple[Any, An
 
     resources.check()
     runtime = Runtime(resources.check)
-    return Provider(FIXED, skinny.encrypt_many, token_bytes, resources), runtime
+    return Provider(recipe, skinny.encrypt_many, token_bytes, resources), runtime
 
 
 def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
@@ -37,6 +39,9 @@ def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
     from .metrics import paired_statistics
     from .weights import identity
 
+    if type(recipe) is not LayoutRecipe:
+        raise ValueError('LAYOUT_RECIPE')
+
     def test_result(panel: PairBatch, scores: dict[str, dict[str, float]],
                     logits: dict[str, Any]) -> dict[str, Any]:
         paired = paired_statistics(panel.labels, logits[SLOTS[0]], logits[SLOTS[1]])
@@ -45,14 +50,17 @@ def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
                     bce_minus_constant={slot: scores[slot]['bce'] - baseline for slot in SLOTS})
 
     train_pair(recipe, provider, runtime, store, resources, summary, backend, slots=SLOTS,
-               panel_bytes=encode_panel, checkpoint_identity=identity, test_result=test_result)
+               panel_bytes=encode_panel, checkpoint_identity=identity, test_result=test_result,
+               early_stopping=recipe.early_stopping, cosine_epochs=recipe.cosine_epochs)
 
 
-def _execute(recipe: SingleRecipe, store: RunStore, resources: Resources, backend: str,
+def _execute(recipe: LayoutRecipe, store: RunStore, resources: Resources, backend: str,
              assemble: Assemble) -> None:
     execute_pair(recipe, store, resources, backend, assemble, _train,
-                 summary_for(backend, method=METHOD, slots=SLOTS))
+                 summary_for(backend, method=recipe.method, slots=SLOTS))
 
 
-def execute(store: RunStore, resources: Resources) -> None:
-    _execute(FIXED, store, resources, BACKEND, _production)
+def execute(store: RunStore, resources: Resources, *, recipe: LayoutRecipe = FIXED) -> None:
+    if not any(recipe is exact for exact in RECIPES):
+        raise ValueError('CONFIG_EXACT')
+    _execute(recipe, store, resources, BACKEND, partial(_production, recipe=recipe))
