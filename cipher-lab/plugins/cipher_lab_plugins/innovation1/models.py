@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import numpy as np
 import torch
-from torch import nn
+from torch import Tensor, nn
 
 from cipher_lab.models.dedicated import FeistelSEExpert, PresentExpert, SkinnyExpert
 from cipher_lab.models.shared_m import SharedM
@@ -74,6 +74,9 @@ class TorchRuntime:
             return model(x, public, rounds=task.rounds)
         return model(x)
 
+    def _loss(self, logits: Tensor, y: Tensor) -> Tensor:
+        return nn.functional.binary_cross_entropy_with_logits(logits, y, reduction='mean')
+
     def update(self, slot: str, task: Task, x: Any, y: Any, lr: float,
                resources: Any) -> float:
         model, optimizer = self.models[slot], self.optimizers[slot]
@@ -87,7 +90,7 @@ class TorchRuntime:
             if logits.shape != y.shape or not bool(torch.isfinite(logits).all()):
                 raise ValueError('FORWARD_INVALID')
             resources.complete('forward_rows', int(y.shape[0]))
-            loss = nn.functional.binary_cross_entropy_with_logits(logits, y, reduction='mean')
+            loss = self._loss(logits, y)
             if not bool(torch.isfinite(loss)):
                 raise ValueError('LOSS_INVALID')
             resources.check()

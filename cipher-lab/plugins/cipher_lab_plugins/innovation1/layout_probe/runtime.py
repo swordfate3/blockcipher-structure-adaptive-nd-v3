@@ -71,3 +71,8 @@ class Runtime(TorchRuntime):
         check()
         self.models[slot] = model.to(device=self.device, dtype=torch.float32).eval()
         check()
+
+
+class MSERuntime(Runtime):
+    def _loss(self, logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.mse_loss(torch.sigmoid(logits), y, reduction='mean')

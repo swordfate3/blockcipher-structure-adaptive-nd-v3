@@ -11,7 +11,7 @@ from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, cast
 
 from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
-from .layout_probe.config import METHOD, LayoutRecipe
+from .layout_probe.config import FIXED_METHOD, METHOD, LayoutRecipe
 from .single_train.config import estimate as estimate_pair
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     reason = f'ARTIFACT_{detail}'
                 else:
                     method = saved['recipe'].get('method')
-                    if method == METHOD:
+                    if method in (METHOD, FIXED_METHOD):
                         from .layout_probe.report import render
                     elif method == Recipe().method:
                         from .report import render

@@ -14,6 +14,7 @@ from cipher_lab.cli import main
 PLUGIN = 'cipher_lab_plugins.innovation1.cli'
 FRESH = Path('configs/innovation1-fresh.json')
 EARLY = Path('configs/innovation1-skinny-layout-early-stop.json')
+FIXED = Path('configs/innovation1-skinny-layout-fixed-mse.json')
 UUID = 'GPU-00000000-1111-2222-3333-444444444444'
 
 
@@ -22,15 +23,16 @@ def run_args(config: Path, root: Path, run_id: str = 'artificial-new') -> list[s
             '--id', run_id, '--gpu-uuid', UUID]
 
 
-@pytest.mark.parametrize('path', [FRESH, EARLY])
+@pytest.mark.parametrize('path', [FRESH, EARLY, FIXED])
 def test_top_level_check(path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(['--plugin', PLUGIN, 'check', '--config', str(path)]) == 0
     value = json.loads(capsys.readouterr().out)
-    assert value['recipe']['training']['epochs'] == (24 if path == FRESH else 100)
-    assert value['estimate']['optimizer_updates'] == (196608 if path == FRESH else 204800)
+    epochs, updates = {FRESH: (24, 196608), EARLY: (100, 204800), FIXED: (50, 180000)}[path]
+    assert value['recipe']['training']['epochs'] == epochs
+    assert value['estimate']['optimizer_updates'] == updates
 
 
-@pytest.mark.parametrize('path', [FRESH, EARLY])
+@pytest.mark.parametrize('path', [FRESH, EARLY, FIXED])
 def test_only_exact_and_bounded_config(path: Path, tmp_path: Path) -> None:
     from cipher_lab_plugins.innovation1.config import load_config
 
@@ -49,7 +51,7 @@ def test_old_cli_is_gone(subpackage: str) -> None:
     assert find_spec(f'cipher_lab_plugins.innovation1.{subpackage}.cli') is None
 
 
-@pytest.mark.parametrize('path', [FRESH, EARLY])
+@pytest.mark.parametrize('path', [FRESH, EARLY, FIXED])
 def test_device_failure_is_sealed_before_science(path: Path, tmp_path: Path,
                                                   capsys: pytest.CaptureFixture[str],
                                                   monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,7 +74,7 @@ def test_device_failure_is_sealed_before_science(path: Path, tmp_path: Path,
     assert not saved['artifacts']
 
 
-@pytest.mark.parametrize('path', [FRESH, EARLY])
+@pytest.mark.parametrize('path', [FRESH, EARLY, FIXED])
 def test_run_reads_once_and_dispatches_with_same_meter_and_owner(
     path: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -107,7 +109,7 @@ def test_run_reads_once_and_dispatches_with_same_meter_and_owner(
 
     def device(recipe: Any, uuid: str) -> None:
         assert uuid == UUID
-        assert isinstance(recipe, LayoutRecipe) == (path == EARLY)
+        assert isinstance(recipe, LayoutRecipe) == (path != FRESH)
         events.append('device')
 
     provider, runtime = object(), object()
@@ -115,7 +117,7 @@ def test_run_reads_once_and_dispatches_with_same_meter_and_owner(
     def assemble(recipe: Any, ledger: resources.Resources) -> tuple[object, object]:
         assert ledger is meters[0] and events[-1] == 'device'
         events.append('assemble')
-        if path == EARLY:
+        if path != FRESH:
             assert recipe.run_id == 'artificial-new'
         return provider, runtime
 
@@ -130,7 +132,8 @@ def test_run_reads_once_and_dispatches_with_same_meter_and_owner(
 
     def train_layout(recipe: LayoutRecipe, p: object, r: object, store: RunStore,
                      ledger: resources.Resources, summary: Any, backend: str) -> None:
-        assert recipe.run_id == 'artificial-new' and recipe.training.epochs == 100
+        assert recipe.run_id == 'artificial-new' and recipe.fixed_pool == (path == FIXED)
+        assert recipe.training.epochs == (50 if path == FIXED else 100)
         assert summary['launch']['gpu_uuid'] == UUID
         assert p is provider and r is runtime and store is owners[0] and ledger is meters[0]
         assert backend == 'ciphers'
@@ -143,10 +146,10 @@ def test_run_reads_once_and_dispatches_with_same_meter_and_owner(
     monkeypatch.setattr(application, 'make_resources', tracked_resources)
     monkeypatch.setattr(application, 'prepare_device', device)
     monkeypatch.setattr(application, '_assemble_four', assemble if path == FRESH else forbidden)
-    monkeypatch.setattr(layout, 'assemble', assemble if path == EARLY else forbidden)
+    monkeypatch.setattr(layout, 'assemble', assemble if path != FRESH else forbidden)
     monkeypatch.setattr(training, 'run', train_four if path == FRESH else forbidden)
-    monkeypatch.setattr(layout, '_train', train_layout if path == EARLY else forbidden)
-    is_layout = path == EARLY
+    monkeypatch.setattr(layout, '_train', train_layout if path != FRESH else forbidden)
+    is_layout = path != FRESH
     assert main(run_args(path, tmp_path)) == (3 if is_layout else 7)
     assert events == ['config', 'claim', 'device', 'assemble', 'layout' if is_layout else 'four']
     assert len(owners) == len(meters) == 1

@@ -22,12 +22,14 @@ def assemble(recipe: LayoutRecipe, resources: Resources) -> tuple[Any, Any]:
 
     from cipher_lab.ciphers import skinny
 
-    from .data import Provider
-    from .runtime import Runtime
+    from .data import FixedPoolProvider, Provider
+    from .runtime import MSERuntime, Runtime
 
     resources.check()
-    runtime = Runtime(resources.check)
-    return Provider(recipe, skinny.encrypt_many, token_bytes, resources), runtime
+    runtime_type, provider_type = ((MSERuntime, FixedPoolProvider) if recipe.fixed_pool
+                                   else (Runtime, Provider))
+    runtime = runtime_type(resources.check)
+    return provider_type(recipe, skinny.encrypt_many, token_bytes, resources), runtime
 
 
 def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,

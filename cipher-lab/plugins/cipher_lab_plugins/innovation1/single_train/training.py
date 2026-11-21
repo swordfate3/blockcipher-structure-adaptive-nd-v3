@@ -1,4 +1,4 @@
-"""One online two-arm loop with a disk-only two-best barrier before TEST."""
+"""One two-arm loop with a disk-only two-best barrier before TEST."""
 from __future__ import annotations
 
 import math
@@ -14,7 +14,7 @@ from cipher_lab.training.early_stopping import EarlyStopping, Settings
 
 from ..contracts import MAX_CHECKPOINT
 from ..resources import Resources, ResourceStop
-from ..scoring import bce, predict, tensor_digest
+from ..scoring import bce, mse, predict, tensor_digest
 from .config import TASK, SingleRecipe, estimate, learning_rate
 from .data import PairBatch
 
@@ -38,6 +38,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     tr = recipe.training
     stopper = (None if early_stopping is None else
                EarlyStopping(slots, early_stopping, epoch_ceiling=tr.epochs))
+    loss_key = 'mse' if recipe.fixed_pool else 'bce'
     counted_recipe = recipe
     source = store.source_snapshot()
     best: dict[str, Any] = summary['best']
@@ -73,7 +74,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             check()
             loc = summary['location']
             loc['start_group'] = start
-            batch = panel.slice(start, start + tr.eval_batch_groups)
+            batch = panel.slice(start, min(start + tr.eval_batch_groups, panel.groups))
             x, y = runtime.prepare(batch)
             digest = tensor_digest(x, y)
             for slot in slots:
@@ -84,7 +85,21 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         logits = {slot: np.concatenate(chunks[slot]) for slot in slots}
         scores = {slot: dict(accuracy=float(np.mean((z >= 0) == panel.labels)),
                              bce=bce(panel.labels, z)) for slot, z in logits.items()}
+        if recipe.fixed_pool:
+            for slot, z in logits.items():
+                scores[slot]['mse'] = mse(panel.labels, z)
         return scores, logits
+
+    def save_split(panel: PairBatch) -> None:
+        check()
+        raw = panel_bytes(panel, recipe, source, backend)
+        snapshot()  # seal from the collected counts if the dataset write fails
+        ref = store.write_dataset(f'{panel.split}-SKINNY', raw)
+        check()
+        summary[f'{panel.split}_panel'] = dict(ref=ref, sha256=sha256(raw).hexdigest(),
+                                              digest=panel.digest)
+        del raw
+        snapshot()
 
     check_source()
     # Only the committed pending rows (at most 256) need inline failure evidence.
@@ -92,16 +107,28 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     if hasattr(store, '_failure_evidence_key'):
         setattr(store, '_failure_evidence_key', 'pending')  # optional release-core capability
     summary['models'] = runtime.metadata()
-    summary['location'] = dict(phase='dev-generate')
+    if recipe.fixed_pool:
+        summary['location'] = dict(phase='pool-prepare')
+        summary['pool_status'] = 'PREPARING'
+        snapshot()
+        train = provider.prepare_pool()
+        expected_blocks = 2 * (tr.batches_per_epoch * tr.batch_groups + tr.dev_groups)
+        counts = resources.snapshot()
+        if any(counts[f'{kind}_real_blocks'] != expected_blocks
+               for kind in ('attempted', 'completed')):
+            raise ValueError('POOL_COUNT_MISMATCH')
+        check_source()
+        save_split(train)
+        del train
+        summary['location'] = dict(phase='pool-dev-save')
+    else:
+        summary['location'] = dict(phase='dev-generate')
     dev = provider.panel('dev')
-    check()
-    raw = panel_bytes(dev, recipe, source, backend)
-    snapshot()  # seal from the collected counts if the dataset write fails
-    ref = store.write_dataset('dev-SKINNY', raw)
-    check()
-    summary['dev_panel'] = dict(ref=ref, sha256=sha256(raw).hexdigest(), digest=dev.digest)
-    del raw
-    snapshot()
+    save_split(dev)
+    if recipe.fixed_pool:
+        summary['pool_status'] = 'READY'
+        snapshot()
+        provider.activate()
     for epoch in range(1, tr.epochs + 1):
         check_source()
         losses = dict.fromkeys(slots, 0.)
@@ -139,18 +166,17 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             if cycle == 0:
                 snapshot()  # first full batch is visible, too
             if len(pending) >= 256:
-                # 256 completed batches (131072 groups in the exact recipe).
                 check_source()
                 flush()
         flush()
         summary['location'] = dict(epoch=epoch, phase='dev-score')
         scores, _ = score(dev)
-        summary['curves'].append(dict(epoch=epoch, dev=scores, train_bce={
-            s: v / tr.batches_per_epoch for s, v in losses.items()}))
+        summary['curves'].append({'epoch': epoch, 'dev': scores, f'train_{loss_key}': {
+            s: v / tr.batches_per_epoch for s, v in losses.items()}})
         snapshot()  # full DEV and counts survive before any best write
         for slot in slots:
-            val = scores[slot]['bce']
-            if slot in best and val >= best[slot]['bce']:
+            val = scores[slot][loss_key]
+            if slot in best and val >= best[slot][loss_key]:
                 continue
             summary['location'] = dict(epoch=epoch, phase='best-save', slot=slot)
             check_source()
@@ -158,12 +184,12 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             raw = runtime.checkpoint(slot, meta)
             check()
             ref = store.write_model(slot, raw, replace=slot in best)
-            best[slot] = dict(ref=ref, sha256=sha256(raw).hexdigest(), epoch=epoch, bce=val,
-                              dev_digest=dev.digest)
+            best[slot] = dict(ref=ref, sha256=sha256(raw).hexdigest(), epoch=epoch,
+                              dev_digest=summary['dev_panel']['digest'], **{loss_key: val})
             del raw
             snapshot()
         if stopper is not None:
-            reason = stopper.observe(epoch, {slot: scores[slot]['bce'] for slot in slots})
+            reason = stopper.observe(epoch, {slot: scores[slot][loss_key] for slot in slots})
             if reason is not None:
                 summary['training_termination'] = dict(reason=reason, completed_epochs=epoch)
                 snapshot()  # Normal training end is evidence, not a run success seal.
@@ -184,7 +210,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         # Canonical run.json registration, exact current owner path, bounded size and SHA.
         raw = store.read_model(selected['ref'], selected['sha256'], MAX_CHECKPOINT)
         check()
-        runtime.load_best(slot, raw, recipe, source, selected['epoch'], selected['bce'], check)
+        runtime.load_best(slot, raw, recipe, source, selected['epoch'], selected[loss_key], check)
         del raw
         summary['persisted_reloads'][slot] = dict(selected)
         snapshot()

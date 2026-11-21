@@ -1,0 +1,100 @@
+{
+  "method": "innovation1-skinny-layout-fixed-mse-v1",
+  "run_id": null,
+  "namespace": "innovation1-skinny-layout-fixed-mse-v1-20261120",
+  "backend": "ciphers",
+  "task": {
+    "cipher": "SKINNY",
+    "rounds": 8,
+    "difference": 8192
+  },
+  "device": "cuda:0",
+  "training": {
+    "epochs": 50,
+    "batches_per_epoch": 1800,
+    "batch_groups": 5000,
+    "dev_groups": 1000000,
+    "test_groups": 262144,
+    "eval_batch_groups": 512,
+    "pairs_per_group": 1,
+    "gradient_accumulation": 1,
+    "retries": 0
+  },
+  "optimizer": {
+    "name": "Adam",
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "amsgrad": false,
+    "lr_max": 0.001,
+    "lr_min": 0.0001,
+    "schedule": "cycle-cosine-then-constant",
+    "clip_norm": 1.0,
+    "loss": "mean-MSE-on-sigmoid",
+    "label_smoothing": 0.0,
+    "kernel_l2": 0.0,
+    "routing_penalty": 0.0,
+    "cosine_epochs": 24
+  },
+  "seeds": {
+    "init": 26111951,
+    "sample": 26111952,
+    "shuffle": 26111953
+  },
+  "model": {
+    "stem_width": 96,
+    "channels": 96,
+    "norm_groups": 8,
+    "suffix_kernels": [
+      3,
+      5,
+      7,
+      9,
+      11
+    ],
+    "head_hidden": 64,
+    "route": {
+      "nibble": 0.5,
+      "word": 0.5
+    },
+    "scans": {
+      "A-row-best": "row",
+      "A-prime-column-best": "column"
+    },
+    "parameters_each": 1087234
+  },
+  "resources": {
+    "precision": "float32",
+    "device_kind": "cuda",
+    "amp": false,
+    "tf32": false,
+    "cudnn_benchmark": false,
+    "gpu_bytes": 21474836480,
+    "rss_bytes": 17179869184,
+    "artifact_bytes": 1073741824,
+    "wall_seconds": 43200,
+    "cpu_seconds": 115200,
+    "intra_threads": 4,
+    "inter_threads": 1
+  },
+  "selection": {
+    "metric": "per-model-dev-mse",
+    "ties": "earliest",
+    "interval": "epoch-end",
+    "test": "after-two-persisted-best-reloads",
+    "early_stopping": {
+      "warmup_epochs": 24,
+      "patience": 12,
+      "min_delta": 1e-05,
+      "stop_when": "all"
+    }
+  },
+  "data": {
+    "protocol": "fixed-stratified-90-10-v1",
+    "pool_groups": 10000000,
+    "train_groups": 9000000
+  }
+}

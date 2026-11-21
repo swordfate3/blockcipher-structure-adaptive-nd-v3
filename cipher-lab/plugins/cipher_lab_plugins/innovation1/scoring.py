@@ -26,6 +26,15 @@ def bce(labels: Any, logits: Any) -> float:
     return float(np.mean(np.maximum(z, 0) - z * y + np.log1p(np.exp(-np.abs(z)))))
 
 
+def mse(labels: Any, logits: Any) -> float:
+    y, z = np.asarray(labels, dtype=np.float64), np.asarray(logits, dtype=np.float64)
+    if y.shape != z.shape or not np.isfinite(z).all() or not np.isin(y, [0, 1]).all():
+        raise ValueError('SCORE_INVALID')
+    # Probability error is sigmoid(-margin); square without overflow at large logits.
+    margin = np.where(y == 1, z, -z)
+    return float(np.mean(np.square(np.exp(-np.logaddexp(0., margin)))))
+
+
 def score_panel(batch: Batch, runtime: Any, slots: tuple[str, ...],
                 chunk: int, resources: Any) -> dict[str, Any]:
     values: dict[str, list[Any]] = {s: [] for s in slots}

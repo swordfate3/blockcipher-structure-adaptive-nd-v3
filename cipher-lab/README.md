@@ -44,7 +44,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:plugins /workspace/.venv/bin/python -m 
 |`cipher_lab_plugins.fourier.cli`|check / run；无 evaluate 子命令|`configs/fourier-example.json`（synthetic/demo）或 r6（simon）|
 |`cipher_lab_plugins.speck_study.cli`|check / run；无 evaluate 子命令|`configs/speck-study-paper.json`；run 仅 speck-study，须现场门禁|
 |`cipher_lab_plugins.integral_search.cli`|check / run；无 evaluate 子命令|`configs/integral-search.json` / `integral-search-k18k20.json`；demo/simon|
-|`cipher_lab_plugins.innovation1.cli`|check / run|`configs/innovation1-fresh.json` 和 `configs/innovation1-skinny-layout-early-stop.json`，见下文创新1；run 显式 GPU UUID 与新 ID|
+|`cipher_lab_plugins.innovation1.cli`|check / run|三份冻结配方，见下文创新1；run 显式 GPU UUID 与新 ID|
 
 统一形式：`python -m cipher_lab check|run|evaluate --plugin <上表模块> <该插件参数>`。
 只有列出的命令已实现，core 的统一 evaluate 委派能力不表示每个插件都有 evaluate。
@@ -685,21 +685,27 @@ R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`�
 
 唯一入口是 `cipher-lab --plugin cipher_lab_plugins.innovation1.cli {check,run}`。
 `check` 只用标准库读取和校验完整配方，输出静态预算；不申请输出目录、探测设备或
-导入 NumPy/Torch。它不是运行授权或 CUDA 可用性证明。只接受以下两个冻结配方：
+导入 NumPy/Torch。它不是运行授权或 CUDA 可用性证明。只接受以下三个冻结配方：
 
 | 配方 | 方法 | 更新上限 | 加密块上限 |
 |---|---|---:|---:|
 | `configs/innovation1-fresh.json` | 四密码共享 M vs 每任务专用 D，24×1024 cycles，同批对照 | 196608 | 413138944 |
 | `configs/innovation1-skinny-layout-early-stop.json` | SKINNY64/64 8轮单对行扫 vs 列扫，100轮上限，24轮预热后两臂各自检查耐心12轮 | 204800 | 105512960 |
+| `configs/innovation1-skinny-layout-fixed-mse.json` | 同一 SKINNY 行扫／列扫，固定数据池、sigmoid 概率 MSE、50 轮上限 | 180000 | 20524288 |
 
-四密码以固定 DEV 选出五份 best；SKINNY 两臂各自按 DEV BCE 选 best（并列取早），
-早停与选模独立。两种方法均须从磁盘严格重载所有 best 后才构造共同 TEST。
+四密码以固定 DEV 选出五份 best；SKINNY 两臂各自按所用配方的最低 DEV BCE 或 MSE 选 best
+（并列取早），早停与选模独立。三种配方均须从磁盘严格重载所有 best 后才构造共同 TEST。
+固定池配方先生成 1000 万单对（每对一个独立 64 位密钥，两块共用），再按平衡块分成 900 万 TRAIN
+和 100 万 DEV；二者只保存一次，不含密钥或明文。每轮对 TRAIN 样本按类别重排，两臂共用 1800 批、
+每批 5000 对。学习率前 24 轮余弦下降（0.001 → 0.0001）后恒定；两臂用 DEV MSE 判定早停。
+两份 best 重载后生成共同的 262144 对 TEST，并保存 MSE、ACC 和 BCE；前向行数上限 1000524288。
 SKINNY 配方中的 `run_id: null` 表示尚未绑定，`run --id` 把新编号写入配方、权重、
 面板和报告身份，不改公开种子或采样命名空间。旧固定训练编号不接受，无续训／覆盖。
 
 ```sh
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-fresh.json
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-early-stop.json
+PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-fixed-mse.json
 ```
 
 现场运行须另行授权。在 Windows 新进程中以 `-B` 启动，绝对输出根必须位于 `G:\lxy` 下。

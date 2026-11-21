@@ -11,6 +11,8 @@ from ..single_train.config import ARCHITECTURE, TASK, SingleRecipe
 
 METHOD = 'innovation1-skinny-layout-early-stop-v1'
 NAMESPACE = 'innovation1-skinny-layout-early-stop-v1-20261120'
+FIXED_METHOD = 'innovation1-skinny-layout-fixed-mse-v1'
+FIXED_NAMESPACE = 'innovation1-skinny-layout-fixed-mse-v1-20261120'
 SLOTS = ('A-row-best', 'A-prime-column-best')
 SCANS = ('row', 'column')
 SEEDS = Seeds(init=26111951, sample=26111952, shuffle=26111953)
@@ -25,6 +27,10 @@ class LayoutRecipe(SingleRecipe):
     resources: Resources = SingleRecipe.resources
     early_stopping: Settings | None = None
     cosine_epochs: int | None = None
+
+    @property
+    def fixed_pool(self) -> bool:
+        return self.method == FIXED_METHOD
 
     def to_dict(self) -> dict[str, Any]:
         recipe = super().to_dict()
@@ -41,6 +47,13 @@ class LayoutRecipe(SingleRecipe):
         if self.cosine_epochs is not None:
             recipe['optimizer'].update(schedule='cycle-cosine-then-constant',
                                        cosine_epochs=self.cosine_epochs)
+        if self.fixed_pool:
+            tr = self.training
+            train = tr.batches_per_epoch * tr.batch_groups
+            recipe['data'] = dict(protocol='fixed-stratified-90-10-v1',
+                                  pool_groups=train + tr.dev_groups, train_groups=train)
+            recipe['optimizer']['loss'] = 'mean-MSE-on-sigmoid'
+            recipe['selection']['metric'] = 'per-model-dev-mse'
         return recipe
 
 
@@ -51,11 +64,17 @@ EARLY_STOP = LayoutRecipe(
     cosine_epochs=24,
 )
 
+FIXED_MSE = replace(
+    EARLY_STOP, method=FIXED_METHOD, namespace=FIXED_NAMESPACE,
+    training=replace(EARLY_STOP.training, epochs=50, batches_per_epoch=1800,
+                     batch_groups=5000, dev_groups=1_000_000),
+)
+
 
 def official(recipe: LayoutRecipe, run_id: str) -> LayoutRecipe:
     """Compare against the frozen base with ONLY the caller's ID substituted."""
     validate_run_id(run_id)
-    expected = replace(EARLY_STOP, run_id=run_id)
+    expected = replace(FIXED_MSE if recipe.fixed_pool else EARLY_STOP, run_id=run_id)
     if (type(recipe) is not LayoutRecipe or recipe != expected
             or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')

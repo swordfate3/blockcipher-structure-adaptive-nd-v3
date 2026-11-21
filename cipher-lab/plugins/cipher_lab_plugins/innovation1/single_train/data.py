@@ -141,7 +141,11 @@ def pack_panel(batch: PairBatch, recipe: SingleRecipe, metadata: dict[str, Any],
                logits: dict[str, Any] | None, weights: dict[str, Any] | None) -> bytes:
     has_scores = batch.split == 'test'
     size = recipe.training.test_groups if has_scores else recipe.training.dev_groups
-    if (batch.split not in ('dev', 'test') or batch.index != 0 or batch.groups != size
+    allowed: tuple[str, ...] = ('dev', 'test')
+    if recipe.fixed_pool and batch.split == 'train':
+        allowed = ('train',)
+        size = recipe.training.batches_per_epoch * recipe.training.batch_groups
+    if (batch.split not in allowed or batch.index != 0 or batch.groups != size
             or batch.namespace != namespace
             or (logits is not None) != has_scores or (weights is not None) != has_scores):
         raise ValueError('PANEL_IDENTITY')
