@@ -15,6 +15,8 @@ from .config import PUBLIC_STREAMS, SLOTS, LayoutRecipe, official
 
 
 class Provider(SingleProvider):
+    recipe: LayoutRecipe
+
     def __init__(self, recipe: LayoutRecipe, oracle: Oracle, private: PrivateSource,
                  meter: BlockMeter) -> None:
         super().__init__(recipe, oracle, private, meter,
@@ -36,7 +38,7 @@ class FixedPoolProvider(Provider):
         self._epoch: tuple[np.random.Generator, NDArray[np.intp], NDArray[np.intp]] | None = None
 
     def prepare_pool(self) -> PairBatch:
-        if self._started:
+        if self._started or self.recipe.reuse_pool:
             raise ValueError('POOL_ORDER')
         self._started = True
         totals = estimate(self.recipe)
@@ -65,6 +67,9 @@ class FixedPoolProvider(Provider):
                               dev_y[dev_order], 'dev', 0, ns)
         # DEV now satisfies PairBatch quotas for every even-aligned slice,
         # including the 64-row tail of the production 512-row evaluation loop.
+        return self._use_train(train)
+
+    def _use_train(self, train: PairBatch) -> PairBatch:
         self._classes = (np.flatnonzero(train.labels == 0), np.flatnonzero(train.labels == 1))
         self.meter.check()
         self._train_pool = train
@@ -97,7 +102,8 @@ class FixedPoolProvider(Provider):
         epoch, offset = divmod(cycle, tr.batches_per_epoch)
         if offset == 0:
             # Shuffle row indices only, independently within each class.
-            rng = np.random.default_rng(derive_seed(self._streams, TASK, 'train', epoch, 'shuffle'))
+            streams = replace(self._streams, namespace=self.recipe.shuffle_namespace)
+            rng = np.random.default_rng(derive_seed(streams, TASK, 'train', epoch, 'shuffle'))
             self._epoch = rng, rng.permutation(classes[0]), rng.permutation(classes[1])
             self.meter.check()
         assert self._epoch is not None
@@ -114,14 +120,19 @@ class FixedPoolProvider(Provider):
 
 def encode_panel(batch: PairBatch, recipe: SingleRecipe, source: dict[str, str],
                  backend: str, *, logits: dict[str, Any] | None = None,
-                 weights: dict[str, Any] | None = None) -> bytes:
+                 weights: dict[str, Any] | None = None,
+                 reuse_provenance: dict[str, Any] | None = None) -> bytes:
     if type(recipe) is not LayoutRecipe or recipe.run_id is None:
         raise ValueError('PANEL_IDENTITY')
     if backend == BACKEND:
         official(recipe, recipe.run_id)
-    metadata = dict(schema=3 if recipe.fixed_pool else 2, method=recipe.method,
+    metadata = dict(schema=recipe.artifact_schema, method=recipe.method,
                     run_id=recipe.run_id, recipe=recipe.to_dict(), source=source, backend=backend,
                     split=batch.split, digest=batch.digest, encoding='packed-msb0-single-pair-v1',
                     slots=list(SLOTS))
+    if recipe.reuse_pool:
+        if batch.split != 'test' or reuse_provenance is None:
+            raise ValueError('PANEL_IDENTITY')
+        metadata.update(namespace=recipe.namespace, reused_pool=reuse_provenance)
     return pack_panel(batch, recipe, metadata, SLOTS, ('a_logits', 'a_prime_logits'),
                       recipe.namespace, logits=logits, weights=weights)

@@ -26,6 +26,11 @@ def assemble(recipe: LayoutRecipe, resources: Resources) -> tuple[Any, Any]:
     from .runtime import MSERuntime, Runtime
 
     resources.check()
+    if recipe.reuse_pool:
+        from .reuse import ReusedPoolProvider
+
+        return ReusedPoolProvider(recipe, skinny.encrypt_many, token_bytes, resources), Runtime(
+            resources.check)
     runtime_type, provider_type = ((MSERuntime, FixedPoolProvider) if recipe.fixed_pool
                                    else (Runtime, Provider))
     runtime = runtime_type(resources.check)
@@ -49,8 +54,17 @@ def _train(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
         return dict(paired_test=paired, constant_bce=baseline,
                     bce_minus_constant={slot: scores[slot]['bce'] - baseline for slot in SLOTS})
 
+    def panel_bytes(batch: PairBatch, rec: SingleRecipe, source: dict[str, str],
+                    backend: str, *, logits: dict[str, Any] | None = None,
+                    weights: dict[str, Any] | None = None) -> bytes:
+        # Copy only the small verified provenance, not the old dataset bytes.
+        provenance = {k: summary[k] for k in ('pool_source', 'train_panel', 'dev_panel')
+                      } if recipe.reuse_pool else None
+        return encode_panel(batch, rec, source, backend, logits=logits, weights=weights,
+                            reuse_provenance=provenance)
+
     train_pair(recipe, provider, runtime, store, resources, summary, backend, slots=SLOTS,
-               panel_bytes=encode_panel, checkpoint_identity=identity, test_result=test_result,
+               panel_bytes=panel_bytes, checkpoint_identity=identity, test_result=test_result,
                early_stopping=recipe.early_stopping, cosine_epochs=recipe.cosine_epochs)
 
 
@@ -72,6 +86,8 @@ def _execute(recipe: LayoutRecipe, store: RunStore, resources: Resources, backen
         location=dict(phase='assembly'))
     if launch is not None:
         summary['launch'] = launch
+    from .reuse import PoolSourceError
+
     status = 'FAILED'
     try:
         resources.check()
@@ -89,6 +105,8 @@ def _execute(recipe: LayoutRecipe, store: RunStore, resources: Resources, backen
         status = 'SUCCEEDED'
     except ArtifactError:
         return  # storage owns its failure transition; no second seal
+    except PoolSourceError:
+        summary['reason'] = 'POOL_SOURCE_INVALID'
     except (ResourceStop, Stopped) as error:
         status = 'STOPPED'
         summary['reason'] = error.reason

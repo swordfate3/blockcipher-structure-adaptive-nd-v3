@@ -21,7 +21,7 @@ from .data import PairBatch
 
 class PanelEncoder(Protocol):
     def __call__(self, batch: PairBatch, recipe: SingleRecipe, source: dict[str, str],
-                 backend: str, *, logits: dict[str, Any] | None = None,
+                 backend: str, /, *, logits: dict[str, Any] | None = None,
                  weights: dict[str, Any] | None = None) -> bytes: ...
 
 
@@ -38,7 +38,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     tr = recipe.training
     stopper = (None if early_stopping is None else
                EarlyStopping(slots, early_stopping, epoch_ceiling=tr.epochs))
-    loss_key = 'mse' if recipe.fixed_pool else 'bce'
+    loss_key = recipe.loss_key
     counted_recipe = recipe
     source = store.source_snapshot()
     best: dict[str, Any] = summary['best']
@@ -112,19 +112,27 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         summary['pool_status'] = 'PREPARING'
         snapshot()
         train = provider.prepare_pool()
-        expected_blocks = 2 * (tr.batches_per_epoch * tr.batch_groups + tr.dev_groups)
+        expected_blocks = (0 if recipe.reuse_pool else
+                           2 * (tr.batches_per_epoch * tr.batch_groups + tr.dev_groups))
         counts = resources.snapshot()
         if any(counts[f'{kind}_real_blocks'] != expected_blocks
                for kind in ('attempted', 'completed')):
             raise ValueError('POOL_COUNT_MISMATCH')
         check_source()
-        save_split(train)
+        if not recipe.reuse_pool:
+            save_split(train)
         del train
-        summary['location'] = dict(phase='pool-dev-save')
+        summary['location'] = dict(phase='pool-dev-bind' if recipe.reuse_pool else 'pool-dev-save')
     else:
         summary['location'] = dict(phase='dev-generate')
     dev = provider.panel('dev')
-    save_split(dev)
+    if recipe.reuse_pool:
+        counts = resources.snapshot()
+        if any(counts[f'{kind}_real_blocks'] != 0 for kind in ('attempted', 'completed')):
+            raise ValueError('POOL_COUNT_MISMATCH')
+        summary.update(provider.pool_provenance())
+    else:
+        save_split(dev)
     if recipe.fixed_pool:
         summary['pool_status'] = 'READY'
         snapshot()

@@ -27,6 +27,14 @@ class SingleRecipe:
     def fixed_pool(self) -> bool:
         return False
 
+    @property
+    def reuse_pool(self) -> bool:
+        return False
+
+    @property
+    def loss_key(self) -> str:
+        return 'bce'
+
     def to_dict(self) -> dict[str, Any]:
         model = asdict(ARCHITECTURE.model)
         return dict(backend=BACKEND, task=asdict(TASK), device=DEVICE,
@@ -52,9 +60,10 @@ def estimate(recipe: SingleRecipe) -> dict[str, int]:
     pool = unique_train + tr.dev_groups
     if recipe.fixed_pool and (unique_train != 9 * tr.dev_groups or tr.dev_groups % tr.batch_groups):
         raise ValueError('POOL_SHAPE')
+    generated = 0 if recipe.reuse_pool else pool
     totals = dict(fits=2, retries=0, cycles=cycles, updates_each=cycles,
                   optimizer_updates=2 * cycles, train_groups=train, dev_groups=tr.dev_groups,
-                  test_groups=tr.test_groups, real_blocks=2 * (pool + tr.test_groups),
+                  test_groups=tr.test_groups, real_blocks=2 * (generated + tr.test_groups),
                   forward_rows=2 * (train + tr.epochs * tr.dev_groups + tr.test_groups),
                   null_words=0)
     if recipe.fixed_pool:

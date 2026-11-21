@@ -5,21 +5,22 @@ import html
 import json
 from typing import Any
 
-from .config import FIXED_METHOD, FIXED_NAMESPACE, METHOD, NAMESPACE, SLOTS
+from .config import BCE_METHOD, FIXED_METHOD, LAYOUT_NAMESPACES, SLOTS
 
 
 def render(saved: dict[str, Any]) -> dict[str, bytes]:
     summary = saved['summary']
     recipe = saved['recipe']
     method = recipe.get('method')
-    fixed = method == FIXED_METHOD
-    if (recipe.get('run_id') != saved['run_id'] or method not in (METHOD, FIXED_METHOD)
-            or recipe.get('namespace') != (FIXED_NAMESPACE if fixed else NAMESPACE)
+    reused = method == BCE_METHOD
+    fixed = method == FIXED_METHOD or reused
+    if (recipe.get('run_id') != saved['run_id'] or method not in LAYOUT_NAMESPACES
+            or recipe.get('namespace') != LAYOUT_NAMESPACES[method]
             or summary.get('method', method) != method
             or (saved['status'] == 'SUCCEEDED' and summary.get('method') != method)):
         raise ValueError('LAYOUT_REPORT_IDENTITY')
     termination = summary.get('training_termination')
-    metric = 'MSE' if fixed else 'BCE'
+    metric = 'MSE' if method == FIXED_METHOD else 'BCE'
     text = ['# 创新 1：SKINNY 单对行扫 A 与列扫 A′', '',
             f"保存科学状态：{saved['status']}；原因：{summary.get('reason', 'UNKNOWN')}。", '',
             '配方：SKINNY64/64、8 轮、差分 0x2000。每组一对、组间独立抽密钥。',
@@ -28,7 +29,16 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
             '平分取早；两份磁盘 best 严格重载后才生成共同 TEST。',
             '这不是历史 D 对照、严格二维网格、四密码联合训练或可训练路由的证据。',
             '科学封存不等于命令成功；原生退出以独立监督为准。']
-    if fixed:
+    if reused:
+        text.extend([
+            '只读复用原任务的固定 TRAIN/DEV：不重生成、不重新划分，原始行序和重排流保持不变。'
+            '来源 RUNNING 是历史保存状态，不代表当前仍在运行或原任务成功。',
+            '从头训练，直接对 logits 使用 BCE；各版按 DEV BCE 选模，共同早停也使用 BCE。'
+            '同时报告 BCE、ACC 与 sigmoid 概率 MSE，不直接比较两种训练损失的大小。',
+            '只有独立 TEST 新生成。原 MSE 任务被手动停止且无 TEST；'
+            '不能对两个任务的 TEST 作配对比较，也不能把不同训练终点的差异单独归因于损失。',
+        ])
+    elif fixed:
         text.append('只在固定分层 TRAIN/DEV 完整生成并保存后才更新；每轮只重排 TRAIN 样本。'
                     '训练目标和两版早停均使用 sigmoid 概率的 MSE。')
         text.append('与上次在线生成的实验相比，固定数据、批大小和损失函数同时改变；'
@@ -38,6 +48,18 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                     f"完整轮数：{termination['completed_epochs']}。")
     if summary.get('synthetic'):
         text.append('此记录使用人工输入／替身，不是科学训练结果。')
+    if reused and summary.get('curves'):
+        text.extend(['', '## 保存的 DEV 指标（各版最佳轮与末轮）', '',
+                     '|组别|轮|MSE|BCE|ACC|', '|---|---:|---:|---:|---:|'])
+        curves = summary['curves']
+        for slot in SLOTS:
+            epochs = [curves[-1]['epoch']]
+            if slot in summary['best'] and summary['best'][slot]['epoch'] not in epochs:
+                epochs.insert(0, summary['best'][slot]['epoch'])
+            for epoch in epochs:
+                score = curves[epoch - 1]['dev'][slot]
+                text.append(f"|{slot}|{epoch}|{score['mse']:.8f}|{score['bce']:.8f}|"
+                            f"{score['accuracy']:.4%}|")
     if saved['status'] == 'SUCCEEDED':
         paired = summary['paired_test']
         lo, hi = paired['ci95']
@@ -74,6 +96,8 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
         evidence.update(pool_status=summary.get('pool_status'),
                         train_panel=summary.get('train_panel'),
                         dev_panel=summary.get('dev_panel'), test_panel=summary.get('test_panel'))
+    if reused:
+        evidence['pool_source'] = summary.get('pool_source')
     text.extend(['', '## 保存证据', '', '```json',
                  json.dumps(evidence, indent=2, ensure_ascii=False, allow_nan=False), '```', ''])
     markdown = '\n'.join(text)

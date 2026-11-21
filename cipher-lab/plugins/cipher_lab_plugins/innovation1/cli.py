@@ -11,7 +11,7 @@ from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, cast
 
 from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
-from .layout_probe.config import FIXED_METHOD, METHOD, LayoutRecipe
+from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
 from .single_train.config import estimate as estimate_pair
 
 if TYPE_CHECKING:
@@ -102,7 +102,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     reason = f'ARTIFACT_{detail}'
                 else:
                     method = saved['recipe'].get('method')
-                    if method in (METHOD, FIXED_METHOD):
+                    if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
                     elif method == Recipe().method:
                         from .report import render
@@ -172,7 +172,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                                         or not _windows_root(PureWindowsPath(args.root))):
             raise ValueError
         if isinstance(recipe, LayoutRecipe):
-            recipe = replace(recipe, run_id=args.id)
+            recipe = official(replace(recipe, run_id=args.id), args.id)
+            if recipe.pool_source is not None:
+                # Keep write ownership disjoint from the pinned read-only archive.
+                requested_root = PureWindowsPath(args.root)
+                source_root = PureWindowsPath(recipe.pool_source.root)
+                if (requested_root.is_relative_to(source_root)
+                        or source_root.is_relative_to(requested_root)):
+                    raise ValueError('POOL_ROOT_OVERLAP')
     except (ValueError, OSError):
         print('innovation1: invalid settings', file=sys.stderr)
         return 2
