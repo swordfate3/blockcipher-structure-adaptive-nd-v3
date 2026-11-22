@@ -685,7 +685,7 @@ R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`�
 
 唯一入口是 `cipher-lab --plugin cipher_lab_plugins.innovation1.cli {check,run}`。
 `check` 只用标准库读取和校验完整配方，输出静态预算；不申请输出目录、探测设备或
-导入 NumPy/Torch。它不是运行授权或 CUDA 可用性证明。只接受以下四个冻结配方：
+导入 NumPy/Torch。它不是运行授权或 CUDA 可用性证明。只接受以下冻结配方：
 
 | 配方 | 方法 | 更新上限 | 加密块上限 |
 |---|---|---:|---:|
@@ -693,6 +693,7 @@ R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`�
 | `configs/innovation1-skinny-layout-early-stop.json` | SKINNY64/64 8轮单对行扫 vs 列扫，100轮上限，24轮预热后两臂各自检查耐心12轮 | 204800 | 105512960 |
 | `configs/innovation1-skinny-layout-fixed-mse.json` | 同一 SKINNY 行扫／列扫，固定数据池、sigmoid 概率 MSE、50 轮上限 | 180000 | 20524288 |
 | `configs/innovation1-skinny-layout-fixed-bce.json` | 只读复用固定 MSE 的 TRAIN/DEV，logits BCE、50 轮上限 | 180000 | 524288 |
+| `configs/innovation1-four-task-single-pair.json` | 四任务单对，一个共享 M；固定四池、10 轮、不早停 | 72000 | 62097152 |
 
 四密码以固定 DEV 选出五份 best；SKINNY 两臂各自按所用配方的最低 DEV BCE 或 MSE 选 best
 （并列取早），早停与选模独立。各配方均须从磁盘严格重载所有 best 后才构造共同 TEST。
@@ -707,11 +708,21 @@ R1公开面板使用RunStore opaque `.npz`槽，实际为`SPKR1-v1-public-only`�
 SKINNY 配方中的 `run_id: null` 表示尚未绑定，`run --id` 把新编号写入配方、权重、
 面板和报告身份，不改公开种子或采样命名空间。旧固定训练编号不接受，无续训／覆盖。
 
+四任务单对配方沿用固定 BCE 已锁定的 SKINNY 900 万 TRAIN／100 万 DEV 与原重排流；归档缺失或
+不符时，不生成备用池。SIMECK、PRESENT、SIMON 各完整生成 1000 万单对后按 90/10 固定划分，
+三份新池写入 TRAIN／DEV 与旧池出处一并进入 `READY`，然后才开始更新。每轮按原顺序轮换，
+每任务 1800 批、每批 5000 对；沿用可学习 Top2 路由，仅 SKINNY 在选中 nibble 时用列扫表。
+四项 DEV BCE 等权取最低、并列取最早；一份 `M-best.pt` 严格磁盘重载后才产生四份独立 TEST，
+各存 262144 对的密文、标签、logits 与分项分数，不存明文或密钥。总前向行上限 401048576；
+12h 墙钟、32h 进程 CPU、16 GiB 进程 RSS、20 GiB 进程分配器和 1 GiB 产物为协作门禁或分配器限额，
+不是实测吞吐或物理卡占用证明。每轮／选中轮的路由权重来自只读路由调用；不做跨配置配对或置信区间。
+
 ```sh
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-fresh.json
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-early-stop.json
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-fixed-mse.json
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-skinny-layout-fixed-bce.json
+PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-four-task-single-pair.json
 ```
 
 现场运行须另行授权。在 Windows 新进程中以 `-B` 启动，绝对输出根必须位于 `G:\lxy` 下。
@@ -736,5 +747,5 @@ UUID 在首次导入 Torch 前写入 `CUDA_VISIBLE_DEVICES`；只接受一张可
 的 RunStore 存储失败封存不保留尚未登记为 payload 的 `pending` 明细，也不会用推测补齐。
 
 旧独立 `evaluate`、嵌套训练入口、24轮横／竖扫配方、独立 M/D 单对实验、预检与设备诊断
-均不再提供。历史发布和记录不动；除固定 BCE 显式校验的池外，不读取旧科学产物。此替换只经人工替身验证，未证明
+均不再提供。历史发布和记录不动；除固定 BCE 与四任务单对显式校验的同一池外，不读取旧科学产物。此替换只经人工替身验证，未证明
 现场 CUDA、Windows、性能、真实训练或科学结论。

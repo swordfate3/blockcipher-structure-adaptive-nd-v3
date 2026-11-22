@@ -52,8 +52,11 @@ class TorchRuntime:
             for slot in SLOTS:
                 model = construct(recipe, slot).to(device=self.device, dtype=torch.float32)
                 self.models[slot] = model
-                o = recipe.optimizer
-                self.optimizers[slot] = torch.optim.Adam(model.parameters(), lr=o.lr_max,
+                self.add_adam(slot)
+
+    def add_adam(self, slot: str) -> None:
+        o = self.recipe.optimizer
+        self.optimizers[slot] = torch.optim.Adam(self.models[slot].parameters(), lr=o.lr_max,
                     betas=o.betas, eps=o.eps, weight_decay=o.weight_decay, amsgrad=o.amsgrad)
 
     def metadata(self) -> dict[str, Any]:

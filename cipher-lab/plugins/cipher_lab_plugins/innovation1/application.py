@@ -12,14 +12,18 @@ from cipher_lab.execution import Clocks, Meter, Stopped
 
 from . import resources
 from .config import GPU_UUID, Recipe, require_official, validate_run_id
+from .four_single.config import FourSingleRecipe
+from .four_single.config import make_policy as make_four_single_policy
+from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
 from .resources import Resources, ResourceStop
 from .single_train.config import BACKEND, DEVICE, make_policy
 
 
-def make_resources(recipe: Recipe | LayoutRecipe) -> Resources:
+def make_resources(recipe: Recipe | LayoutRecipe | FourSingleRecipe) -> Resources:
     clocks = Clocks()
     policy = (make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
+              else make_four_single_policy(recipe, clocks) if isinstance(recipe, FourSingleRecipe)
               else resources.policy(recipe, clocks))
     return Resources(Meter(policy, clocks, resources.production_rss_bytes))
 
@@ -34,7 +38,7 @@ def _device_stage(detail: str) -> Iterator[None]:
         raise ResourceStop(detail) from None
 
 
-def prepare_device(recipe: Recipe | LayoutRecipe, gpu_uuid: str) -> None:
+def prepare_device(recipe: Recipe | LayoutRecipe | FourSingleRecipe, gpu_uuid: str) -> None:
     if ('torch' in sys.modules or sys.platform not in ('linux', 'win32')
             or not GPU_UUID.fullmatch(gpu_uuid)):
         raise ResourceStop('DEVICE_ENTRY_REJECTED')
@@ -84,7 +88,7 @@ def _assemble_four(recipe: Recipe, res: Resources) -> tuple[Any, Any]:
     return _production_provider(recipe, res), runtime
 
 
-def execute(recipe: Recipe | LayoutRecipe, store: RunStore, res: Resources, *,
+def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, res: Resources, *,
             gpu_uuid: str, run_id: str) -> None:
     """No production overrides: a resolved recipe must match the frozen base."""
     validate_run_id(run_id)
@@ -92,6 +96,8 @@ def execute(recipe: Recipe | LayoutRecipe, store: RunStore, res: Resources, *,
         raise ValueError('RUN_IDENTITY')
     if isinstance(recipe, LayoutRecipe):
         official(recipe, run_id)
+    elif isinstance(recipe, FourSingleRecipe):
+        official_four_single(recipe, run_id)
     else:
         require_official(recipe)
 
@@ -111,6 +117,8 @@ def execute(recipe: Recipe | LayoutRecipe, store: RunStore, res: Resources, *,
         summary['location'] = dict(phase='assembly')
         if isinstance(recipe, LayoutRecipe):
             from .layout_probe.application import _execute
+        elif isinstance(recipe, FourSingleRecipe):
+            from .four_single.training import execute as execute_four_single
         else:
             from .training import run
 
@@ -131,6 +139,8 @@ def execute(recipe: Recipe | LayoutRecipe, store: RunStore, res: Resources, *,
     else:
         if isinstance(recipe, LayoutRecipe):
             _execute(recipe, store, res, BACKEND, launch=launch)
+        elif isinstance(recipe, FourSingleRecipe):
+            execute_four_single(recipe, store, res, launch=launch)
         else:
             run(recipe, provider, runtime, store, res, backend=BACKEND, launch=launch)
         return

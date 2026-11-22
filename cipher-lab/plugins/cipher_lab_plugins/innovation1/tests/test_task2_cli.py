@@ -39,7 +39,9 @@ def child(mode: str, root: Path) -> tuple[int, str, str]:
 
 @pytest.mark.parametrize('mode', ['help', 'innovation1-fresh',
                                   'innovation1-skinny-layout-early-stop',
-                                  'innovation1-skinny-layout-fixed-mse'])
+                                  'innovation1-skinny-layout-fixed-mse',
+                                  'innovation1-skinny-layout-fixed-bce',
+                                  'innovation1-four-task-single-pair'])
 def test_guarded_clean_source_cli(tmp_path: Path, mode: str) -> None:
     code, out, err = child(mode, tmp_path)
     assert code == 0, (out, err)

@@ -11,6 +11,11 @@ from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, cast
 
 from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
+from .four_single.config import METHOD as FOUR_SINGLE_METHOD
+from .four_single.config import SLOT as FOUR_SINGLE_SLOT
+from .four_single.config import FourSingleRecipe
+from .four_single.config import estimate as estimate_four_single
+from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
 from .single_train.config import estimate as estimate_pair
 
@@ -104,6 +109,8 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     method = saved['recipe'].get('method')
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
+                    elif method == FOUR_SINGLE_METHOD:
+                        from .four_single.report import render
                     elif method == Recipe().method:
                         from .report import render
                     else:
@@ -162,7 +169,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         recipe = load_config(args.config)
         if args.command == 'check':
             print(json.dumps(dict(recipe=recipe.to_dict(), estimate=(
-                estimate_pair(recipe) if isinstance(recipe, LayoutRecipe) else estimate(recipe)),
+                estimate_four_single(recipe) if isinstance(recipe, FourSingleRecipe)
+                else estimate_pair(recipe) if isinstance(recipe, LayoutRecipe)
+                else estimate(recipe)),
                 scope='STATIC_ONLY_NO_DEVICE_ADMISSION'), allow_nan=False))
             return 0
         validate_run_id(args.id)
@@ -173,13 +182,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError
         if isinstance(recipe, LayoutRecipe):
             recipe = official(replace(recipe, run_id=args.id), args.id)
-            if recipe.pool_source is not None:
-                # Keep write ownership disjoint from the pinned read-only archive.
-                requested_root = PureWindowsPath(args.root)
-                source_root = PureWindowsPath(recipe.pool_source.root)
-                if (requested_root.is_relative_to(source_root)
-                        or source_root.is_relative_to(requested_root)):
-                    raise ValueError('POOL_ROOT_OVERLAP')
+            pool_source = recipe.pool_source
+        elif isinstance(recipe, FourSingleRecipe):
+            recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
+            pool_source = recipe.skinny_source
+        else:
+            pool_source = None
+        if pool_source is not None:
+            # Keep every write owner disjoint from the explicitly bound archive.
+            requested_root = PureWindowsPath(args.root)
+            source_root = PureWindowsPath(pool_source.root)
+            if (requested_root.is_relative_to(source_root)
+                    or source_root.is_relative_to(requested_root)):
+                raise ValueError('POOL_ROOT_OVERLAP')
     except (ValueError, OSError):
         print('innovation1: invalid settings', file=sys.stderr)
         return 2
@@ -201,6 +216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=True, source_supplier=source_identity,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
+                               else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
     except Stopped as error:
         print(json.dumps(dict(scientific_status='UNKNOWN', command_status='STOPPED',

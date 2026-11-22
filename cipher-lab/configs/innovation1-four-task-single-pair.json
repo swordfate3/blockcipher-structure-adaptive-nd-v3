@@ -1,0 +1,138 @@
+{
+  "method": "innovation1-four-task-single-pair-v1",
+  "namespace": "innovation1-four-task-single-pair-v1-20261122",
+  "run_id": null,
+  "tasks": [
+    {
+      "cipher": "SIMECK",
+      "rounds": 16,
+      "difference": 64
+    },
+    {
+      "cipher": "PRESENT",
+      "rounds": 7,
+      "difference": 13631488
+    },
+    {
+      "cipher": "SIMON",
+      "rounds": 13,
+      "difference": 64
+    },
+    {
+      "cipher": "SKINNY",
+      "rounds": 8,
+      "difference": 8192
+    }
+  ],
+  "training": {
+    "epochs": 10,
+    "batches_per_epoch": 1800,
+    "batch_groups": 5000,
+    "dev_groups": 1000000,
+    "test_groups": 262144,
+    "eval_batch_groups": 512,
+    "pairs_per_group": 1,
+    "gradient_accumulation": 1,
+    "retries": 0
+  },
+  "resources": {
+    "precision": "float32",
+    "device_kind": "cuda",
+    "amp": false,
+    "tf32": false,
+    "cudnn_benchmark": false,
+    "gpu_bytes": 21474836480,
+    "rss_bytes": 17179869184,
+    "artifact_bytes": 1073741824,
+    "wall_seconds": 43200,
+    "cpu_seconds": 115200,
+    "intra_threads": 4,
+    "inter_threads": 1
+  },
+  "backend": "ciphers",
+  "device": "cuda:0",
+  "model": {
+    "stem_width": 96,
+    "channels": 96,
+    "norm_groups": 8,
+    "suffix_kernels": [
+      3,
+      5,
+      7,
+      9,
+      11
+    ],
+    "head_hidden": 64,
+    "router_hidden": 16,
+    "top_k": 2,
+    "parameters": 1087509,
+    "readout": "single-pair",
+    "skinny_nibble": "column-if-selected"
+  },
+  "optimizer": {
+    "name": "Adam",
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "amsgrad": false,
+    "lr_max": 0.001,
+    "lr_min": 0.0001,
+    "schedule": "cycle-cosine",
+    "clip_norm": 1.0,
+    "loss": "mean-BCEWithLogits",
+    "label_smoothing": 0.0,
+    "kernel_l2": 0.0,
+    "routing_penalty": 0.0
+  },
+  "seeds": {
+    "init": 26111741,
+    "sample": 26111742,
+    "shuffle": 26111743
+  },
+  "selection": {
+    "metric": "equal-macro-dev-bce",
+    "ties": "earliest",
+    "interval": "epoch-end",
+    "early_stopping": false,
+    "test": "after-one-persisted-strict-best-reload"
+  },
+  "data": {
+    "SIMECK": {
+      "protocol": "fresh-fixed-stratified-90-10-v1",
+      "namespace": "innovation1-four-task-single-pair-v1-20261122"
+    },
+    "PRESENT": {
+      "protocol": "fresh-fixed-stratified-90-10-v1",
+      "namespace": "innovation1-four-task-single-pair-v1-20261122"
+    },
+    "SIMON": {
+      "protocol": "fresh-fixed-stratified-90-10-v1",
+      "namespace": "innovation1-four-task-single-pair-v1-20261122"
+    },
+    "SKINNY": {
+      "protocol": "reuse-fixed-stratified-90-10-v1",
+      "source": {
+        "root": "G:\\lxy\\shared-m-cipher-nd-runs\\20261121-skinny-fixed-mse-01",
+        "run_id": "innovation1-skinny-fixed-mse-20261121-01",
+        "record": {
+          "bytes": 48314,
+          "sha256": "5c6c96d95ef39d941b841d051c3d3df22584bda1cc675ef74791c20e5e66c1d7"
+        },
+        "train": {
+          "bytes": 153012425,
+          "sha256": "78e6d1a219d3a20f5c3746ae5c45bfb14f33028f09a6cd13fa4f81287739637d"
+        },
+        "dev": {
+          "bytes": 17012423,
+          "sha256": "ed8792908f1ddca0842e97a55153f02a1efe2467d2a588ae69feae199145441a"
+        }
+      },
+      "namespace": "innovation1-skinny-layout-fixed-mse-v1-20261120",
+      "shuffle_namespace": "innovation1-skinny-layout-fixed-mse-v1-20261120",
+      "shuffle_seed": 26111953
+    }
+  }
+}

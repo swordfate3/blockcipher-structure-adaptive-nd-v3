@@ -1,6 +1,7 @@
 """Pair-local shared components used by the layout adapter."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from cipher_lab.models.shared_m.spec import STEM_NAMES
@@ -14,12 +15,17 @@ def computation_slots(bits: Any) -> Any:
     return bits.reshape(-1, 4, 2, 64)
 
 
-def shared_logits(model: Any, slots: Any, public: Any, *, rounds: int) -> Any:
+def shared_logits(model: Any, slots: Any, public: Any, *, rounds: int,
+                  nibble: Callable[[Any, Any], Any] | None = None) -> Any:
     represented = model.representation(slots, public, rounds=rounds)
     route = model.router(public)
     # Restored modules and inputs are FP32. Stems and suffix use per-row GN.
-    a, b = (model.stems[STEM_NAMES[index]](represented.canonical, represented.channel)
-            for index in route.indices.tolist())
+    def stem(index: int) -> Any:
+        name = STEM_NAMES[index]
+        operator = nibble if name == 'nibble' and nibble is not None else model.stems[name]
+        return operator(represented.canonical, represented.channel)
+
+    a, b = (stem(index) for index in route.indices.tolist())
     mixed = route.weights[0] * a + route.weights[1] * b
     channels = model.spec.channels
     hidden = model.suffix(mixed.reshape(-1, channels, 64)).reshape(-1, channels * 64)

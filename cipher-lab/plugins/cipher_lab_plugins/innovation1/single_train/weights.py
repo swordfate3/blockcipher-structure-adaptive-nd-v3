@@ -16,7 +16,7 @@ from .config import BACKEND, SingleRecipe
 
 
 def bound_identity(recipe: SingleRecipe, source: dict[str, str], backend: str,
-                   slot: str, epoch: int, score: float, *, slots: tuple[str, str],
+                   slot: str, epoch: int, score: float, *, slots: tuple[str, ...],
                    fixed: SingleRecipe, schema: int, method: str, run_id: str) -> dict[str, Any]:
     if (slot not in slots or type(epoch) is not int
             or not 1 <= epoch <= recipe.training.epochs
