@@ -1,0 +1,97 @@
+{
+  "method": "direct-block-cube-sharedm-v1",
+  "cipher": "SIMON64/128",
+  "rounds": 7,
+  "key_bits": 128,
+  "key_protocol": "single-key",
+  "input_width": 128,
+  "target_width": 128,
+  "input": "P || P′",
+  "target": "C || C′",
+  "bit_order": "MSB0",
+  "active_positions_lsb0": [
+    0,
+    21,
+    42,
+    60
+  ],
+  "xor_mask": "0x1000040000200001",
+  "active_columns_msb0": [
+    63,
+    42,
+    21,
+    3,
+    127,
+    106,
+    85,
+    67
+  ],
+  "pairs_per_family": 8,
+  "families": {
+    "train": 131072,
+    "dev": 8192,
+    "test": 8192
+  },
+  "pairs": {
+    "train": 1048576,
+    "dev": 65536,
+    "test": 65536
+  },
+  "test_denominator_bits": 524288,
+  "arms": [
+    "mlp",
+    "sharedm"
+  ],
+  "parameters": {
+    "mlp": 49536,
+    "sharedm": 1876179
+  },
+  "epochs": 5,
+  "batch_size": 256,
+  "selection": "active-BCE/earliest",
+  "training_loss": "full-128-BCE",
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "weight_decay": 0.0,
+  "grad_clip": 1.0,
+  "precision": "FP32",
+  "amp": false,
+  "tf32": false,
+  "data_seed": 20261123,
+  "order_seed": 20261124,
+  "init_seed": 31,
+  "scientific_counts": {
+    "real_blocks": 2359296,
+    "null_words": 0,
+    "optimizer_updates": 40960,
+    "forward_rows": 11272192
+  },
+  "preflight_counts": {
+    "real_blocks": 18,
+    "null_words": 0,
+    "optimizer_updates": 2,
+    "forward_rows": 32
+  },
+  "total_caps": {
+    "real_blocks": 2359314,
+    "null_words": 0,
+    "optimizer_updates": 40962,
+    "forward_rows": 11272224
+  },
+  "retries": 0,
+  "wall_seconds": 7200,
+  "cpu_seconds": 28800,
+  "rss_stop_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "cpu_threads": 4,
+  "interop_threads": 1,
+  "physical_gpu_index": 1,
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "gpu_free_bytes_min": 17179869184
+}
