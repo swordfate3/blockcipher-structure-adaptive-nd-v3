@@ -5,6 +5,7 @@ from html import escape
 from typing import Any
 
 from ..config import canonical
+from .config import REPLAY_METHOD
 
 
 def render(saved: dict[str, Any]) -> dict[str, bytes]:
@@ -26,14 +27,31 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                     'fill="#2865d1"/>')
     flow = ('先核验 SKINNY 旧池，再固定并保存其他三池 → READY → 四任务轮换更新一个 M → '
             '四项 DEV BCE 等权选模（并列取早） → 磁盘严格重载 → 四项独立 TEST')
+    termination, route_table = '', ''
+    if saved['recipe']['method'] == REPLAY_METHOD:
+        flow = ('只读校验旧 TRAIN/DEV（含 SKINNY 原归档链） → 四任务轮换更新一个新 M → '
+                '宏 DEV BCE 早停及选模（并列取早） → 磁盘严格重载 → '
+                '验证并复用原四份固定 TEST 的密文与标签，以新 M 重新评分。'
+                '旧 logits 不用于评分；不是全新独立确认，不作配对推断。')
+        stop = summary.get('training_termination', {})
+        termination = (f'终态原因：{summary.get("reason", "未保存")}。'
+                       f'停训原因：{stop.get("reason", "未保存")}；'
+                       f'停训轮：{stop.get("completed_epochs", "未保存")}。')
+        routes = summary.get('persisted_reload', {}).get('routes', {})
+        if routes:
+            route_table = '## 磁盘重载后的路由权重\n\n|任务|选中分支及权重|\n|---|---|\n'
+            for name, weights in routes.items():
+                entries = ', '.join(f'{stem}: {weight:.6g}' for stem, weight in weights.items())
+                route_table += f'|{name}|{entries}|\n'
+            route_table += '\n'
     evidence = canonical({key: saved[key] for key in ('summary', 'counts', 'source', 'artifacts')})
     text = (f'# 创新1 · 四任务单对共享 M\n\n状态：{saved["status"]}。'
-            f'选中轮：{best.get("epoch", "未保存")}。\n\n{flow}\n\n'
+            f'选中轮：{best.get("epoch", "未保存")}。{termination}\n\n{flow}\n\n'
             '|任务|TEST 行数|BCE|准确率 %|\n|---|---:|---:|---:|\n'
             + '\n'.join(rows) + '\n\n仅报告已保存值；部分 TEST 不代表完整执行。'
             '不是行扫/列扫因果对照，不做跨配置配对比较或置信区间。'
             '资源门禁为协作式；CUDA 上限只约束进程分配器。\n\n'
-            f'## 保存证据（含选中/各轮路由）\n\n```json\n{evidence}\n```\n')
+            f'{route_table}## 保存证据（含选中/各轮路由）\n\n```json\n{evidence}\n```\n')
     svg = ('<svg viewBox="0 0 420 120" role="img" aria-label="已保存 TEST 准确率">'
            + ''.join(bars) + '</svg>')
     html = ('<!doctype html><html lang="zh"><meta charset="utf-8">'

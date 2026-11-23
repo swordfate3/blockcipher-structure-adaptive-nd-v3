@@ -51,7 +51,7 @@ def source_identity() -> dict[str, str]:
                  'contracts', 'data', 'dataset', 'metrics', 'models', 'report', 'resources',
                  'scoring', 'source', 'training'),
             'four_single': ('__init__', 'config', 'data', 'models', 'runtime', 'training',
-                            'report'),
+                            'report', 'replay'),
             'layout_probe': ('__init__', 'application', 'config', 'data', 'layout', 'metrics',
                              'models', 'report', 'reuse', 'runtime', 'weights'),
             'single_train': ('__init__', 'config', 'data', 'training', 'weights'),

@@ -12,7 +12,7 @@ from cipher_lab.execution import Clocks, Meter, Stopped
 
 from . import resources
 from .config import GPU_UUID, Recipe, require_official, validate_run_id
-from .four_single.config import FourSingleRecipe
+from .four_single.config import FourSingleRecipe, ReplayRecipe, validate_replay_root
 from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
@@ -98,6 +98,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         official(recipe, run_id)
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
+        if isinstance(recipe, ReplayRecipe):
+            validate_replay_root(store._root)
     else:
         require_official(recipe)
 

@@ -166,6 +166,15 @@ def _load(recipe: LayoutRecipe, check: Callable[[], None]) -> tuple[PairBatch, P
     return panels[0], panels[1], evidence
 
 
+def load_reused_pool(recipe: LayoutRecipe, check: Callable[[], None]) -> tuple[
+        PairBatch, PairBatch, dict[str, Any]]:
+    """Validate the original pool without constructing a generation provider."""
+    try:
+        return _load(recipe, check)
+    except (ArtifactError, OSError, ValueError, BadZipFile, EOFError, KeyError, SyntaxError):
+        raise PoolSourceError from None
+
+
 class ReusedPoolProvider(FixedPoolProvider):
     def __init__(self, recipe: LayoutRecipe, oracle: Oracle, private: PrivateSource,
                  meter: BlockMeter) -> None:
@@ -178,10 +187,7 @@ class ReusedPoolProvider(FixedPoolProvider):
         if self._started:
             raise ValueError('POOL_ORDER')
         self._started = True
-        try:
-            train, dev, provenance = _load(self.recipe, self.meter.check)
-        except (ArtifactError, OSError, ValueError, BadZipFile, EOFError, KeyError, SyntaxError):
-            raise PoolSourceError from None
+        train, dev, provenance = load_reused_pool(self.recipe, self.meter.check)
         self._dev = dev
         train = self._use_train(train)
         self._provenance = provenance

@@ -3,20 +3,25 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 from datetime import timedelta
+from pathlib import PurePath, PureWindowsPath
 from typing import Any
 
 from cipher_lab.config import Policy
 from cipher_lab.execution import Clocks
+from cipher_lab.training.early_stopping import Settings
 
 from ..config import TASKS, Recipe, Resources, Task, Training, canonical, validate_run_id
 from ..contracts import MAX_CHECKPOINT
-from ..layout_probe.config import FIXED_BCE, FIXED_MSE, PoolSource
+from ..layout_probe.config import FIXED_BCE, FIXED_MSE, FilePin, PoolSource
 from ..layout_probe.config import SEEDS as SKINNY_SEEDS
 from ..single_train.config import ARCHITECTURE, BACKEND, DEVICE, SingleRecipe
 from ..single_train.config import estimate as single_estimate
 
 METHOD = 'innovation1-four-task-single-pair-v1'
 NAMESPACE = 'innovation1-four-task-single-pair-v1-20261122'
+REPLAY_METHOD = 'innovation1-four-task-single-pair-50epoch-v1'
+REPLAY_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261123-four-task-single-pair-50epoch-01'
+REPLAY_ID = 'innovation1-four-task-single-pair-50epoch-20261123-01'
 SLOT = 'M-best'
 PARAMETERS = 1_087_509
 BATCH_LEDGER_ROWS = 256
@@ -76,8 +81,58 @@ class FourSingleRecipe(SingleRecipe):
 FOUR_SINGLE = FourSingleRecipe()
 
 
+@dataclass(frozen=True)
+class ReplaySource:
+    root: str = r'G:\lxy\shared-m-cipher-nd-runs\20261122-four-task-single-pair-01'
+    run_id: str = 'innovation1-four-task-single-pair-20261122-01'
+    record: FilePin = FilePin(77847,
+                             '7a4a441ede8144b462cf15e5975240efd84eba1757a78f040c7eec3a3a665ddf')
+
+
+@dataclass(frozen=True)
+class ReplayRecipe(FourSingleRecipe):
+    method: str = REPLAY_METHOD
+    run_id: str = REPLAY_ID
+    training: Training = replace(FOUR_SINGLE.training, epochs=50)
+    resources: Resources = replace(FOUR_SINGLE.resources, wall_seconds=28 * 3600)
+    archive: ReplaySource = ReplaySource()
+    early_stopping: Settings = Settings(warmup_epochs=24, patience=12, min_delta=1e-5)
+    cosine_epochs: int = FOUR_SINGLE.training.epochs
+
+    @property
+    def reuse_pool(self) -> bool:
+        return True
+
+    def to_dict(self) -> dict[str, Any]:
+        recipe = super().to_dict()
+        recipe['optimizer'].update(schedule='cycle-cosine-then-constant',
+                                   cosine_epochs=self.cosine_epochs)
+        recipe['selection']['early_stopping'] = asdict(self.early_stopping)
+        recipe['output_root'] = REPLAY_ROOT
+        recipe['data'].update({t.cipher: dict(protocol='reuse-fixed-stratified-90-10-v1',
+            namespace=self.namespace) for t in self.tasks[:-1]})
+        recipe['data'].update(archive=asdict(self.archive), test='reuse-prior-fixed-test')
+        return recipe
+
+
+FOUR_SINGLE_50 = ReplayRecipe()
+
+
+def validate_replay_root(root: PurePath) -> None:
+    # Require the native absolute sibling, not a relative spelling on POSIX or
+    # a different Windows path (including device/UNC and drive-relative aliases).
+    # CLI applies the existing no-reparse guard before acquiring any write owner.
+    if not root.is_absolute() or PureWindowsPath(root) != PureWindowsPath(REPLAY_ROOT):
+        raise ValueError('REPLAY_OUTPUT_ROOT')
+
+
 def official(recipe: FourSingleRecipe, run_id: str) -> FourSingleRecipe:
     validate_run_id(run_id)
+    if isinstance(recipe, ReplayRecipe):
+        if (run_id != REPLAY_ID or type(recipe) is not ReplayRecipe or recipe != FOUR_SINGLE_50
+                or canonical(recipe.to_dict()) != canonical(FOUR_SINGLE_50.to_dict())):
+            raise ValueError('CONFIG_EXACT')
+        return FOUR_SINGLE_50
     pin = FOUR_SINGLE.skinny_source
     expected = replace(FOUR_SINGLE, run_id=run_id)
     if (pin is None or run_id.casefold() == pin.run_id.casefold()
@@ -93,9 +148,12 @@ def estimate(recipe: FourSingleRecipe) -> dict[str, int]:
         raise ValueError('POOL_RECIPE')
     cycles = n['cycles']
     tr = recipe.training
-    tasks, fresh = len(TASKS), len(TASKS) - 1
+    replay = isinstance(recipe, ReplayRecipe)
+    tasks, fresh = len(TASKS), 0 if replay else len(TASKS) - 1
     pool = n['pool_groups']
     fresh_blocks, test_blocks = 2 * fresh * pool, 2 * tasks * tr.test_groups
+    if replay:
+        test_blocks = 0
     updates = tasks * cycles
     # Includes all immutable data, bounded JSON ledgers, both copies of the
     # one atomic-replacement model and shared record/report/temp overhead.

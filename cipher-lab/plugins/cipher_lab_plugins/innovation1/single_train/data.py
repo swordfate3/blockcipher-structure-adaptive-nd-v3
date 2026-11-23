@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from numpy.typing import NDArray
 
-from ..config import Recipe, Task, canonical
+from ..config import Recipe, Task, Training, canonical
 from ..data import BlockMeter, DataError, Oracle, PrivateSource, derive_seed
 from .config import TASK, SingleRecipe, estimate
 
@@ -144,6 +144,42 @@ class Provider:
                          self._streams.namespace)
 
 
+class FixedPairReplay:
+    """The existing per-class epoch shuffle, without a sampler or oracle."""
+
+    def __init__(self, train: PairBatch, training: Training, streams: Recipe, task: Task,
+                 shuffle_namespace: str, check: Callable[[], None]) -> None:
+        self._train, self._training, self._task, self._check = train, training, task, check
+        self._streams = replace(streams, namespace=shuffle_namespace)
+        self._classes = (np.flatnonzero(train.labels == 0), np.flatnonzero(train.labels == 1))
+        check()
+        self._cycle = 0
+        self._epoch: tuple[np.random.Generator, NDArray[np.intp], NDArray[np.intp]] | None = None
+
+    def train(self, cycle: int) -> PairBatch:
+        tr = self._training
+        if (type(cycle) is not int or cycle != self._cycle
+                or cycle >= tr.epochs * tr.batches_per_epoch):
+            raise ValueError('TRAIN_ORDER')
+        epoch, offset = divmod(cycle, tr.batches_per_epoch)
+        if offset == 0:
+            # Shuffle row indices only, independently within each class.
+            rng = np.random.default_rng(derive_seed(
+                self._streams, self._task, 'train', epoch, 'shuffle'))
+            self._epoch = rng, rng.permutation(self._classes[0]), rng.permutation(self._classes[1])
+            self._check()
+        assert self._epoch is not None
+        rng, zeros, ones = self._epoch
+        half = tr.batch_groups // 2
+        start = offset * half
+        rows = np.concatenate((zeros[start:start + half], ones[start:start + half]))
+        rng.shuffle(rows)
+        batch = PairBatch(self._train.ciphertext[rows], self._train.labels[rows],
+                          'train', cycle, self._train.namespace)
+        self._cycle += 1
+        return batch
+
+
 class FixedPairPool(Provider):
     """Collect the whole balanced pool once, then replay fixed training rows."""
 
@@ -156,10 +192,8 @@ class FixedPairPool(Provider):
                          progress=progress)
         self._shuffle_namespace = shuffle_namespace
         self._started = self._ready = False
-        self._train_pool: PairBatch | None = None
+        self._replay: FixedPairReplay | None = None
         self._dev: PairBatch | None = None
-        self._classes: tuple[NDArray[np.intp], NDArray[np.intp]] | None = None
-        self._epoch: tuple[np.random.Generator, NDArray[np.intp], NDArray[np.intp]] | None = None
 
     def prepare_pool(self) -> PairBatch:
         if self._started or self.recipe.reuse_pool:
@@ -196,14 +230,13 @@ class FixedPairPool(Provider):
         return self._use_train(train)
 
     def _use_train(self, train: PairBatch) -> PairBatch:
-        self._classes = (np.flatnonzero(train.labels == 0), np.flatnonzero(train.labels == 1))
-        self.meter.check()
-        self._train_pool = train
+        self._replay = FixedPairReplay(train, self.recipe.training, self._streams, self.task,
+                                       self._shuffle_namespace, self.meter.check)
         return train
 
     def activate(self) -> None:
         """The loop calls this only after committing both split artifacts and READY."""
-        if self._train_pool is None or 'dev' not in self._panels or self._ready:
+        if self._replay is None or 'dev' not in self._panels or self._ready:
             raise ValueError('POOL_ORDER')
         self._ready = True
 
@@ -218,30 +251,9 @@ class FixedPairPool(Provider):
         return super().panel(split)
 
     def train(self, cycle: int) -> PairBatch:
-        train, classes = self._train_pool, self._classes
-        if not self._ready or train is None or classes is None:
+        if not self._ready or self._replay is None:
             raise ValueError('POOL_NOT_READY')
-        tr = self.recipe.training
-        if (type(cycle) is not int or cycle != self._cycle
-                or cycle >= tr.epochs * tr.batches_per_epoch):
-            raise ValueError('TRAIN_ORDER')
-        epoch, offset = divmod(cycle, tr.batches_per_epoch)
-        if offset == 0:
-            # Shuffle row indices only, independently within each class.
-            streams = replace(self._streams, namespace=self._shuffle_namespace)
-            rng = np.random.default_rng(derive_seed(streams, self.task, 'train', epoch, 'shuffle'))
-            self._epoch = rng, rng.permutation(classes[0]), rng.permutation(classes[1])
-            self.meter.check()
-        assert self._epoch is not None
-        rng, zeros, ones = self._epoch
-        half = tr.batch_groups // 2
-        start = offset * half
-        rows = np.concatenate((zeros[start:start + half], ones[start:start + half]))
-        rng.shuffle(rows)
-        batch = PairBatch(train.ciphertext[rows], train.labels[rows],
-                          'train', cycle, train.namespace)
-        self._cycle += 1
-        return batch
+        return self._replay.train(cycle)
 
 
 def pack_panel(batch: PairBatch, recipe: SingleRecipe, metadata: dict[str, Any],

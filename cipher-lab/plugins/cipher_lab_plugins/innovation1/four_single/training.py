@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 
 from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.execution import Stopped
+from cipher_lab.training.early_stopping import EarlyStopping
 
 from ..config import Task, canonical
 from ..contracts import MAX_CHECKPOINT
@@ -26,10 +27,12 @@ from .config import (
     ROW_BYTES_LIMIT,
     SLOT,
     FourSingleRecipe,
+    ReplayRecipe,
     estimate,
     official,
 )
 from .data import Pools, encode_panel
+from .replay import ReplayPools, TestSourceError
 from .runtime import Runtime
 
 
@@ -58,8 +61,7 @@ def score(task: Task, panel: PairBatch, runtime: Runtime, chunk: int, res: Resou
                 accuracy=float(np.mean((logits >= 0) == panel.labels))), logits
 
 
-
-def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunStore,
+def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime, store: RunStore,
          res: Resources, summary: dict[str, Any]) -> None:
     tr, tasks = recipe.training, recipe.tasks
     totals = estimate(recipe)
@@ -70,6 +72,9 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
     bindings: dict[str, Any] = summary['pools']
     updates: dict[str, dict[str, int]] = summary['updates']
     test_results: dict[str, Any] = summary['test']
+    tracker = (EarlyStopping((SLOT,), recipe.early_stopping, epoch_ceiling=tr.epochs)
+               if isinstance(recipe, ReplayRecipe) else None)
+    cosine_epochs = recipe.cosine_epochs if isinstance(recipe, ReplayRecipe) else None
 
     def check_source() -> None:
         res.check()
@@ -111,8 +116,11 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
         raw = encode_panel(panel, task, recipe, source, BACKEND, **kwargs)
         res.check()
         ref = store.write_dataset(f'{panel.split}-{task.cipher}', raw)
-        return dict(origin='fresh', ref=ref, sha256=sha256(raw).hexdigest(), bytes=len(raw),
-                    digest=panel.digest, groups=panel.groups, namespace=panel.namespace)
+        entry = dict(origin='fresh', ref=ref, sha256=sha256(raw).hexdigest(), bytes=len(raw),
+                     digest=panel.digest, groups=panel.groups, namespace=panel.namespace)
+        if 'reused_input' in kwargs:
+            entry.update(origin='rescored', reused_input=kwargs['reused_input'])
+        return entry
 
     def at_row(start: int) -> None:
         summary['location']['start_row'] = start
@@ -130,21 +138,30 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
     summary['pool_status'] = 'PREPARING'
     summary['location'] = dict(phase='pool-source-verify', task='SKINNY')
     snapshot()
-    # Verify the mandatory archive before collecting any fresh pool.
-    skinny_dev, bindings['SKINNY'] = pools.bind_reused()
-    dev = {'SKINNY': skinny_dev}
-    audit(real_blocks=0, optimizer_updates=0, forward_rows=0, null_words=0)
-    snapshot()
-    for i, task in enumerate(tasks[:-1], 1):
-        summary['location'] = dict(phase='pool-generate', task=task.cipher, chunks_completed=0)
+    if isinstance(pools, ReplayPools):
+        def visit_pool(cipher: str) -> None:
+            summary['location'] = dict(phase='pool-source-verify', task=cipher)
+
+        dev, evidence = pools.bind(visit_pool)
+        bindings.update(evidence)
+        audit(real_blocks=0, optimizer_updates=0, forward_rows=0, null_words=0)
+    else:
+        # Verify the mandatory archive before collecting any fresh pool.
+        skinny_dev, bindings['SKINNY'] = pools.bind_reused()
+        dev = {'SKINNY': skinny_dev}
+        del skinny_dev
+        audit(real_blocks=0, optimizer_updates=0, forward_rows=0, null_words=0)
         snapshot()
-        train, dev[task.cipher] = pools.collect(task, progress)
-        audit(real_blocks=2 * i * (totals['fixed_train_rows_each'] + tr.dev_groups),
-              optimizer_updates=0, forward_rows=0, null_words=0)
-        bindings[task.cipher] = dict(train=save_panel(task, train))
-        del train
-        bindings[task.cipher]['dev'] = save_panel(task, dev[task.cipher])
-        snapshot()
+        for i, task in enumerate(tasks[:-1], 1):
+            summary['location'] = dict(phase='pool-generate', task=task.cipher, chunks_completed=0)
+            snapshot()
+            train, dev[task.cipher] = pools.collect(task, progress)
+            audit(real_blocks=2 * i * (totals['fixed_train_rows_each'] + tr.dev_groups),
+                  optimizer_updates=0, forward_rows=0, null_words=0)
+            bindings[task.cipher] = dict(train=save_panel(task, train))
+            del train
+            bindings[task.cipher]['dev'] = save_panel(task, dev[task.cipher])
+            snapshot()
     if set(bindings) != {task.cipher for task in tasks}:
         raise ValueError('POOL_BINDING')
     check_source()
@@ -153,12 +170,13 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
     snapshot()
     pools.activate()
 
+    completed_epochs = 0
     for epoch in range(1, tr.epochs + 1):
         check_source()
         losses = {task.cipher: 0. for task in tasks}
         for offset in range(tr.batches_per_epoch):
             cycle = (epoch - 1) * tr.batches_per_epoch + offset
-            lr = learning_rate(recipe, cycle)
+            lr = learning_rate(recipe, cycle, cosine_epochs=cosine_epochs)
             for task in tasks:
                 cipher = task.cipher
                 loc = dict(phase='train', task=cipher, epoch=epoch, cycle=cycle)
@@ -217,12 +235,18 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
                         macro_dev_bce=value, routes=routes)
             del raw
             snapshot()
+        completed_epochs = epoch
+        if tracker is not None and (reason := tracker.observe(epoch, {SLOT: value})) is not None:
+            summary['training_termination'] = dict(reason=reason, completed_epochs=epoch)
+            break
 
     summary['location'] = dict(phase='persisted-best-reload')
     check_source()
+    if tracker is not None:
+        snapshot()
     if best.get('ref') != f'model/{SLOT}.pt':
         raise ValueError('BEST_REF')
-    del dev, skinny_dev
+    del dev
     pools.release_train()
     runtime.release()
     res.check()
@@ -234,23 +258,55 @@ def _fit(recipe: FourSingleRecipe, pools: Pools, runtime: Runtime, store: RunSto
     summary['persisted_reload'] = dict(best)
     summary['persisted_reload']['routes'] = runtime.routes()
     snapshot()
+    replay_tests: dict[str, tuple[PairBatch, dict[str, Any]]] = {}
+    if isinstance(pools, ReplayPools):
+        summary['location'] = dict(phase='test-source-verify')
+        snapshot()
+
+        def visit_test(cipher: str) -> None:
+            summary['location'] = dict(phase='test-source-verify', task=cipher)
+
+        # Verify all four prior TESTs before any scoring. A missing or corrupt
+        # file cannot produce a misleading subset of TEST scores.
+        replay_tests = pools.load_tests(visit_test)
+    rescored: list[tuple[Task, PairBatch, dict[str, Any], NDArray[np.float64],
+                         dict[str, Any]]] = []
     for i, task in enumerate(tasks, 1):
-        summary['location'] = dict(phase='test-generate', task=task.cipher, chunks_completed=0)
-        snapshot()
-        panel = pools.test(task, progress)
+        if isinstance(pools, ReplayPools):
+            panel, prior = replay_tests.pop(task.cipher)
+            provenance = dict(reused_input=prior)
+        else:
+            summary['location'] = dict(phase='test-generate', task=task.cipher, chunks_completed=0)
+            snapshot()
+            panel = pools.test(task, progress)
+            provenance = {}
         summary['location'] = dict(phase='test-score', task=task.cipher)
-        audit(real_blocks=totals['fresh_pool_real_blocks'] + 2 * i * tr.test_groups)
+        audit(real_blocks=totals['fresh_pool_real_blocks']
+              + i * (totals['test_real_blocks'] // len(tasks)))
         scores_test, logits = score(task, panel, runtime, tr.eval_batch_groups, res, at_row)
-        test_results[task.cipher] = dict(scores=scores_test, panel=save_panel(
-            task, panel, logits=logits, best=summary['persisted_reload']))
+        if isinstance(pools, ReplayPools):
+            # Keep only the bounded four TEST panels and new logits in memory;
+            # never publish a subset of scores if one task fails to score.
+            rescored.append((task, panel, scores_test, logits, provenance))
+        else:
+            test_results[task.cipher] = dict(scores=scores_test, panel=save_panel(
+                task, panel, logits=logits, best=summary['persisted_reload']))
+            snapshot()
         del panel, logits
-        snapshot()
     check_source()
-    units = ('real_blocks', 'forward_rows', 'optimizer_updates', 'null_words')
-    audit(**{k: totals[k] for k in units})
-    if any(updates[t.cipher] != dict.fromkeys(('attempted', 'completed'), totals['cycles'])
-           for t in tasks):
+    cycles = completed_epochs * tr.batches_per_epoch
+    audit(real_blocks=totals['real_blocks'], null_words=0, optimizer_updates=cycles * len(tasks),
+          forward_rows=len(tasks) * (cycles * tr.batch_groups + completed_epochs * tr.dev_groups
+                                     + tr.test_groups))
+    if any(updates[t.cipher] != dict.fromkeys(('attempted', 'completed'), cycles) for t in tasks):
         raise ValueError('UPDATE_COUNT_MISMATCH')
+    if rescored:
+        entries = {}
+        for task, panel, scores_test, logits, provenance in rescored:
+            entries[task.cipher] = dict(scores=scores_test, panel=save_panel(
+                task, panel, logits=logits, best=summary['persisted_reload'], **provenance))
+        check_source()
+        test_results.update(entries)
 
 
 def execute(recipe: FourSingleRecipe, store: RunStore, res: Resources, *,
@@ -267,12 +323,21 @@ def execute(recipe: FourSingleRecipe, store: RunStore, res: Resources, *,
         store._failure_evidence_key = 'pending'
         store.write_snapshot(dict(summary=summary, counts=res.snapshot()))
         res.check()
-        pools, runtime = assemble(recipe, res)
+        pools: Pools | ReplayPools
+        if isinstance(recipe, ReplayRecipe):
+            pools = ReplayPools(recipe, res.check)
+            summary['test_protocol'] = dict(source=pools.source_record, prior_test_reuse=True,
+                                            paired_comparison=False, fresh_confirmation=False)
+            runtime = Runtime(recipe, res.check)
+        else:
+            pools, runtime = assemble(recipe, res)
         _fit(recipe, pools, runtime, store, res, summary)
         summary['reason'] = 'COMPLETE'
         status = 'SUCCEEDED'
     except ArtifactError:
         return
+    except TestSourceError:
+        summary['reason'] = 'TEST_SOURCE_INVALID'
     except PoolSourceError:
         summary['reason'] = 'POOL_SOURCE_INVALID'
     except (ResourceStop, Stopped, KeyboardInterrupt) as error:

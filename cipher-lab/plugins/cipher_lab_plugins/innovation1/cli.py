@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
 from .four_single.config import METHOD as FOUR_SINGLE_METHOD
+from .four_single.config import REPLAY_METHOD, FourSingleRecipe, ReplayRecipe, validate_replay_root
 from .four_single.config import SLOT as FOUR_SINGLE_SLOT
-from .four_single.config import FourSingleRecipe
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
@@ -109,7 +109,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     method = saved['recipe'].get('method')
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
-                    elif method == FOUR_SINGLE_METHOD:
+                    elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD):
                         from .four_single.report import render
                     elif method == Recipe().method:
                         from .report import render
@@ -185,6 +185,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             pool_source = recipe.pool_source
         elif isinstance(recipe, FourSingleRecipe):
             recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
+            if isinstance(recipe, ReplayRecipe):
+                validate_replay_root(args.root)
             pool_source = recipe.skinny_source
         else:
             pool_source = None

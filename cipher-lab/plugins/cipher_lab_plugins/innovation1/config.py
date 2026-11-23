@@ -224,7 +224,7 @@ def require_official(recipe: Recipe) -> None:
 
 
 def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
-    from .four_single.config import FOUR_SINGLE
+    from .four_single.config import FOUR_SINGLE, FOUR_SINGLE_50
     from .layout_probe.config import EARLY_STOP, FIXED_BCE, FIXED_MSE
 
     # Reject pipes/devices; the bounded read is for regular config files only.
@@ -238,7 +238,7 @@ def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
     try:
         raw = json.loads(content.decode('utf-8'), object_pairs_hook=_unique)
         encoded = canonical(raw)  # strict JSON types as well as values
-        for recipe in (Recipe(), EARLY_STOP, FIXED_MSE, FIXED_BCE, FOUR_SINGLE):
+        for recipe in (Recipe(), EARLY_STOP, FIXED_MSE, FIXED_BCE, FOUR_SINGLE, FOUR_SINGLE_50):
             if encoded == canonical(recipe.to_dict()):
                 return recipe
     except (ValueError, RecursionError):
