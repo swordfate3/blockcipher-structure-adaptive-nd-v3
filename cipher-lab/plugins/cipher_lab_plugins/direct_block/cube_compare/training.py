@@ -1,7 +1,7 @@
 """One cube provider, serial fits, and an all-or-nothing TEST score."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
@@ -22,7 +22,10 @@ from ..fit import (
     seeded_order,
 )
 from . import config
-from .data import Panel
+from .data import Labels, Panel
+from .low_metrics import LowScore
+from .low_metrics import train_majority as train_full_majority
+from .low_rounds import Matrix
 from .metrics import LSTMScore, PairedScore, train_majority
 
 Arm = Literal['mlp', 'sharedm']
@@ -33,6 +36,11 @@ class Panels(Protocol):
     def label_test(self) -> Panel: ...
 
 
+class LowPanels(Protocol):
+    def build(self, split: Literal['train', 'dev']) -> Matrix: ...
+    def label_test(self) -> Matrix: ...
+
+
 @dataclass(frozen=True, slots=True)
 class Plan:
     """Production uses these defaults; small plans are only for injected tests."""
@@ -41,7 +49,7 @@ class Plan:
     epochs: int = config.EPOCHS
     batch_size: int = config.BATCH
     early_stopping: Settings | None = None
-    topology: Literal['dual', 'lstm-single'] = 'dual'
+    topology: Literal['dual', 'lstm-single', 'lstm-r1r3'] = 'dual'
 
 
 def _completed_epochs(summary: dict[str, object], plan: Plan, name: str) -> int:
@@ -72,18 +80,38 @@ def completed_lstm_epochs(summary: dict[str, object], plan: Plan) -> int:
     return _completed_epochs(summary, plan, 'lstm')
 
 
+def completed_low_epochs(summary: dict[str, object], plan: Plan) -> tuple[int, int, int]:
+    arms = summary.get('arms')
+    if (plan.topology != 'lstm-r1r3' or not isinstance(arms, dict)
+            or set(arms) != set(config.LOW_NAMES)):
+        raise ValueError('expected three completed low-round arms')
+    return (_completed_epochs(summary, plan, 'r1'), _completed_epochs(summary, plan, 'r2'),
+            _completed_epochs(summary, plan, 'r3'))
+
+
 def _quiet(phase: str) -> None:
     pass
 
 
 def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
-        make_panels: Callable[[Meter], Panels], make_engine: Callable[[Arm], Engine] | None = None,
+        make_panels: Callable[[Meter], Panels] | None = None,
+        make_engine: Callable[[Arm], Engine] | None = None,
         make_lstm_engine: Callable[[], Engine] | None = None,
+        make_low_panels: Callable[[Meter], LowPanels] | None = None,
+        make_low_engine: Callable[[config.LowRound], Engine] | None = None,
         plan: Plan = Plan(), phase: Callable[[str], None] = _quiet) -> dict[str, object]:
     """Return one complete score only; never attach a TEST score to live snapshots."""
     single = plan.topology == 'lstm-single'
+    low = plan.topology == 'lstm-r1r3'
     roster: tuple[tuple[str, str], ...]
-    if single and make_lstm_engine is not None and make_engine is None:
+    if low:
+        if (make_low_panels is None or make_low_engine is None or plan.early_stopping is None
+                or any(fn is not None for fn in (make_panels, make_engine, make_lstm_engine))):
+            raise ValueError('invalid low-round fit topology')
+        roster = tuple(zip(config.LOW_NAMES, config.LOW_SLOTS, strict=True))
+    elif make_panels is None or make_low_panels is not None or make_low_engine is not None:
+        raise ValueError('invalid cube panel topology')
+    elif single and make_lstm_engine is not None and make_engine is None:
         if plan.early_stopping is None:
             raise ValueError('LSTM requires epoch early stopping')
         roster = (('lstm', config.LSTM_SLOT),)
@@ -111,29 +139,55 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         store.write_dataset(split, raw)
         meter.check()
 
+    def prepare(split: str, panel: Panel, rows: int) -> Panel:
+        if len(panel) != rows:
+            raise ValueError(f'{split.upper()} panel size')
+        archive(split, panel)
+        return panel
+
+    def low_train_labels(panel: Panel) -> Iterator[Labels]:
+        for at in batch_indices(len(panel), plan.batch_size):
+            meter.check()
+            yield panel.label_batch(at)
+        meter.check()  # also check the last reduction before another phase
+
     phase('PANELS')
     assert_source(store)
     meter.check()
-    panels = make_panels(meter)
-    train = panels.build('train')
-    if len(train) != train_rows:
-        raise ValueError('TRAIN panel size')
-    archive('train', train)
-    dev = panels.build('dev')
-    if len(dev) != dev_rows:
-        raise ValueError('DEV panel size')
-    archive('dev', dev)
-    majority = train_majority(train.label_batch(at) for at in batch_indices(train_rows,
-                                                                            plan.batch_size))
+    panels: Panels | None = None
+    low_panels: LowPanels | None = None
+    majorities: tuple[tuple[int, ...], ...] = ()
+    majority: tuple[int, ...] = ()
+    if low:
+        assert make_low_panels is not None
+        low_panels = make_low_panels(meter)
+        trains = tuple(prepare(f'{name}-train', panel, train_rows) for (name, _), panel in
+                       zip(roster, low_panels.build('train'), strict=True))
+        devs = tuple(prepare(f'{name}-dev', panel, dev_rows) for (name, _), panel in
+                     zip(roster, low_panels.build('dev'), strict=True))
+        majorities = tuple(train_full_majority(low_train_labels(panel)) for panel in trains)
+    else:
+        assert make_panels is not None
+        panels = make_panels(meter)
+        train = prepare('train', panels.build('train'), train_rows)
+        dev = prepare('dev', panels.build('dev'), dev_rows)
+        trains, devs = (train,) * len(roster), (dev,) * len(roster)
+        majority = train_majority(train.label_batch(at) for at in
+                                  batch_indices(train_rows, plan.batch_size))
     order = seeded_order(train_rows, config.ORDER_SEED)
     arms: dict[str, dict[str, object]] = {}
     summary['arms'] = arms
     reloads: list[tuple[Engine, Best | None, dict[str, object]]] = []
-    for name, slot in roster:
+    for i, ((name, slot), train, dev) in enumerate(zip(roster, trains, devs, strict=True)):
         phase('ENGINE')
         assert_source(store)
         meter.check()
-        if make_lstm_engine is not None:
+        if make_low_engine is not None:
+            engine = make_low_engine(config.LOW_ROUNDS[i])
+            method = config.LOW_METHOD
+            if any(engine is prior for prior, _, _ in reloads):
+                raise ValueError('expected independent low-round engines')
+        elif make_lstm_engine is not None:
             engine = make_lstm_engine()
             method = config.LSTM_METHOD
         else:
@@ -148,6 +202,36 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                    meter, store, phase=progress)
         reloads.append((engine, best, arm))
 
+    if low_panels is not None:
+        for (engine, best, arm), slot in zip(reloads, config.LOW_SLOTS, strict=True):
+            if best is None or best[0] != f'model/{slot}.pt':
+                raise ValueError('missing or incorrect low-round best slot')
+            reload_best(engine, best, arm, summary, settings.checkpoint_bytes, meter, store,
+                        phase=progress)
+        phase('TEST')
+        assert_source(store)
+        meter.check()
+        tests = low_panels.label_test()
+        phase('TEST_SCORE')
+        scores: dict[str, object] = {}
+        for name, rounds, (engine, _, _), panel, bits in zip(
+            config.LOW_NAMES, config.LOW_ROUNDS, reloads, tests, majorities, strict=True,
+        ):
+            if len(panel) != test_rows:
+                raise ValueError('TEST panel size')
+            low_score = LowScore(test_rows, bits, rounds)
+            for at in batch_indices(test_rows, plan.batch_size):
+                x, y = panel.batch(at)
+                logits = predict_batch(engine, x, y, meter)
+                low_score.add(panel.family_ids[at], x, y, logits)
+            meter.check()
+            scores[name] = low_score.result()
+        phase('TEST_SAVE')
+        for name, panel in zip(config.LOW_NAMES, tests, strict=True):
+            archive(f'{name}-test', panel)
+        return {'rounds': scores}
+
+    assert panels is not None
     if single:
         [(engine, best, arm)] = reloads
         reload_best(engine, best, arm, summary, settings.checkpoint_bytes, meter, store,

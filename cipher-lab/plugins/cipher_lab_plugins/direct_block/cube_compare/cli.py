@@ -38,6 +38,8 @@ def _fixed(path: Path) -> dict[str, object]:
             expected = config.reuse_recipe()
         case config.LSTM_METHOD:
             expected = config.lstm_recipe()
+        case config.LOW_METHOD:
+            expected = config.low_recipe()
         case _:
             raise ValueError('INVALID_CONFIG')
     # Python equality alone accepts False==0 and 7.0==7, including in lists.
@@ -57,6 +59,9 @@ def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False,
         case config.LSTM_METHOD:
             wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
             caps = config.lstm_counts(config.REUSE_EPOCHS)
+        case config.LOW_METHOD:
+            wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
+            caps = config.low_counts((config.REUSE_EPOCHS,) * 3)
         case _:
             raise ValueError('INVALID_CONFIG')
     policy = Policy(2, wall, cpu, deadline, rss_stop_bytes=config.RSS_BYTES,
@@ -112,6 +117,7 @@ def _read_report(store: RunStore, root: Path, run_id: str, meter: Meter) -> None
 def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clocks: Clocks,
          source_root: Path | None = None) -> int:
     single = recipe['method'] == config.LSTM_METHOD
+    low = recipe['method'] == config.LOW_METHOD
     try:
         # Still no native probe, DLL binding, Torch or NumPy at claim time.
         from . import preflight
@@ -120,7 +126,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         meter = Meter(policy, clocks, working_set_bytes)
         store = RunStore.claim(root, run_id, output_bytes=policy.output_bytes,
                                needs_models=True,
-                               model_slots=(config.LSTM_SLOT,) if single else config.SLOTS,
+                               model_slots=(config.LOW_SLOTS if low else
+                                            (config.LSTM_SLOT,) if single else config.SLOTS),
                                source_supplier=source_identity)
     except Stopped as error:
         return _emit('STOPPED', error.reason, 3)
@@ -131,7 +138,10 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
     summary: dict[str, object] = {'phase': 'ADMISSION', 'retry_count': 0,
                                  'preflight': {'status': 'NOT_STARTED'}}
-    if source_root is not None:
+    if low:
+        summary.update(mode='plaintext-only-source', topology='lstm-r1r3',
+                       preflight={'status': 'SKIPPED_FIXED_MATRIX'})
+    elif source_root is not None:
         summary.update(mode='saved-panels', preflight={'status': 'SKIPPED_REUSE'})
     if single:
         summary['topology'] = 'lstm-single'
@@ -162,7 +172,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
         summary['runtime'] = engine.configure_runtime()
         meter.check()
-        make_panels: Callable[[Meter], training.Panels]
+        make_panels: Callable[[Meter], training.Panels] | None = None
+        make_low_panels: Callable[[Meter], training.LowPanels] | None = None
         if source_root is None:
             from .data import production_panels
 
@@ -185,16 +196,32 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
                 summary['source'] = panels.provenance
                 return panels
 
-            make_panels = saved_panels
-            plan = training.Plan(config.FAMILIES, config.REUSE_EPOCHS, config.BATCH,
-                                 Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA),
-                                 topology='lstm-single' if single else 'dual')
+            if low:
+                from .low_rounds import LowRounds, production_low_rounds
+
+                def low_panels(panel_meter: Meter) -> LowRounds:
+                    panels = production_low_rounds(source_root, panel_meter)
+                    summary['source'] = config.source_recipe()
+                    return panels
+
+                make_low_panels = low_panels
+            else:
+                make_panels = saved_panels
+            plan = training.Plan(
+                config.FAMILIES, config.REUSE_EPOCHS, config.BATCH,
+                Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA),
+                topology=('lstm-r1r3' if low else 'lstm-single' if single else 'dual'),
+            )
         phase('SCIENCE')
         science_started = True
-        score = training.run(meter, store, summary,
-                             make_engine=None if single else engine.make_engine,
-                             make_lstm_engine=engine.make_lstm_engine if single else None,
-                             make_panels=make_panels, plan=plan, phase=phase)
+        if low:
+            score = training.run(meter, store, summary, make_low_panels=make_low_panels,
+                                 make_low_engine=engine.make_low_engine, plan=plan, phase=phase)
+        else:
+            score = training.run(meter, store, summary,
+                                 make_engine=None if single else engine.make_engine,
+                                 make_lstm_engine=engine.make_lstm_engine if single else None,
+                                 make_panels=make_panels, plan=plan, phase=phase)
         phase('FINALIZE')
         if store.current_source_identity() != store.source_snapshot():
             raise ArtifactError('SOURCE_CHANGED')
@@ -202,7 +229,9 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         summary['cuda_peaks'] = preflight.gpu_peaks()
         meter.check()
         counts = meter.snapshot()
-        if single:
+        if low:
+            expected = config.low_counts(training.completed_low_epochs(summary, plan))
+        elif single:
             expected = config.lstm_counts(training.completed_lstm_epochs(summary, plan))
         elif source_root is not None:
             expected = config.reuse_counts(*training.completed_epochs(summary, plan))
@@ -295,7 +324,7 @@ def main(argv: list[str]) -> int:
             return 0
         method = recipe['method']
         assert isinstance(method, str)  # _fixed accepts only the named recipes
-        reuse = method in (config.REUSE_METHOD, config.LSTM_METHOD)
+        reuse = method in (config.REUSE_METHOD, config.LSTM_METHOD, config.LOW_METHOD)
         if reuse != (args.source_root is not None):
             raise ValueError('INVALID_SOURCE_ROOT')
         clocks = Clocks()

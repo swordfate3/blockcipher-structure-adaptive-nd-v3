@@ -1,7 +1,7 @@
 """Public constants and the fixed recipe; importing this executes no science."""
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Literal
 
 METHOD = 'direct-block-cube-sharedm-v1'
 ARMS: Final = ('mlp', 'sharedm')
@@ -131,4 +131,41 @@ def lstm_recipe() -> dict[str, object]:
                          initial_state='fresh zeros [2,N,128] per call',
                          readout='h_n[-1] -> Linear(128,128)'),
             'preflight_counts': dict.fromkeys(caps, 0),
+            'max_scientific_counts': caps, 'total_caps': caps}
+
+
+LOW_METHOD = 'direct-block-cube-lstm-simon-r1r3-v1'
+LowRound = Literal[1, 2, 3]
+LOW_ROUNDS: Final[tuple[LowRound, LowRound, LowRound]] = (1, 2, 3)
+LOW_NAMES = ('r1', 'r2', 'r3')
+LOW_SLOTS = ('r1-best', 'r2-best', 'r3-best')
+
+
+def low_counts(epochs: tuple[int, int, int]) -> dict[str, int]:
+    if len(epochs) != 3 or any(type(n) is not int or not 1 <= n <= REUSE_EPOCHS for n in epochs):
+        raise ValueError('invalid completed epochs')
+    train, dev, test = (n * PAIRS_PER_FAMILY for n in FAMILIES)
+    return dict(real_blocks=6 * (train + dev + test), null_words=0,
+                optimizer_updates=sum(epochs) * (train // BATCH),
+                forward_rows=sum(epochs) * (train + dev) + 3 * test)
+
+
+def low_denominators(rows: int) -> dict[str, int]:
+    return dict(active8=rows * len(ACTIVE_COLUMNS), full128=rows * WIDTH,
+                x64=rows * 64, y64=rows * 64, block0=rows * BLOCK_BITS,
+                block1=rows * BLOCK_BITS, wholepair=rows)
+
+
+def low_recipe() -> dict[str, object]:
+    caps = low_counts((REUSE_EPOCHS, REUSE_EPOCHS, REUSE_EPOCHS))
+    inherited = lstm_recipe()
+    del inherited['data_seed'], inherited['test_denominator_bits']
+    return {**inherited, 'method': LOW_METHOD, 'topology': 'lstm-r1r3',
+            'mode': 'plaintext-only-source', 'key_protocol': 'same-new-key',
+            'rounds': list(LOW_ROUNDS), 'arms': list(LOW_NAMES), 'fits': 3,
+            'model_slots': list(LOW_SLOTS), 'parameters': dict.fromkeys(LOW_NAMES, 216192),
+            'test_denominators': low_denominators(FAMILIES[2] * PAIRS_PER_FAMILY),
+            'baselines': {'majority': 'TRAIN full128 majority, ties zero',
+                          'r1_copy': 'input x copies to output y; TRAIN majority for output x'},
+            'prediction': 'logits>=0', 'preflight_counts': dict.fromkeys(caps, 0),
             'max_scientific_counts': caps, 'total_caps': caps}

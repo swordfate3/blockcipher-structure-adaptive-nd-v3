@@ -6,7 +6,7 @@ import math
 from html import escape
 from typing import cast
 
-from .config import LSTM_METHOD, REUSE_METHOD
+from .config import LOW_METHOD, LOW_NAMES, LSTM_METHOD, REUSE_METHOD
 
 _FLOW = '''<svg viewBox="0 0 920 96" role="img" aria-label="Experiment sequence">
 <rect x="1" y="1" width="918" height="94" rx="10" fill="#edf3ff"/>
@@ -18,6 +18,20 @@ _REUSE_FLOW = _FLOW.replace(
 ).replace('generate TEST labels', 'read and decode source TEST')
 _LSTM_FLOW = _REUSE_FLOW.replace('MLP fit → Shared-M fit', 'one LSTM fit').replace(
     'Both DEV best from disk', 'Restore LSTM DEV best from disk')
+_LOW_FLOW = _LSTM_FLOW.replace('Experiment sequence', 'Planned experiment sequence').replace(
+    'reuse fixed TRAIN/DEV panels → one LSTM fit', 'fixed TRAIN/DEV plaintext → fit r1, r2, r3',
+).replace('Restore LSTM DEV best from disk → read and decode source TEST → paired scoring',
+          'Restore all 3 bests → read TEST plaintext → label and score all 3 rounds')
+_LOW_TITLE = 'SIMON1–3 cube-pair LSTM matrix'
+_LOW_NOTE = ('Plan: fit one independent LSTM per round and draw one fresh private key for '
+             'all labels across rounds and splits. Reuse only source plaintext, family IDs, '
+             'and row order. Access TEST only after strict disk restore of all three bests. '
+             'The plan does not establish that key draw or training took place.')
+_LOW_LIMIT = ('Any scores from this fixed plaintext panel, key protocol, and public seed are '
+              'descriptive, not independent confirmation. Wholepair requires all 128 correct. '
+              'For r1, x64 excludes the directly copied y halves; the copy baseline uses '
+              'TRAIN majority for x and copies input x to output y. No copy baseline for r2/r3.')
+_LOW_METRICS = ('active8', 'full128', 'x64', 'y64', 'block0', 'block1', 'wholepair')
 _LSTM_METHOD_NOTE = ('One LSTM fit using 64 ordered MSB0 bit pairs, two unidirectional layers, '
                      'and fresh zero states. TEST follows the strict reload of its only best.')
 _LSTM_COMPARISON = ('LSTM vs. TRAIN majority only, using a family-cluster paired difference '
@@ -52,6 +66,17 @@ def _reuse(saved: dict[str, object]) -> bool:
 def _lstm(saved: dict[str, object]) -> bool:
     recipe = _mapping(saved.get('recipe'))
     return recipe.get('mode') == 'saved-panels' and recipe.get('method') == LSTM_METHOD
+
+
+def _low(saved: dict[str, object]) -> bool:
+    return _mapping(saved.get('recipe')).get('method') == LOW_METHOD
+
+
+def _low_rounds(test: dict[str, object]) -> dict[str, dict[str, object]]:
+    rounds = _mapping(test.get('rounds'))
+    if set(rounds) != set(LOW_NAMES) or not all(_mapping(value) for value in rounds.values()):
+        return {}
+    return {name: _mapping(rounds[name]) for name in LOW_NAMES}
 
 
 def _configured_source(saved: dict[str, object]) -> str:
@@ -132,6 +157,38 @@ def _scores(test: dict[str, object], names: tuple[str, ...]) -> str:
             + ''.join(bars) + '</svg>')
 
 
+def _low_outcome(rounds: dict[str, dict[str, object]]) -> str:
+    if not rounds:
+        return '<p>No final TEST score was committed.</p>'
+    headers = ''.join(f'<th scope="col">{key}</th>' for key in _LOW_METRICS)
+    out = ['<p>Per-family row counts and correctness counts are in the saved record.</p>']
+    for name, result in rounds.items():
+        denom = _mapping(result.get('denominators'))
+        scores = _mapping(result.get('scores'))
+        out.append(f'<h3>{name}: saved TEST scores</h3><table><thead><tr>'
+                   f'<th scope="col">Method</th>{headers}</tr></thead><tbody>')
+        for method in ('lstm', 'majority', 'copy'):
+            score = _mapping(scores.get(method))
+            if not score:
+                continue
+            out.append(f'<tr><th scope="row">{method}</th>')
+            correct, accuracy = _mapping(score.get('correct')), _mapping(score.get('accuracy'))
+            for key in _LOW_METRICS:
+                value = _num(accuracy.get(key))
+                fraction = escape(f'{correct.get(key)}/{denom.get(key)}')
+                if value is None or not 0 <= value <= 1:
+                    out.append('<td>—</td>')
+                else:
+                    out.append(f'<td><meter min="0" max="1" value="{value}"></meter><br>'
+                               f'{value:.4%}<br><small>{fraction}</small></td>')
+            out.append('</tr>')
+        detail = {key: value for key, value in result.items() if key != 'families'}
+        out.append('</tbody></table><details><summary>Per-column saved values and '
+                   'TRAIN majority bits</summary><pre>' + escape(_json(detail))
+                   + '</pre></details>')
+    return ''.join(out)
+
+
 def _json(value: object) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False)
 
@@ -145,42 +202,57 @@ def render_report(saved: dict[str, object]) -> bytes:
     public = {key: value for key, value in summary.items() if key not in ('test', 'arms')}
     reuse = _reuse(saved)
     lstm = _lstm(saved)
-    names = ('lstm',) if lstm else ('mlp', 'sharedm')
-    flow = _LSTM_FLOW if lstm else _REUSE_FLOW if reuse else _FLOW
-    method_note = f'<p>{_LSTM_METHOD_NOTE}</p>' if lstm else ''
+    low = _low(saved)
+    title = _LOW_TITLE if low else 'SIMON7 cube-pair comparison'
+    names = LOW_NAMES if low else ('lstm',) if lstm else ('mlp', 'sharedm')
+    flow = _LOW_FLOW if low else _LSTM_FLOW if lstm else _REUSE_FLOW if reuse else _FLOW
+    method_note = f'<p>{_LOW_NOTE}</p>' if low else f'<p>{_LSTM_METHOD_NOTE}</p>' if lstm else ''
     reference = f'<p>{_LSTM_REFERENCE}</p>' if lstm else ''
-    comparison = _lstm_comparison(test) if lstm else _PAIRED_COMPARISON
-    confirmation = ('Previously reported TEST is not a sealed confirmation.' if lstm
-                    else 'TEST is saved, not a sealed confirmation.')
-    contrast = ('The final hidden state compresses a fixed bit order into 128 features.' if lstm
-                else 'This compares architecture and capacity, not an isolated routing effect.')
+    comparison = ('No additional model fits or paired inference. '
+                  'Majority bits are estimated from TRAIN only.' if low else
+                  _lstm_comparison(test) if lstm else _PAIRED_COMPARISON)
+    confirmation = ('The specified TEST plaintext source was previously reported.' if low else
+                    'Previously reported TEST is not a sealed confirmation.' if lstm else
+                    'TEST is saved, not a sealed confirmation.')
+    contrast = ('The final hidden state compresses a fixed bit order into 128 features.'
+                if lstm or low else
+                'This compares architecture and capacity, not an isolated routing effect.')
     configured = (f'<h2>Configured data source</h2><p>{_CONFIGURED_SOURCE_NOTE}</p>'
-                  f'<pre>{_configured_source(saved)}</pre>') if reuse else ''
-    limit = f'<p>{_REUSE_LIMIT}</p>' if reuse else ''
+                  f'<pre>{_configured_source(saved)}</pre>') if reuse or low else ''
+    limit = f'<p>{_LOW_LIMIT}</p>' if low else f'<p>{_REUSE_LIMIT}</p>' if reuse else ''
     detail = {key: value for key, value in test.items() if key != 'families'}
-    outcome = (_scores(test, names) + '<pre>' + escape(_json(detail)) + '</pre>') if test else (
-        '<p>No final TEST score was committed.</p>')
+    if low:
+        outcome = _low_outcome(_low_rounds(test))
+    elif test:
+        outcome = _scores(test, names) + '<pre>' + escape(_json(detail)) + '</pre>'
+    else:
+        outcome = '<p>No final TEST score was committed.</p>'
+    test_title = 'Final TEST by round' if low else 'Final TEST (active-8)'
+    method_title = 'Planned method' if low else 'Method'
+    key_note = '' if low else ' One synthetic private key.'
+    scope = ('Planned scope: one synthetic key, one seed, and reduced rounds.' if low else
+             'Single key and seed, reduced rounds, synthetic data.')
     return f'''<!doctype html><html lang="en"><meta charset="utf-8">
-<title>SIMON7 cube-pair comparison</title>
+<title>{title}</title>
 <style>body{{max-width:960px;margin:2rem auto;padding:0 1rem;font:16px system-ui;color:#172635}}
 svg{{width:100%;max-width:920px}}pre{{background:#f3f6fa;padding:1em;overflow:auto}}</style>
-<h1>SIMON7 cube-pair comparison</h1>
+<h1>{title}</h1>
 <p>Run {escape(str(saved.get('run_id')))} · saved status {escape(str(saved.get('status')))}.
 Run-store status is not process exit evidence; see the launcher's native exit record.</p>
 <p>Source: {escape(str(saved.get('run_ref')))} · SHA256 {escape(str(saved.get('run_sha256')))}</p>
-{configured}<h2>Method</h2>{flow}{method_note}
-<p>Sixteen variants per family; eight complementary pairs. One synthetic private key.
+{configured}<h2>{method_title}</h2>{flow}{method_note}
+<p>Sixteen variants per family; eight complementary pairs.{key_note}
 Full 128-bit BCE for TRAIN; DEV active-8 BCE chooses the earliest minimum separately per arm.
-Active input positions (LSB0): (0, 21, 42, 60). Scored output columns (MSB0):
+Active input positions (LSB0): (0, 21, 42, 60). Active output columns (MSB0):
 (63, 42, 21, 3, 127, 106, 85, 67). TRAIN-only majority, ties go to zero.</p>
 <h2>Actual accounting and gate</h2><pre>{counts}</pre><pre>{escape(_json(public))}</pre>
 <p>Accounting uses the last cooperative sample; null means unknown. On storage failure,
 only last committed accounting may survive. No hard RSS or wall isolation is claimed.</p>
 <h2>TRAIN convergence and DEV model selection</h2>{_curves(arms, names)}
 <pre>{escape(_json(arms))}</pre>
-<h2>Final TEST (active-8)</h2>{outcome}{limit}
+<h2>{test_title}</h2>{outcome}{limit}
 <p>{comparison} Treat gains as exploratory only; a non-gain applies to this fixed recipe only.</p>
-{reference}<p>Single key and seed, reduced rounds, synthetic data. {confirmation}
+{reference}<p>{scope} {confirmation}
 {contrast} This is not a cross-key result or evidence of a practical cipher break.</p>
 </html>'''.encode()
 
@@ -191,13 +263,26 @@ def report_files(saved: dict[str, object]) -> dict[str, bytes]:
     summary = _mapping(saved.get('summary'))
     test = _mapping(summary.get('test')) if saved.get('status') == 'SUCCEEDED' else {}
     outcome = escape(_json({key: test[key] for key in ('accuracy', 'comparisons') if key in test}))
-    if not test:
+    low = _low(saved)
+    title = _LOW_TITLE if low else 'SIMON7 cube-pair comparison'
+    rounds = _low_rounds(test) if low else {}
+    if rounds:
+        outcome = escape(_json({name: {
+            'denominators': _mapping(value.get('denominators')),
+            'scores': {method: {key: metric for key, metric in _mapping(score).items()
+                                if key in ('accuracy', 'correct')}
+                       for method, score in _mapping(value.get('scores')).items()},
+        } for name, value in rounds.items()}))
+    elif not test or low:
         outcome = 'No final TEST score was committed.'
-    md = (f'# SIMON7 cube-pair comparison\n\nSaved status: {escape(str(saved.get("status")))}.'
+    plan = (f'## Planned method\n\n{_LOW_NOTE}\n\n' if low else '')
+    md = (f'# {title}\n\nSaved status: {escape(str(saved.get("status")))}.'
           ' See native exit separately. [Charts and method](index.html).\n\n'
-          f'## Actual accounting\n\n```json\n{escape(_json(saved.get("counts")))}\n```\n\n'
-          f'## Final TEST\n\n{outcome}\n\nSingle-key, single-seed, reduced-round exploration.\n')
-    if _reuse(saved):
+          f'{plan}## Actual accounting\n\n```json\n{escape(_json(saved.get("counts")))}\n```\n\n'
+          f'## Final TEST\n\n{outcome}\n\n')
+    if not low:
+        md += 'Single-key, single-seed, reduced-round exploration.\n'
+    if low or _reuse(saved):
         arms = _mapping(summary.get('arms'))
         actual = {name: {**{key: arm.get(key) for key in ('epochs_completed', 'stop_reason')},
                          'best_epoch': _mapping(arm.get('selected')).get('epoch')}
@@ -205,7 +290,7 @@ def report_files(saved: dict[str, object]) -> dict[str, bytes]:
         md += (f'\n## Configured data source\n\n{_CONFIGURED_SOURCE_NOTE}\n\n'
                f'{_configured_source(saved)}\n\n## Actual fits\n\n'
                f'{escape(_json(actual)) if actual else "No fit details survived in the record."}'
-               f'\n\n{_REUSE_LIMIT}\n')
+               f'\n\n{_LOW_LIMIT if low else _REUSE_LIMIT}\n')
     if _lstm(saved):
         md += f'\n{_LSTM_METHOD_NOTE}\n\n{_lstm_comparison(test)}\n\n{_LSTM_REFERENCE}\n'
     return {'index.html': render_report(saved), 'report.md': md.encode(),

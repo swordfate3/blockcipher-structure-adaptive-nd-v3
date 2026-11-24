@@ -144,6 +144,15 @@ class SavedPanels:
         """Call only after both newly persisted checkpoints have been restored."""
         return self._build('test')
 
+    def build_plaintext(self, split: Literal['train', 'dev']) -> tuple[Words, Words]:
+        panel = self.build(split)
+        return panel.plaintext, panel.family_ids
+
+    def label_test_plaintext(self) -> tuple[Words, Words]:
+        """Project the validated source TEST only after the caller's reload gate."""
+        panel = self.label_test()
+        return panel.plaintext, panel.family_ids
+
     def _build(self, split: str) -> SavedPanel:
         idx = self._next
         if self._failed or idx >= len(config.SPLITS) or config.SPLITS[idx] != split:

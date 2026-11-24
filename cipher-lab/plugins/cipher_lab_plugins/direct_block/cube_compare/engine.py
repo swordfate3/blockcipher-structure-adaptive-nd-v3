@@ -20,6 +20,8 @@ from .config import (
     GPU_DEVICE,
     INIT_SEED,
     INTEROP_THREADS,
+    LOW_METHOD,
+    LOW_ROUNDS,
     LR,
     LSTM_METHOD,
     METHOD,
@@ -67,10 +69,20 @@ def make_engine(arm: Literal['mlp', 'sharedm']) -> TorchEngine:
 
 
 def make_lstm_engine() -> TorchEngine:
+    return _lstm_engine(f'{LSTM_METHOD}/lstm')
+
+
+def make_low_engine(rounds: int) -> TorchEngine:
+    if type(rounds) is not int or rounds not in LOW_ROUNDS:
+        raise ValueError('invalid low round')
+    return _lstm_engine(f'{LOW_METHOD}/r{rounds}')
+
+
+def _lstm_engine(identity: str) -> TorchEngine:
     with torch.random.fork_rng(devices=[]), torch.device('cpu'):
         torch.default_generator.manual_seed(INIT_SEED)
         model = CubeLSTM()
-    return TorchEngine(model, torch.device(GPU_DEVICE), identity=f'{LSTM_METHOD}/lstm')
+    return TorchEngine(model, torch.device(GPU_DEVICE), identity=identity)
 
 
 class TorchEngine:

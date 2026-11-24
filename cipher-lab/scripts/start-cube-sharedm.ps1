@@ -6,7 +6,8 @@ param(
     [string]$RunId,
     [ValidateSet('direct-block-cube-sharedm-simon7.json',
                  'direct-block-cube-sharedm-simon7-50epoch.json',
-                 'direct-block-cube-lstm-simon7.json')]
+                 'direct-block-cube-lstm-simon7.json',
+                 'direct-block-cube-lstm-simon-r1r3.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -18,7 +19,8 @@ $work = Join-Path $runRoot 'work'
 $python = 'C:\Python313\python.exe'
 $config = Join-Path (Join-Path $lab 'configs') $ConfigName
 $reuse = ($ConfigName -ieq 'direct-block-cube-sharedm-simon7-50epoch.json' -or
-          $ConfigName -ieq 'direct-block-cube-lstm-simon7.json')
+          $ConfigName -ieq 'direct-block-cube-lstm-simon7.json' -or
+          $ConfigName -ieq 'direct-block-cube-lstm-simon-r1r3.json')
 if ($reuse -ne (-not [string]::IsNullOrWhiteSpace($SourceRoot))) { throw 'INVALID_SOURCE_ROOT' }
 # The launcher changes directory before running Python; require an explicit absolute path.
 if ($reuse -and $SourceRoot -notmatch '\A(?:[A-Za-z]:[\\/]|\\\\)') {
