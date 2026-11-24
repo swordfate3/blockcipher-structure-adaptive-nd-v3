@@ -17,7 +17,7 @@ from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
 from .resources import Resources, ResourceStop
-from .serial_bc.config import DEADLINE_ENV, SerialRecipe
+from .serial_bc.config import DEADLINE_ENV, INDEPENDENT_ROOT, IndependentRecipe, SerialRecipe
 from .serial_bc.config import make_policy as make_serial_policy
 from .serial_bc.config import official as official_serial
 from .serial_bc.config import validate_root as validate_serial_root
@@ -104,7 +104,10 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         official(recipe, run_id)
     elif isinstance(recipe, SerialRecipe):
         official_serial(recipe, run_id)
-        validate_serial_root(store._root)
+        if isinstance(recipe, IndependentRecipe):
+            validate_serial_root(store._root, expected=INDEPENDENT_ROOT)
+        else:
+            validate_serial_root(store._root)
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
         if isinstance(recipe, ReplayRecipe):

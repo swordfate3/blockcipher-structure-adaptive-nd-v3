@@ -1,0 +1,129 @@
+{
+  "method": "innovation1-independent-bc-30epoch-v1",
+  "namespace": "innovation1-four-task-serial-bc-v1-20261124",
+  "run_id": "innovation1-independent-simeck-b-30epoch-20261124-01",
+  "tasks": [
+    {
+      "cipher": "SIMECK",
+      "rounds": 16,
+      "difference": 64
+    }
+  ],
+  "training": {
+    "epochs": 30,
+    "batches_per_epoch": 180,
+    "batch_groups": 5000,
+    "dev_groups": 100000,
+    "test_groups": 262144,
+    "eval_batch_groups": 512,
+    "pairs_per_group": 1,
+    "gradient_accumulation": 1,
+    "retries": 0
+  },
+  "resources": {
+    "precision": "float32",
+    "device_kind": "cuda",
+    "amp": false,
+    "tf32": false,
+    "cudnn_benchmark": false,
+    "gpu_bytes": 21474836480,
+    "rss_bytes": 17179869184,
+    "artifact_bytes": 1073741824,
+    "wall_seconds": 5400,
+    "cpu_seconds": 115200,
+    "intra_threads": 4,
+    "inter_threads": 1
+  },
+  "backend": "ciphers",
+  "device": "cuda:0",
+  "model": {
+    "stem_width": 96,
+    "channels": 96,
+    "norm_groups": 8,
+    "suffix_kernels": [
+      3,
+      5,
+      7,
+      9,
+      11
+    ],
+    "head_hidden": 64,
+    "router_hidden": 16,
+    "top_k": 2,
+    "parameters": 1087509,
+    "readout": "single-pair",
+    "skinny_nibble": "column-if-selected"
+  },
+  "optimizer": {
+    "amsgrad": false,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "clip_norm": 1.0,
+    "eps": 1e-08,
+    "kernel_l2": 0.0,
+    "label_smoothing": 0.0,
+    "loss": "mean-BCEWithLogits",
+    "lr_max": 0.001,
+    "lr_min": 0.0001,
+    "name": "Adam",
+    "routing_penalty": 0.0,
+    "schedule": "task-local-cycle-cosine",
+    "weight_decay": 0.0
+  },
+  "seeds": {
+    "init": 26111741,
+    "sample": 26111742,
+    "shuffle": 26111743
+  },
+  "selection": {
+    "rule": "last-epoch-only",
+    "interval": "fit-end",
+    "early_stopping": false,
+    "test": "after-strict-final-reload"
+  },
+  "data": {
+    "archive": {
+      "root": "G:\\lxy\\shared-m-cipher-nd-runs\\20261122-four-task-single-pair-01",
+      "run_id": "innovation1-four-task-single-pair-20261122-01",
+      "record": {
+        "bytes": 77847,
+        "sha256": "7a4a441ede8144b462cf15e5975240efd84eba1757a78f040c7eec3a3a665ddf"
+      }
+    },
+    "skinny_source": {
+      "root": "G:\\lxy\\shared-m-cipher-nd-runs\\20261121-skinny-fixed-mse-01",
+      "run_id": "innovation1-skinny-fixed-mse-20261121-01",
+      "record": {
+        "bytes": 48314,
+        "sha256": "5c6c96d95ef39d941b841d051c3d3df22584bda1cc675ef74791c20e5e66c1d7"
+      },
+      "train": {
+        "bytes": 153012425,
+        "sha256": "78e6d1a219d3a20f5c3746ae5c45bfb14f33028f09a6cd13fa4f81287739637d"
+      },
+      "dev": {
+        "bytes": 17012423,
+        "sha256": "ed8792908f1ddca0842e97a55153f02a1efe2467d2a588ae69feae199145441a"
+      }
+    },
+    "protocol": "split-local-stratified-index-pcg64-v1",
+    "order": "balanced-fixed-pair-replay-v1",
+    "test": "same-task-prior-fixed-panel-rescored"
+  },
+  "output_root": "G:\\lxy\\shared-m-cipher-nd-runs\\20261124-independent-bc-30epoch-01",
+  "routing": {
+    "mode": "public-card",
+    "constant": null
+  },
+  "stages": {
+    "order": [
+      "SIMECK"
+    ],
+    "adam": "fresh",
+    "slots": [
+      "M-best"
+    ]
+  }
+}

@@ -13,7 +13,7 @@ from ..config import canonical
 from ..four_single.config import SLOT
 from ..four_single.models import SinglePairM, build
 from ..four_single.runtime import Runtime
-from .config import SerialRecipe
+from .config import IndependentRecipe, SerialRecipe
 
 
 def constant_route(router: PublicRouter) -> Route:
@@ -47,10 +47,18 @@ class SerialRuntime(Runtime):
         raise ValueError('ROUTING_MODE')
 
     def restore(self, slot: str, raw: bytes, metadata: dict[str, object]) -> None:
+        recipe = self.contract
         if (slot != SLOT or metadata.get('slot') != SLOT
-                or type(metadata.get('stage')) is not int or metadata['stage'] != 4
-                or metadata.get('routing_mode') != self.contract.routing_mode
-                or metadata.get('run_id') != self.contract.run_id
-                or canonical(metadata.get('recipe')) != canonical(self.contract.to_dict())):
+                or type(metadata.get('stage')) is not int
+                or metadata['stage'] != len(recipe.stage_slots)
+                or metadata.get('routing_mode') != recipe.routing_mode
+                or metadata.get('run_id') != recipe.run_id
+                or canonical(metadata.get('recipe')) != canonical(recipe.to_dict())):
+            raise ValueError('CHECKPOINT_IDENTITY')
+        if isinstance(recipe, IndependentRecipe) and (
+                metadata.get('stage_task') != recipe.tasks[0].cipher
+                or type(metadata.get('epoch')) is not int
+                or metadata['epoch'] != recipe.training.epochs
+                or metadata.get('method') != recipe.method):
             raise ValueError('CHECKPOINT_IDENTITY')
         super().restore(slot, raw, metadata)

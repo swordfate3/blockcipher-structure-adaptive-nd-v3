@@ -56,7 +56,9 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
         'innovation1-four-task-serial-b.json', 'innovation1-four-task-serial-c.json',
         'innovation1-fresh.json', 'innovation1-four-task-single-pair.json',
         'innovation1-skinny-layout-early-stop.json', 'innovation1-skinny-layout-fixed-bce.json',
-        'innovation1-skinny-layout-fixed-mse.json'}
+        'innovation1-skinny-layout-fixed-mse.json',
+        *(f'innovation1-independent-{cipher}-{arm}-30epoch.json'
+          for cipher in ('simeck', 'present', 'simon', 'skinny') for arm in ('b', 'c'))}
     for path in Path('configs').glob('innovation1-*.json'):
         load_config(path)
     value = recipe.to_dict()

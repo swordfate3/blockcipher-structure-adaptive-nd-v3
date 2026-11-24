@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from hashlib import sha256
 from typing import Any
 
@@ -15,7 +16,7 @@ from ..four_single.data import _panel_bytes
 from ..four_single.replay import ReplayPools
 from ..single_train.config import BACKEND
 from ..single_train.data import FixedPairReplay, PairBatch
-from .config import SerialRecipe, estimate
+from .config import IndependentRecipe, SerialRecipe, estimate
 
 
 def index_subset(panel: PairBatch, groups: int, seed: int,
@@ -36,9 +37,15 @@ def index_subset(panel: PairBatch, groups: int, seed: int,
 class SerialPools(ReplayPools):
     def __init__(self, recipe: SerialRecipe, check: Callable[[], None], *,
                  archive: ReplayRecipe | None = None) -> None:
-        # The optional scaled reader exists solely for guarded artificial fixtures.
-        super().__init__(recipe.archive_reader_recipe() if archive is None else archive, check)
+        # The guarded fixture seam may scale reader geometry, but it cannot
+        # detach the opened archive or SKINNY chain from the fit's recipe.
+        reader = recipe.archive_reader_recipe()
+        if archive is not None and archive != replace(reader, training=archive.training,
+                                                       run_id=archive.run_id):
+            raise ValueError('ARCHIVE_RECIPE_IDENTITY')
+        super().__init__(reader if archive is None else archive, check)
         self.serial = recipe
+        self._target = recipe.tasks[0] if isinstance(recipe, IndependentRecipe) else None
 
     def bind(self, visit: Callable[[str], None]) -> tuple[dict[str, PairBatch], dict[str, Any]]:
         recipe = self.serial
@@ -59,7 +66,9 @@ class SerialPools(ReplayPools):
             self._check()
             return batch
 
-        for task, train, valid, evidence in self._read_pools(visit):
+        panels = (self._read_pools(visit) if self._target is None
+                  else self._read_pools(visit, only=self._target))
+        for task, train, valid, evidence in panels:
             bindings[task.cipher] = {}
             # Whole SKINNY evidence is the original two-panel chain, not a
             # parallel set of substitute pins.
@@ -74,13 +83,24 @@ class SerialPools(ReplayPools):
         self.activate()
         return dev, bindings
 
+    def load_tests(self, visit: Callable[[str], None], *, only: Task | None = None
+                   ) -> dict[str, tuple[PairBatch, dict[str, Any]]]:
+        if only is not None and only != self._target:
+            raise ValueError('TEST_ORDER')
+        if self._target is None:
+            return super().load_tests(visit)
+        return super().load_tests(visit, only=self._target)
+
 
 def encode_test(batch: PairBatch, task: Task, recipe: SerialRecipe, source: dict[str, str],
                 *, logits: NDArray[np.float64], final: dict[str, Any],
                 reused_input: dict[str, Any]) -> bytes:
     if ((batch.split, batch.index, batch.groups, batch.namespace) != (
             'test', 0, recipe.training.test_groups, recipe.archive_reader_recipe().namespace)
-            or task not in recipe.tasks or final.get('stage') != 4):
+            or task not in recipe.tasks or final.get('stage') != len(recipe.stage_slots)
+            or (isinstance(recipe, IndependentRecipe)
+                and (final.get('task') != task.cipher
+                     or final.get('routing_mode') != recipe.routing_mode))):
         raise ValueError('TEST_PANEL_IDENTITY')
     return _panel_bytes(batch, task, recipe, source, BACKEND, logits=logits, best=final,
                         reused_input=reused_input)

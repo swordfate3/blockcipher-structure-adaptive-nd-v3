@@ -1,4 +1,4 @@
-"""One continuous Adam fit, immutable stage observations, disk-only final TEST."""
+"""One Adam fit over the recipe's stages, with strictly disk-reloaded final TEST."""
 from __future__ import annotations
 
 import math
@@ -21,14 +21,14 @@ from ..resources import Resources, ResourceStop
 from ..single_train.config import BACKEND, learning_rate
 from ..single_train.data import PairBatch
 from ..single_train.weights import bound_identity
-from .config import STAGE_SLOTS, SerialRecipe, estimate, official
+from .config import SerialRecipe, estimate, official
 from .data import SerialPools, encode_test
 from .models import SerialRuntime
 
 
 def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPools,
          runtime: SerialRuntime, summary: dict[str, Any]) -> None:
-    tr, tasks = recipe.training, recipe.tasks
+    tr, tasks, slots = recipe.training, recipe.tasks, recipe.stage_slots
     totals, source = estimate(recipe), store.source_snapshot()
     assert recipe.run_id is not None
     run_id = recipe.run_id
@@ -77,8 +77,8 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
         summary['location'] = dict(phase='test-source-verify', task=cipher)
 
     def identity(stage: int, value: float) -> dict[str, Any]:
-        return dict(bound_identity(recipe, source, BACKEND, STAGE_SLOTS[stage-1], tr.epochs,
-                                    value, slots=STAGE_SLOTS, fixed=recipe, schema=1,
+        return dict(bound_identity(recipe, source, BACKEND, slots[stage-1], tr.epochs,
+                                    value, slots=slots, fixed=recipe, schema=1,
                                     method=recipe.method, run_id=run_id), stage=stage,
                     stage_task=tasks[stage-1].cipher, routing_mode=recipe.routing_mode,
                     pools=summary['pools'], geometry=summary['models'][SLOT]['geometry'])
@@ -95,7 +95,7 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
     summary['location'] = dict(phase='pool-ready')
     snapshot()
 
-    for stage, (task, checkpoint_slot) in enumerate(zip(tasks, STAGE_SLOTS, strict=True), 1):
+    for stage, (task, checkpoint_slot) in enumerate(zip(tasks, slots, strict=True), 1):
         cipher = task.cipher
         losses = 0.
         for epoch in range(1, tr.epochs + 1):
@@ -162,7 +162,8 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
         snapshot()
 
     final = stages[-1]
-    if final['stage'] != len(STAGE_SLOTS) or final['ref'] != f'model/{SLOT}.pt':
+    if (final['stage'] != len(slots) or final['task'] != tasks[-1].cipher
+            or final['epochs'] != tr.epochs or final['ref'] != f'model/{SLOT}.pt'):
         raise ValueError('FINAL_IDENTITY')
     summary['location'] = dict(phase='persisted-final-reload')
     check_source()
@@ -183,7 +184,7 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
     summary['persisted_reload'] = reload
     snapshot()
 
-    tests = pools.load_tests(visit_test)  # verify all four before any TEST scoring
+    tests = pools.load_tests(visit_test)  # verify the whole requested view before scoring
     outputs: list[tuple[Task, PairBatch, dict[str, Any], NDArray[np.float64], dict[str, Any]]] = []
     for task in tasks:
         panel, provenance = tests.pop(task.cipher)

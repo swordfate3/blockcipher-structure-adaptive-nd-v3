@@ -61,6 +61,7 @@ class ReplayPools:
         self.recipe, self._check = recipe, check
         self._skinny = skinny_pool_recipe(recipe)
         self._fixed: dict[str, FixedPairReplay] = {}
+        self._pool_tasks = recipe.tasks
         self._ready = self._released = False
         self._test_pins: dict[str, _PanelPin] = {}
         self._record: dict[str, Any] = {}
@@ -135,11 +136,19 @@ class ReplayPools:
         return dict(origin='reused', ref=pin.ref, **asdict(pin.file), digest=pin.digest,
                     groups=pin.groups, namespace=pin.namespace, source_record=self.source_record)
 
-    def _read_pools(self, visit: Callable[[str], None]) -> Iterator[
-            tuple[Task, PairBatch, PairBatch, dict[str, Any]]]:
+    def _view(self, only: Task | None) -> tuple[Task, ...]:
+        if only is None:
+            return self.recipe.tasks
+        if only not in self.recipe.tasks:
+            raise ValueError('POOL_TASK')
+        return (only,)
+
+    def _read_pools(self, visit: Callable[[str], None], *, only: Task | None = None
+                    ) -> Iterator[tuple[Task, PairBatch, PairBatch, dict[str, Any]]]:
         if self._record:
             raise ValueError('POOL_ORDER')
         try:
+            self._pool_tasks = self._view(only)
             self._record = self._manifest()
             summary = self._record['summary']
             tr, tasks = self.recipe.training, self.recipe.tasks
@@ -147,18 +156,21 @@ class ReplayPools:
             if set(old_pools) != {task.cipher for task in tasks} or set(summary['test']) != set(
                     old_pools):
                 raise PoolSourceError
-            # Bind TEST refs from the manifest now, without touching their paths.
+            # Bind TEST refs only for the view, without touching their paths.
             self._test_pins = {task.cipher: _panel_pin(
                 self._record, summary['test'][task.cipher]['panel'], task, 'test',
-                tr.test_groups, self.recipe.namespace) for task in tasks}
-            visit('SKINNY')
-            train, dev, source = load_reused_pool(self._skinny, self._check)
-            if canonical(source) != canonical(old_pools['SKINNY']):
-                raise PoolSourceError
-            yield tasks[-1], train, dev, source
-            del train, dev
+                tr.test_groups, self.recipe.namespace) for task in self._pool_tasks}
+            if only is None or only == tasks[-1]:
+                visit('SKINNY')
+                train, dev, source = load_reused_pool(self._skinny, self._check)
+                if canonical(source) != canonical(old_pools['SKINNY']):
+                    raise PoolSourceError
+                yield tasks[-1], train, dev, source
+                del train, dev
+            if only == tasks[-1]:
+                return
             train_groups = estimate(self.recipe)['fixed_train_rows_each']
-            for task in tasks[:-1]:
+            for task in (tasks[:-1] if only is None else (only,)):
                 cipher = task.cipher
                 visit(cipher)
                 train_pin = _panel_pin(self._record, old_pools[cipher]['train'], task, 'train',
@@ -186,26 +198,29 @@ class ReplayPools:
         return dev, evidence
 
     def activate(self) -> None:
-        if self._ready or len(self._fixed) != len(self.recipe.tasks):
+        if self._ready or set(self._fixed) != {task.cipher for task in self._pool_tasks}:
             raise ValueError('POOL_NOT_READY')
         self._ready = True
 
     def train(self, task: Task, cycle: int) -> PairBatch:
         if not self._ready or self._released:
             raise ValueError('POOL_NOT_READY')
+        if len(self._pool_tasks) == 1 and task != self._pool_tasks[0]:
+            raise ValueError('POOL_TASK')
         return self._fixed[task.cipher].train(cycle)
 
     def release_train(self) -> None:
         self._fixed.clear()
         self._released = True
 
-    def load_tests(self, visit: Callable[[str], None],
+    def load_tests(self, visit: Callable[[str], None], *, only: Task | None = None
                    ) -> dict[str, tuple[PairBatch, dict[str, Any]]]:
-        if not self._released or not self._test_pins:
+        if (not self._released or not self._test_pins or self._view(only) != self._pool_tasks
+                or (only is not None and not self._ready)):
             raise ValueError('TEST_ORDER')
         result = {}
         try:
-            for task in self.recipe.tasks:
+            for task in self._pool_tasks:
                 visit(task.cipher)
                 pin = self._test_pins.pop(task.cipher)
                 old_best = self._record['summary']['persisted_reload']

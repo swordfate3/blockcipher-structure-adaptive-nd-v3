@@ -17,8 +17,8 @@ from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
+from .serial_bc.config import INDEPENDENT_METHOD, INDEPENDENT_ROOT, IndependentRecipe, SerialRecipe
 from .serial_bc.config import METHOD as SERIAL_METHOD
-from .serial_bc.config import STAGE_SLOTS, SerialRecipe
 from .serial_bc.config import estimate as estimate_serial
 from .serial_bc.config import official as official_serial
 from .serial_bc.config import validate_root as validate_serial_root
@@ -114,7 +114,8 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     method = saved['recipe'].get('method')
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
-                    elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD):
+                    elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
+                                    INDEPENDENT_METHOD):
                         from .four_single.report import render
                     elif method == Recipe().method:
                         from .report import render
@@ -191,7 +192,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             pool_source = recipe.pool_source
         elif isinstance(recipe, SerialRecipe):
             official_serial(recipe, args.id)
-            validate_serial_root(args.root)
+            if isinstance(recipe, IndependentRecipe):
+                validate_serial_root(args.root, expected=INDEPENDENT_ROOT)
+            else:
+                validate_serial_root(args.root)
             pool_source = recipe.skinny_source
         elif isinstance(recipe, FourSingleRecipe):
             recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
@@ -230,7 +234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=True, source_supplier=source_identity,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
-                               else STAGE_SLOTS if isinstance(recipe, SerialRecipe)
+                               else recipe.stage_slots if isinstance(recipe, SerialRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
     except Stopped as error:

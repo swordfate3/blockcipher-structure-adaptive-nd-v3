@@ -1,4 +1,4 @@
-"""Exact stdlib settings for the two serial runs, not an execution permission."""
+"""Exact stdlib settings for serial and independent B/C, not execution permission."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
@@ -9,7 +9,7 @@ from typing import Any, Literal
 from cipher_lab.config import Policy
 from cipher_lab.execution import Clocks, Stopped
 
-from ..config import Resources, Training, canonical
+from ..config import TASKS, Resources, Task, Training, canonical
 from ..contracts import MAX_CHECKPOINT
 from ..four_single.config import (
     BATCH_LEDGER_ROWS,
@@ -27,6 +27,8 @@ from ..single_train.config import estimate as estimate_pair
 METHOD = 'innovation1-four-task-serial-bc-v1'
 NAMESPACE = 'innovation1-four-task-serial-bc-v1-20261124'
 ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261124-four-task-serial-bc-01'
+INDEPENDENT_METHOD = 'innovation1-independent-bc-30epoch-v1'
+INDEPENDENT_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261124-independent-bc-30epoch-01'
 DEADLINE_ENV = 'CIPHER_LAB_SERIAL_DEADLINE_UTC'
 STAGE_SLOTS = ('M-stage1', 'M-stage2', 'M-stage3', SLOT)
 RoutingMode = Literal['public-card', 'constant-no-card']
@@ -46,6 +48,10 @@ class SerialRecipe(FourSingleRecipe):
     def reuse_pool(self) -> bool:
         return True
 
+    @property
+    def stage_slots(self) -> tuple[str, ...]:
+        return STAGE_SLOTS
+
     def archive_reader_recipe(self) -> ReplayRecipe:
         # Reader geometry is that of the ORIGINAL run, not our subsets.
         return replace(ReplayRecipe(), archive=self.archive, skinny_source=self.skinny_source)
@@ -57,7 +63,7 @@ class SerialRecipe(FourSingleRecipe):
                       selection=dict(rule='fourth-stage-only', interval='stage-end',
                                      early_stopping=False, test='after-strict-final-reload'),
                       stages=dict(order=[t.cipher for t in self.tasks], adam='continuous',
-                                  slots=list(STAGE_SLOTS)))
+                                  slots=list(self.stage_slots)))
         recipe['optimizer'].update(schedule='task-local-cycle-cosine')
         recipe['data'] = dict(archive=asdict(self.archive), skinny_source=asdict(self.skinny_source)
                               if self.skinny_source is not None else None,
@@ -72,22 +78,51 @@ SERIAL_C = replace(SERIAL_B, run_id='innovation1-four-task-serial-c-20261124-01'
                    routing_mode='constant-no-card')
 
 
-def validate_root(root: PurePath) -> None:
-    if not root.is_absolute() or PureWindowsPath(root) != PureWindowsPath(ROOT):
+@dataclass(frozen=True)
+class IndependentRecipe(SerialRecipe):
+    method: str = INDEPENDENT_METHOD
+    run_id: str = 'innovation1-independent-simeck-b-30epoch-20261124-01'
+    tasks: tuple[Task, ...] = (TASKS[0],)
+    training: Training = replace(SerialRecipe.training, epochs=30)
+
+    @property
+    def stage_slots(self) -> tuple[str, ...]:
+        return (SLOT,)
+
+    def to_dict(self) -> dict[str, Any]:
+        recipe = super().to_dict()
+        recipe['output_root'] = INDEPENDENT_ROOT
+        recipe['selection'].update(rule='last-epoch-only', interval='fit-end')
+        recipe['stages']['adam'] = 'fresh'
+        recipe['data']['test'] = 'same-task-prior-fixed-panel-rescored'
+        return recipe
+
+
+_ARMS: tuple[tuple[str, RoutingMode], ...] = (('b', 'public-card'), ('c', 'constant-no-card'))
+INDEPENDENT_RECIPES: tuple[IndependentRecipe, ...] = tuple(
+    IndependentRecipe(tasks=(task,), routing_mode=mode,
+        run_id=f'innovation1-independent-{task.cipher.lower()}-{arm}-30epoch-20261124-01')
+    for task in TASKS for arm, mode in _ARMS
+)
+
+
+def validate_root(root: PurePath, *, expected: str = ROOT) -> None:
+    if not root.is_absolute() or PureWindowsPath(root) != PureWindowsPath(expected):
         raise ValueError('SERIAL_OUTPUT_ROOT')
 
 
 def official(recipe: SerialRecipe, run_id: str) -> None:
-    if (type(recipe) is not SerialRecipe or recipe.run_id != run_id
-            or not any(recipe == exact and canonical(recipe.to_dict()) == canonical(exact.to_dict())
-                       for exact in (SERIAL_B, SERIAL_C))):
+    if (recipe.run_id != run_id or not any(
+            type(recipe) is type(exact) and recipe == exact
+            and canonical(recipe.to_dict()) == canonical(exact.to_dict())
+            for exact in (SERIAL_B, SERIAL_C, *INDEPENDENT_RECIPES))):
         raise ValueError('CONFIG_EXACT')
 
 
 def estimate(recipe: SerialRecipe) -> dict[str, int]:
     pair = estimate_pair(recipe)
-    tr, tasks = recipe.training, len(STAGE_SLOTS)
-    if tasks != len(recipe.tasks):
+    tr, tasks = recipe.training, len(recipe.tasks)
+    if not tasks or tasks != len(recipe.stage_slots):
         raise ValueError('SERIAL_GEOMETRY')
     updates = pair['cycles'] * tasks
     panels = tasks * (tr.test_groups * 25 + PANEL_OVERHEAD)
@@ -107,6 +142,8 @@ def estimate(recipe: SerialRecipe) -> dict[str, int]:
 
 
 def make_policy(recipe: SerialRecipe, clocks: Clocks, inherited: str | None = None) -> Policy:
+    if isinstance(recipe, IndependentRecipe) and inherited is None:
+        raise Stopped('DEADLINE')
     limits, n = recipe.resources, estimate(recipe)
     now = clocks.utc()
     own = now + timedelta(seconds=limits.wall_seconds)
