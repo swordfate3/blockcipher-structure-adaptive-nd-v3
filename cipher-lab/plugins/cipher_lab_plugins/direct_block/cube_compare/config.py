@@ -67,3 +67,43 @@ def recipe() -> dict[str, object]:
         'physical_gpu_index': GPU_PHYSICAL_INDEX, 'gpu_uuid': GPU_UUID,
         'gpu_free_bytes_min': GPU_FREE_BYTES,
     }
+
+
+REUSE_METHOD = 'direct-block-cube-sharedm-50epoch-reuse-v1'
+REUSE_EPOCHS = 50
+WARMUP_EPOCHS, PATIENCE, MIN_DELTA = 10, 8, 1e-5
+REUSE_WALL_SECONDS, REUSE_CPU_SECONDS = 10800, 43200
+SOURCE_RUN_ID = 'cube-sharedm-simon7-20261123-02'
+SOURCE_RUN_SHA256 = 'bc2c87a5e2ab919021c7f4cdf556830f99b59380b858352ae72d30c93669f523'
+SOURCE_SPLITS = (
+    (41943816, 'e01ca03e68a3feaaa98553cbb2d7662bdd943a31e304cc7abcec4ccaaaa1cf8a'),
+    (2622216, '116ebebf97f4a1df3685f53bc9aa02d98f8d8d58ab202d3e85477f0ba5b6f2a3'),
+    (2622216, 'f00dfe78821c28024b826eb8ad8444ebf1acd37e9525001061fe4b9c4f990ddc'),
+)
+
+
+def source_recipe() -> dict[str, object]:
+    return {'run_id': SOURCE_RUN_ID, 'run_sha256': SOURCE_RUN_SHA256,
+            'splits': {f'dataset/{split}.npz': {'bytes': size, 'sha256': digest}
+                       for split, (size, digest) in zip(SPLITS, SOURCE_SPLITS, strict=True)}}
+
+
+def reuse_counts(mlp_epochs: int, sharedm_epochs: int) -> dict[str, int]:
+    if any(type(n) is not int or not 1 <= n <= REUSE_EPOCHS for n in (mlp_epochs, sharedm_epochs)):
+        raise ValueError('invalid completed epochs')
+    train, dev, test = (n * PAIRS_PER_FAMILY for n in FAMILIES)
+    epochs = mlp_epochs + sharedm_epochs
+    return dict(real_blocks=0, null_words=0, optimizer_updates=epochs * (train // BATCH),
+                forward_rows=epochs * (train + dev) + 2 * test)
+
+
+def reuse_recipe() -> dict[str, object]:
+    caps = reuse_counts(REUSE_EPOCHS, REUSE_EPOCHS)
+    legacy = recipe()
+    del legacy['scientific_counts']
+    return {**legacy, 'method': REUSE_METHOD, 'mode': 'saved-panels', 'epochs': REUSE_EPOCHS,
+            'early_stopping': dict(warmup_epochs=WARMUP_EPOCHS, patience=PATIENCE,
+                                   min_delta=MIN_DELTA),
+            'source': source_recipe(), 'preflight_counts': dict.fromkeys(caps, 0),
+            'max_scientific_counts': caps, 'total_caps': caps,
+            'wall_seconds': REUSE_WALL_SECONDS, 'cpu_seconds': REUSE_CPU_SECONDS}

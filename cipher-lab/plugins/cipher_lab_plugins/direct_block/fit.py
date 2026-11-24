@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 
 from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.execution import Meter
+from cipher_lab.training.early_stopping import EarlyStopping, Settings
 
 Floats = NDArray[np.float32]
 Labels = NDArray[np.uint8]
@@ -40,6 +41,7 @@ class FitSettings:
     selected_columns: tuple[int, ...] | None = None
     dev_every_steps: int | None = None  # existing Trial only; otherwise once per epoch
     record_train_bce: bool = True       # existing adapters return None from backward
+    early_stopping: Settings | None = None
 
     def __post_init__(self) -> None:
         values: tuple[int, ...] = (self.epochs, self.batch_size, self.checkpoint_bytes)
@@ -47,6 +49,10 @@ class FitSettings:
             values += (self.dev_every_steps,)
         if any(type(n) is not int or n <= 0 for n in values):
             raise ValueError('invalid fit settings')
+        stop = self.early_stopping
+        if stop is not None and (self.dev_every_steps is not None
+                                 or self.epochs < stop.warmup_epochs):
+            raise ValueError('early stopping requires complete epoch DEV and warmup')
         cols = self.selected_columns
         if cols is not None and (not cols or len(set(cols)) != len(cols)
                                  or any(type(i) is not int or i < 0 for i in cols)):
@@ -119,6 +125,9 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
     curve: list[dict[str, object]] = []
     arm['dev'] = curve
     step = 0
+    # The checkpoint slot is this fit's unique arm key, not a joint tracker.
+    stopper = (EarlyStopping((slot,), settings.early_stopping, epoch_ceiling=settings.epochs)
+               if settings.early_stopping is not None else None)
     for epoch in range(settings.epochs):
         at = order(epoch)
         if (at.shape != (rows,) or at.dtype != np.intp or at.min() != 0 or at.max() != rows - 1
@@ -169,12 +178,21 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
                 del raw
                 best, best_bce = (ref, digest), bce
                 arm['selected'] = {**point, 'ref': ref, 'sha256': digest}
+            termination = None
+            if stopper is not None:
+                termination = stopper.observe(epoch + 1, {slot: bce})
+                arm['epochs_completed'] = epoch + 1
+                if termination is not None:
+                    arm['stop_reason'] = termination
             counts = meter.snapshot()
             store.write_snapshot({'counts': counts, 'summary': summary})
             event = {**point, 'new_best': improved}
             if slot != 'best':
                 event['slot'] = slot
             store.append_event({'kind': 'dev', 'counts': counts, 'summary': event})
+            # One DEV at the end of the epoch when stopping is enabled.
+            if termination is not None:
+                return best
     return best
 
 

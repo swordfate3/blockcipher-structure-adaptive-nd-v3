@@ -1,4 +1,4 @@
-"""Fixed recipe CLI; the only production run path includes the one-shot gate."""
+"""Fixed recipe CLI with common device admission and explicit panel modes."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Never
 
-from cipher_lab.artifacts import ArtifactError, RunStore, read_saved
+from cipher_lab.artifacts import ArtifactError, RunStore, _token, read_saved
 from cipher_lab.config import Policy, _load
 from cipher_lab.execution import Clocks, Meter, Stopped
 
@@ -19,6 +19,7 @@ _ARTIFACT_REASONS = frozenset({
     'OCCUPIED', 'OUTPUT_LIMIT', 'CLAIM_FAILED', 'SOURCE_UNAVAILABLE', 'SOURCE_CHANGED',
     'WRITE_FAILED', 'READ_FAILED', 'OWNERSHIP_LOST', 'HASH_MISMATCH', 'FINALIZED',
 })
+_REUSE_ARTIFACT_REASONS = frozenset({'INVALID_SOURCE_RUN', 'SOURCE_SPLIT_OVERLAP', 'UNSAFE_PATH'})
 
 
 class _Parser(argparse.ArgumentParser):
@@ -28,21 +29,42 @@ class _Parser(argparse.ArgumentParser):
 
 def _fixed(path: Path) -> dict[str, object]:
     actual = _load(path)  # bounded strict JSON; rejects duplicate/non-finite fields
-    expected = config.recipe()
+    if not isinstance(actual, dict):
+        raise ValueError('INVALID_CONFIG')
+    expected = (config.reuse_recipe() if actual.get('method') == config.REUSE_METHOD
+                else config.recipe())
     # Python equality alone accepts False==0 and 7.0==7, including in lists.
     if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
         raise ValueError('INVALID_CONFIG')
     return expected
 
 
-def _policy(deadline: str, clocks: Clocks) -> Policy:
-    policy = Policy(2, config.WALL_SECONDS, config.CPU_SECONDS, deadline,
-                    rss_stop_bytes=config.RSS_BYTES, output_bytes=config.OUTPUT_BYTES,
-                    **config.total_caps())
+def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False) -> Policy:
+    wall = config.REUSE_WALL_SECONDS if reuse else config.WALL_SECONDS
+    cpu = config.REUSE_CPU_SECONDS if reuse else config.CPU_SECONDS
+    caps = (config.reuse_counts(config.REUSE_EPOCHS, config.REUSE_EPOCHS) if reuse
+            else config.total_caps())
+    policy = Policy(2, wall, cpu, deadline, rss_stop_bytes=config.RSS_BYTES,
+                    output_bytes=config.OUTPUT_BYTES, **caps)
     end = datetime.fromisoformat(deadline)
-    if end > clocks.utc() + timedelta(seconds=config.WALL_SECONDS):
+    if end > clocks.utc() + timedelta(seconds=wall):
         raise ValueError('INVALID_DEADLINE')
     return policy
+
+
+def _source_output_overlap(root: Path, run_id: str, source_root: Path) -> bool:
+    # Compare the output root as well as every directory that claim would own.
+    # A shared base is fine; its distinct run-id siblings are not descendants.
+    _token(run_id)
+    kinds = ('data', 'models', 'result')
+    source_dirs = [source_root / kind / config.SOURCE_RUN_ID for kind in kinds]
+    outputs = [root, *(root / kind / run_id for kind in kinds)]
+    # Check requested paths and filesystem aliases, without opening any artifacts.
+    for normalize in (Path.absolute, Path.resolve):
+        protected = [normalize(path) for path in source_dirs]
+        if any(path.is_relative_to(old) for path in map(normalize, outputs) for old in protected):
+            return True
+    return False
 
 
 def _fixed_artifact_reason(error: ArtifactError, default: str) -> str:
@@ -72,7 +94,8 @@ def _read_report(store: RunStore, root: Path, run_id: str, meter: Meter) -> None
     meter.check()
 
 
-def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clocks: Clocks) -> int:
+def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clocks: Clocks,
+         source_root: Path | None = None) -> int:
     try:
         # Still no native probe, DLL binding, Torch or NumPy at claim time.
         from . import preflight
@@ -91,6 +114,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
     summary: dict[str, object] = {'phase': 'ADMISSION', 'retry_count': 0,
                                  'preflight': {'status': 'NOT_STARTED'}}
+    if source_root is not None:
+        summary.update(mode='saved-panels', preflight={'status': 'SKIPPED_REUSE'})
 
     def phase(stage: str) -> None:
         summary['phase'] = stage
@@ -112,24 +137,42 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         summary['device'] = preflight.gpu_gate()
         meter.check()
         phase('RUNTIME')
+        from collections.abc import Callable
+
         from . import engine, training
-        from .data import production_panels
 
         summary['runtime'] = engine.configure_runtime()
         meter.check()
-        phase('PREFLIGHT')
-        summary['preflight'] = {'status': 'RUNNING'}
-        preflight.run(meter, store, summary, make_engine=engine.make_engine)
-        meter.check()
-        preflight_peaks_attempted = True
-        summary['cuda_peaks_after_preflight'] = preflight.gpu_peaks()
-        meter.check()
+        make_panels: Callable[[Meter], training.Panels]
+        if source_root is None:
+            from .data import production_panels
+
+            make_panels = production_panels
+            plan = training.Plan(config.FAMILIES, config.EPOCHS, config.BATCH)
+            phase('PREFLIGHT')
+            summary['preflight'] = {'status': 'RUNNING'}
+            preflight.run(meter, store, summary, make_engine=engine.make_engine)
+            meter.check()
+            preflight_peaks_attempted = True
+            summary['cuda_peaks_after_preflight'] = preflight.gpu_peaks()
+            meter.check()
+        else:
+            from cipher_lab.training.early_stopping import Settings
+
+            from .reuse import SavedPanels
+
+            def saved_panels(panel_meter: Meter) -> SavedPanels:
+                panels = SavedPanels(source_root, panel_meter)
+                summary['source'] = panels.provenance
+                return panels
+
+            make_panels = saved_panels
+            plan = training.Plan(config.FAMILIES, config.REUSE_EPOCHS, config.BATCH,
+                                 Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA))
         phase('SCIENCE')
         science_started = True
         score = training.run(meter, store, summary, make_engine=engine.make_engine,
-                             make_panels=production_panels,
-                             plan=training.Plan(config.FAMILIES, config.EPOCHS, config.BATCH),
-                             phase=phase)
+                             make_panels=make_panels, plan=plan, phase=phase)
         phase('FINALIZE')
         if store.current_source_identity() != store.source_snapshot():
             raise ArtifactError('SOURCE_CHANGED')
@@ -137,7 +180,9 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         summary['cuda_peaks'] = preflight.gpu_peaks()
         meter.check()
         counts = meter.snapshot()
-        for kind, n in config.total_caps().items():
+        expected = (config.total_caps() if source_root is None else
+                    config.reuse_counts(*training.completed_epochs(summary, plan)))
+        for kind, n in expected.items():
             if counts[f'attempted_{kind}'] != n or counts[f'completed_{kind}'] != n:
                 raise ValueError('count mismatch')
         # Retain a no-score checkpoint of actual accounting. If the terminal
@@ -151,7 +196,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
     except Stopped as error:
         status, reason, code = 'STOPPED', error.reason, 3
     except ArtifactError as error:
-        reason = _fixed_artifact_reason(error, 'ARTIFACT_FAILED')
+        reason = (str(error) if source_root is not None and str(error) in _REUSE_ARTIFACT_REASONS
+                  else _fixed_artifact_reason(error, 'ARTIFACT_FAILED'))
     except KeyboardInterrupt:
         status, reason, code = 'STOPPED', 'INTERRUPTED', 3
     except Exception:
@@ -212,6 +258,7 @@ def main(argv: list[str]) -> int:
     for command in (check, run):
         command.add_argument('--config', type=Path, required=True)
     run.add_argument('--root', type=Path, required=True)
+    run.add_argument('--source-root', type=Path)
     run.add_argument('--run-id', required=True)
     run.add_argument('--deadline-utc', required=True)
     try:
@@ -220,8 +267,17 @@ def main(argv: list[str]) -> int:
         if args.command == 'check':
             print(json.dumps({'status': 'VALID', 'recipe': recipe}, sort_keys=True))
             return 0
+        reuse = recipe['method'] == config.REUSE_METHOD
+        if reuse != (args.source_root is not None):
+            raise ValueError('INVALID_SOURCE_ROOT')
         clocks = Clocks()
-        policy = _policy(args.deadline_utc, clocks)
+        policy = _policy(args.deadline_utc, clocks, reuse=reuse)
     except (OSError, ValueError, RecursionError):
         return _emit('FAILED', 'INVALID_ARGUMENTS_OR_CONFIG', 2)
-    return _run(args.root, args.run_id, recipe, policy, clocks)
+    if args.source_root is not None:
+        try:
+            if _source_output_overlap(args.root, args.run_id, args.source_root):
+                return _emit('FAILED', 'SOURCE_OUTPUT_OVERLAP', 2)
+        except (OSError, ValueError, RuntimeError):
+            return _emit('FAILED', 'INVALID_ARGUMENTS_OR_CONFIG', 2)
+    return _run(args.root, args.run_id, recipe, policy, clocks, args.source_root)

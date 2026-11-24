@@ -6,17 +6,36 @@ import math
 from html import escape
 from typing import cast
 
+from .config import REUSE_METHOD
+
 _FLOW = '''<svg viewBox="0 0 920 96" role="img" aria-label="Experiment sequence">
 <rect x="1" y="1" width="918" height="94" rx="10" fill="#edf3ff"/>
 <text x="18" y="34">Public preflight → one set of cube panels → MLP fit → Shared-M fit</text>
 <text x="18" y="68">Both DEV best from disk → generate TEST labels → paired scoring → publish</text>
 </svg>'''
+_REUSE_FLOW = _FLOW.replace(
+    'Public preflight → one set of cube panels', 'Device admission → reuse fixed TRAIN/DEV panels',
+).replace('generate TEST labels', 'read and decode source TEST')
+_REUSE_LIMIT = ('The configured TEST panel was previously reported. This is adaptive exploration, '
+                'not independent confirmation.')
+_CONFIGURED_SOURCE_NOTE = ('Expected identity from the saved recipe, not evidence that all source '
+                           'panels were verified in this run.')
 _LEGEND = {'train_bce': '#06755b', 'full_bce': '#324b9e', 'active_bce': '#a44100'}
 _COLORS = {'majority': '#666e77', 'mlp': '#324b9e', 'sharedm': '#06755b'}
 
 
 def _mapping(value: object) -> dict[str, object]:
     return cast(dict[str, object], value) if isinstance(value, dict) else {}
+
+
+def _reuse(saved: dict[str, object]) -> bool:
+    # A storage fault can seal the record and strip summary; the recipe survives.
+    recipe = _mapping(saved.get('recipe'))
+    return recipe.get('mode') == 'saved-panels' and recipe.get('method') == REUSE_METHOD
+
+
+def _configured_source(saved: dict[str, object]) -> str:
+    return escape(_json(_mapping(saved.get('recipe')).get('source')))
 
 
 def _list(value: object) -> list[object]:
@@ -39,9 +58,13 @@ def _curves(arms: dict[str, object]) -> str:
         top = max((value for value in values if value is not None), default=1.) or 1.
         elements = ['<path d="M45 20V160H548" fill="none" stroke="#222"/>',
                     f'<text x="5" y="24">{top:.3g}</text>', '<text x="20" y="165">0</text>']
-        for i, point in enumerate(points):
-            x = 60 + 470 * i / max(1, len(points) - 1)
-            epoch = escape(str(point.get('epoch', '')))
+        # At most nine evenly spaced labels, including both endpoints. The curves
+        # below still render every saved sample at its original position.
+        last = len(points) - 1
+        gaps = min(last, 8)
+        for i in (j * last // max(1, gaps) for j in range(gaps + 1)):
+            x = 60 + 470 * i / max(1, last)
+            epoch = escape(str(points[i].get('epoch', '')))
             elements.append(f'<text x="{x:.2f}" y="184" text-anchor="middle">{epoch}</text>')
         for j, (key, color) in enumerate(_LEGEND.items()):
             coords = []
@@ -92,6 +115,11 @@ def render_report(saved: dict[str, object]) -> bytes:
     test = _mapping(summary.get('test')) if saved.get('status') == 'SUCCEEDED' else {}
     counts = escape(_json(saved.get('counts')))
     public = {key: value for key, value in summary.items() if key not in ('test', 'arms')}
+    reuse = _reuse(saved)
+    flow = _REUSE_FLOW if reuse else _FLOW
+    configured = (f'<h2>Configured data source</h2><p>{_CONFIGURED_SOURCE_NOTE}</p>'
+                  f'<pre>{_configured_source(saved)}</pre>') if reuse else ''
+    limit = f'<p>{_REUSE_LIMIT}</p>' if reuse else ''
     detail = {key: value for key, value in test.items() if key != 'families'}
     outcome = (_scores(test) + '<pre>' + escape(_json(detail)) + '</pre>') if test else (
         '<p>No final TEST score was committed.</p>')
@@ -103,7 +131,7 @@ svg{{width:100%;max-width:920px}}pre{{background:#f3f6fa;padding:1em;overflow:au
 <p>Run {escape(str(saved.get('run_id')))} · saved status {escape(str(saved.get('status')))}.
 Run-store status is not process exit evidence; see the launcher's native exit record.</p>
 <p>Source: {escape(str(saved.get('run_ref')))} · SHA256 {escape(str(saved.get('run_sha256')))}</p>
-<h2>Method</h2>{_FLOW}
+{configured}<h2>Method</h2>{flow}
 <p>Sixteen variants per family; eight complementary pairs. One synthetic private key.
 Full 128-bit BCE for TRAIN; DEV active-8 BCE chooses the earliest minimum separately per arm.
 Active input positions (LSB0): (0, 21, 42, 60). Scored output columns (MSB0):
@@ -113,7 +141,7 @@ Active input positions (LSB0): (0, 21, 42, 60). Scored output columns (MSB0):
 only last committed accounting may survive. No hard RSS or wall isolation is claimed.</p>
 <h2>TRAIN convergence and DEV model selection</h2>{_curves(arms)}
 <pre>{escape(_json(arms))}</pre>
-<h2>Final TEST (active-8)</h2>{outcome}
+<h2>Final TEST (active-8)</h2>{outcome}{limit}
 <p>Family-cluster paired differences: 97.5% normal intervals for Shared-M vs. majority
 and Shared-M vs. MLP, Bonferroni familywise 5%. Per-family rows are in the saved record.
 Treat gains as exploratory only; a non-gain applies to this fixed recipe only.</p>
@@ -135,5 +163,14 @@ def report_files(saved: dict[str, object]) -> dict[str, bytes]:
           ' See native exit separately. [Charts and method](index.html).\n\n'
           f'## Actual accounting\n\n```json\n{escape(_json(saved.get("counts")))}\n```\n\n'
           f'## Final TEST\n\n{outcome}\n\nSingle-key, single-seed, reduced-round exploration.\n')
+    if _reuse(saved):
+        arms = _mapping(summary.get('arms'))
+        actual = {name: {**{key: arm.get(key) for key in ('epochs_completed', 'stop_reason')},
+                         'best_epoch': _mapping(arm.get('selected')).get('epoch')}
+                  for name, value in arms.items() if (arm := _mapping(value))}
+        md += (f'\n## Configured data source\n\n{_CONFIGURED_SOURCE_NOTE}\n\n'
+               f'{_configured_source(saved)}\n\n## Actual fits\n\n'
+               f'{escape(_json(actual)) if actual else "No fit details survived in the record."}'
+               f'\n\n{_REUSE_LIMIT}\n')
     return {'index.html': render_report(saved), 'report.md': md.encode(),
             'source.json': (_json(source) + '\n').encode()}

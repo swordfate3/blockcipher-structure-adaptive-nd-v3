@@ -34,14 +34,14 @@ def test_launcher_contract() -> None:
     assert 'Remove-Item Env:PYTHONNOUSERSITE' in script
     assert ' -I ' not in script and ' -S ' not in script
     assert '& $python @cliArgs' in script
-    assert '$code = $LASTEXITCODE' in script and 'exit $code' in script
-    assert 'AddSeconds(7200)' in script and 'G:\\lxy\\' in script
+    assert '$code = $global:LASTEXITCODE' in script and 'exit $code' in script
+    assert 'else { 7200 }' in script and 'G:\\lxy\\' in script
 
 
 def test_launcher_exit_evidence_failure_contract() -> None:
     # Static PowerShell contract: no Windows interpreter or native process here.
     script = Path('scripts/start-cube-sharedm.ps1').read_text(encoding='ascii')
-    closing = script.split('$code = $LASTEXITCODE\n', 1)[1]
+    closing = script.split('$code = $global:LASTEXITCODE\n', 1)[1]
     assert "if ($null -eq $code) { throw 'NATIVE_EXIT_UNKNOWN' }" in closing
     assert "try {\n    Set-Content -LiteralPath (Join-Path $work 'exit.txt')" in closing
     assert "-ErrorAction Stop\n} catch {\n    Write-Warning 'EXIT_EVIDENCE_WRITE_FAILED'" in closing
@@ -412,3 +412,130 @@ def test_production_recipe_and_policy_are_fixed() -> None:
     assert policy.rss_stop_bytes == 8 * 2**30 and policy.output_bytes == 512 * 2**20
     with pytest.raises(ValueError, match='INVALID_DEADLINE'):
         cli._policy((now + timedelta(seconds=7201)).isoformat(), clocks)
+
+
+def test_cube_reuse50_fixed_recipe_policy_and_explicit_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cipher_lab_plugins.direct_block.cube_compare import cli, config
+
+    from cipher_lab.execution import Clocks
+
+    cfg = Path('configs/direct-block-cube-sharedm-simon7-50epoch.json')
+    fixed = config.reuse_recipe()
+    assert cli._fixed(cfg) == fixed
+    assert fixed['method'] != recipe()['method'] and fixed['rounds'] == 7
+    assert fixed['epochs'] == 50 and fixed['batch_size'] == 256
+    assert fixed['early_stopping'] == dict(warmup_epochs=10, patience=8, min_delta=1e-5)
+    assert fixed['source'] == {
+        'run_id': 'cube-sharedm-simon7-20261123-02',
+        'run_sha256': 'bc2c87a5e2ab919021c7f4cdf556830f99b59380b858352ae72d30c93669f523',
+        'splits': {
+            'dataset/train.npz': {'bytes': 41943816, 'sha256':
+                'e01ca03e68a3feaaa98553cbb2d7662bdd943a31e304cc7abcec4ccaaaa1cf8a'},
+            'dataset/dev.npz': {'bytes': 2622216, 'sha256':
+                '116ebebf97f4a1df3685f53bc9aa02d98f8d8d58ab202d3e85477f0ba5b6f2a3'},
+            'dataset/test.npz': {'bytes': 2622216, 'sha256':
+                'f00dfe78821c28024b826eb8ad8444ebf1acd37e9525001061fe4b9c4f990ddc'},
+        },
+    }
+    assert fixed['total_caps'] == dict(real_blocks=0, null_words=0,
+                                       optimizer_updates=409600, forward_rows=111542272)
+    assert config.reuse_counts(18, 25) == dict(real_blocks=0, null_words=0,
+                                              optimizer_updates=176128, forward_rows=48037888)
+    now = datetime(2026, 11, 23, tzinfo=UTC)
+    clocks = Clocks(lambda: 0., lambda: 0., lambda: now)
+    monkeypatch.setattr(cli, 'Clocks', lambda: clocks)
+    end = now + timedelta(seconds=10800)
+    p = cli._policy(end.isoformat(), clocks, reuse=True)
+    assert p.wall_seconds == 10800 and p.cpu_seconds == 43200
+    with pytest.raises(ValueError, match='INVALID_DEADLINE'):
+        cli._policy((end + timedelta(seconds=1)).isoformat(), clocks, reuse=True)
+    root = tmp_path / 'no claim'
+    argv = ['run', '--root', str(root), '--run-id', 'dummy', '--deadline-utc',
+            (now + timedelta(seconds=100)).isoformat(), '--config']
+    assert cli.main([*argv, str(cfg)]) == 2
+    assert cli.main([*argv, 'configs/direct-block-cube-sharedm-simon7.json',
+                     '--source-root', str(tmp_path)]) == 2
+    assert not root.exists()
+    cfg_drift = tmp_path / 'bad-config.json'
+    cfg_drift.write_text(json.dumps({**fixed, 'source': {'run_id': 'other'}}), encoding='utf-8')
+    assert cli.main(['check', '--config', str(cfg_drift)]) == 2
+
+
+def test_cube_reuse50_launcher_scoped_native_dummy_contract() -> None:
+    # Controller ran cmd /c exit 0/7 on Windows; here statically verify the exact
+    # clear/invoke/capture sequence and model the two scopes without spawning.
+    script = Path('scripts/start-cube-sharedm.ps1').read_text(encoding='ascii')
+    assert '$global:LASTEXITCODE = $null\n& $python @cliArgs 1> $stdout 2> $stderr\n' \
+           '$code = $global:LASTEXITCODE\n' in script
+    assert "if ($null -eq $code) { throw 'NATIVE_EXIT_UNKNOWN' }" in script
+    for native in (0, 7, None):
+        scope = {'local': None, 'global': native}
+        capture = 'global' if '$code = $global:LASTEXITCODE' in script else 'local'
+        assert scope[capture] == native
+    assert 'Start-Process' not in script and '10800' in script and '7200' in script
+    assert '--source-root' in script and 'direct-block-cube-sharedm-simon7-50epoch.json' in script
+
+
+@pytest.mark.parametrize('kind', ['data', 'models', 'result'])
+@pytest.mark.parametrize('placement', ['exact', 'descendant', 'owned-target'])
+def test_cube_fix1_overlap_rejected_before_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    kind: str, placement: str,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cipher_lab_plugins.direct_block.cube_compare import cli, config, preflight, resources
+
+    from cipher_lab.artifacts import RunStore
+    from cipher_lab.execution import Clocks
+
+    root = tmp_path / 'source'
+    old = root / kind / config.SOURCE_RUN_ID
+    old.mkdir(parents=True)
+    sentinel = old / 'sentinel'
+    sentinel.write_text('old owner', encoding='ascii')
+    cfg = tmp_path / 'reuse.json'
+    cfg.write_text(json.dumps(config.reuse_recipe()), encoding='utf-8')
+    now = datetime(2026, 11, 23, tzinfo=UTC)
+    monkeypatch.setattr(cli, 'Clocks', lambda: Clocks(lambda: 0., lambda: 0., lambda: now))
+    monkeypatch.setattr(RunStore, 'claim', lambda *a, **k: pytest.fail('claim attempted'))
+    monkeypatch.setattr(preflight, 'gpu_gate', lambda: pytest.fail('device gate attempted'))
+    monkeypatch.setattr(resources, 'working_set_bytes', lambda: pytest.fail('RSS attempted'))
+    output = {'exact': old, 'descendant': old / 'nested', 'owned-target': root}[placement]
+    run_id = config.SOURCE_RUN_ID if placement == 'owned-target' else 'new-run'
+    code = cli.main(['run', '--config', str(cfg), '--root', str(output), '--source-root', str(root),
+                     '--run-id', run_id, '--deadline-utc', (now + timedelta(hours=1)).isoformat()])
+    assert code == 2 and json.loads(capsys.readouterr().err)['reason'] == 'SOURCE_OUTPUT_OVERLAP'
+    assert list(old.iterdir()) == [sentinel] and sentinel.read_text() == 'old owner'
+
+
+def test_cube_fix1_overlap_through_output_kind_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cipher_lab_plugins.direct_block.cube_compare import cli, config
+
+    from cipher_lab.artifacts import RunStore
+    from cipher_lab.execution import Clocks
+
+    source = tmp_path / 'source'
+    old = source / 'models' / config.SOURCE_RUN_ID
+    old.mkdir(parents=True)
+    output = tmp_path / 'output'
+    output.mkdir()
+    (output / 'models').symlink_to(old, target_is_directory=True)
+    cfg = tmp_path / 'reuse.json'
+    cfg.write_text(json.dumps(config.reuse_recipe()), encoding='utf-8')
+    now = datetime(2026, 11, 23, tzinfo=UTC)
+    monkeypatch.setattr(cli, 'Clocks', lambda: Clocks(lambda: 0., lambda: 0., lambda: now))
+    monkeypatch.setattr(RunStore, 'claim', lambda *a, **k: pytest.fail('claim attempted'))
+    assert cli.main(['run', '--config', str(cfg), '--root', str(output), '--source-root',
+                     str(source), '--run-id', 'new-run', '--deadline-utc',
+                     (now + timedelta(hours=1)).isoformat()]) == 2
+    assert json.loads(capsys.readouterr().err)['reason'] == 'SOURCE_OUTPUT_OVERLAP'
+    assert not list(old.iterdir())

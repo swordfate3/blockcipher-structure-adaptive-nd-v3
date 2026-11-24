@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal, cast
+from typing import Literal, Protocol, cast
 
 from cipher_lab.artifacts import RunStore
 from cipher_lab.execution import Meter
+from cipher_lab.training.early_stopping import Settings
 
 from ..fit import (
     Best,
@@ -20,10 +21,15 @@ from ..fit import (
     seeded_order,
 )
 from . import config
-from .data import CubePanels, Panel
+from .data import Panel
 from .metrics import PairedScore, train_majority
 
 Arm = Literal['mlp', 'sharedm']
+
+
+class Panels(Protocol):
+    def build(self, split: Literal['train', 'dev']) -> Panel: ...
+    def label_test(self) -> Panel: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +39,28 @@ class Plan:
     families: tuple[int, int, int] = config.FAMILIES
     epochs: int = config.EPOCHS
     batch_size: int = config.BATCH
+    early_stopping: Settings | None = None
+
+
+def completed_epochs(summary: dict[str, object], plan: Plan) -> tuple[int, int]:
+    arms = summary.get('arms')
+    if not isinstance(arms, dict):
+        raise ValueError('missing completed arms')
+
+    def count(name: Arm) -> int:
+        arm = arms.get(name)
+        if not isinstance(arm, dict):
+            raise ValueError('missing completed arm')
+        epochs, reason, dev = arm.get('epochs_completed'), arm.get('stop_reason'), arm.get('dev')
+        stop = plan.early_stopping
+        if (type(epochs) is not int or not 1 <= epochs <= plan.epochs or stop is None
+                or not isinstance(dev, list) or len(dev) != epochs
+                or (reason != 'EPOCH_CEILING' if epochs == plan.epochs else
+                    reason != 'EARLY_STOPPING' or epochs < stop.warmup_epochs + stop.patience)):
+            raise ValueError('invalid completed epochs')
+        return epochs
+
+    return count('mlp'), count('sharedm')
 
 
 def _quiet(phase: str) -> None:
@@ -40,12 +68,12 @@ def _quiet(phase: str) -> None:
 
 
 def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
-        make_engine: Callable[[Arm], Engine], make_panels: Callable[[Meter], CubePanels],
+        make_engine: Callable[[Arm], Engine], make_panels: Callable[[Meter], Panels],
         plan: Plan = Plan(), phase: Callable[[str], None] = _quiet) -> dict[str, object]:
     """Return one complete score only; never attach a TEST score to live snapshots."""
     train_rows, dev_rows, test_rows = (n * config.PAIRS_PER_FAMILY for n in plan.families)
     settings = FitSettings(plan.epochs, plan.batch_size, config.CHECKPOINT_BYTES,
-                           config.ACTIVE_COLUMNS)
+                           config.ACTIVE_COLUMNS, early_stopping=plan.early_stopping)
 
     def progress(stage: str) -> None:
         phase(stage)

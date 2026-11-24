@@ -56,7 +56,8 @@ def cube_entropy_probe(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 
 @pytest.fixture(autouse=True)
-def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest,
+                     tmp_path_factory: pytest.TempPathFactory) -> None:
     if 'cube_entropy_probe' in request.fixturenames:
         request.getfixturevalue('cube_entropy_probe')
     counter = itertools.count(1)
@@ -72,8 +73,9 @@ def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReq
         (ctypes, ('WinDLL',)),
         (simon, ('encrypt_many', 'encrypt_batch', '_round_words')),
         (execution, ('production_rss_bytes',)),
-        (torch.cuda, ('is_available', 'get_device_properties', 'mem_get_info', 'init',
-                      '_lazy_init', 'synchronize', 'max_memory_allocated', 'max_memory_reserved')),
+        (torch.cuda, ('is_available', 'device_count', 'get_device_properties', 'mem_get_info',
+                      'init', '_lazy_init', 'synchronize', 'max_memory_allocated',
+                      'max_memory_reserved')),
         (torch.Tensor, ('backward',)), (torch.autograd, ('grad', 'backward')),
         (torch.optim.Adam, ('__init__', 'step', 'zero_grad')),
         (InputRepresentation, ('forward',)),
@@ -98,13 +100,17 @@ def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReq
         monkeypatch.setattr(loader, 'load', in_memory)
 
     opened = Path.open
+    base = tmp_path_factory.getbasetemp().resolve()
 
-    def no_rss(path: Path, *args: Any, **kwargs: Any) -> Any:
+    def guarded_open(path: Path, *args: Any, **kwargs: Any) -> Any:
         if path.as_posix().startswith('/proc/'):
             forbidden()
+        if path.suffix in ('.npz', '.pt') or path.name in ('run.json', 'events.jsonl'):
+            if not path.resolve().is_relative_to(base):
+                forbidden()
         return opened(path, *args, **kwargs)
 
-    monkeypatch.setattr(Path, 'open', no_rss)
+    monkeypatch.setattr(Path, 'open', guarded_open)
 
 
 @pytest.fixture

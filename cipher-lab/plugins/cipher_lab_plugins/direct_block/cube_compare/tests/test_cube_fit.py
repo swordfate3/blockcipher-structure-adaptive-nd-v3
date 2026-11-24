@@ -135,3 +135,62 @@ def test_cube_shared_fit_epoch_order_selection_and_double_persisted_gate(
         panel = reload_then(args, summary, options, cube_meter, store, panels.label_test)
         assert len(panel) == 8 and labels_called == [48, 16, 16]
         assert first['best_reloaded'] is second['best_reloaded'] is True
+
+
+@pytest.mark.parametrize(('scenario', 'epochs', 'best_epoch', 'reason'), [
+    ('flat', 18, 1, 'EARLY_STOPPING'),
+    ('subdelta', 18, 18, 'EARLY_STOPPING'),
+    ('cumulative', 25, 17, 'EARLY_STOPPING'),
+    ('above_target', 18, 17, 'EARLY_STOPPING'),
+    ('ceiling', 50, 50, 'EPOCH_CEILING'),
+])
+def test_cube_reuse50_fit_core_stop_separate_from_best(
+    cube_meter: Meter, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    scenario: str, epochs: int, best_epoch: int, reason: str,
+) -> None:
+    import importlib
+    import math
+
+    from cipher_lab_plugins.direct_block.cube_compare.data import Panel
+    from cipher_lab_plugins.direct_block.fit import FitSettings, fit, seeded_order
+
+    from cipher_lab.training.early_stopping import Settings
+
+    module = importlib.import_module(fit.__module__)
+    target = .5 - 1e-5
+    panels = Panel(np.zeros((8, 2), dtype=np.uint64), np.zeros((8, 2), dtype=np.uint64),
+                   np.zeros(8, dtype=np.uint64))
+    store = RunStore.claim(tmp_path, 'stops', needs_models=True, output_bytes=2**26,
+                           source_supplier=lambda: {'fake/synthetic.py': '0' * 64})
+    engine = ManualArm()
+    monkeypatch.setattr(engine, 'train_forward', lambda inputs: lambda labels: 0.125)
+    monkeypatch.setattr(engine, 'predict', lambda inputs: np.zeros_like(inputs))
+    bce_sum = module._bce_sum
+
+    def bce(logits: Floats, labels: Labels) -> float:
+        # Use exact synthetic DEV loss values for ULP boundary tests.
+        assert bce_sum(logits, labels) > 0
+        e = engine.steps
+        loss = .5
+        if scenario == 'ceiling':
+            loss -= e * .001
+        elif e > 10 and scenario == 'subdelta':
+            loss -= (e - 10) * 1e-6
+        elif e > 10 and scenario in ('cumulative', 'above_target'):
+            limit = target if scenario == 'cumulative' else math.nextafter(target, math.inf)
+            loss = max(limit, loss - (e - 10) * 1.5e-6)
+        return loss * labels.size
+
+    monkeypatch.setattr(module, '_bce_sum', bce)
+    arm: dict[str, object] = {}
+    settings = FitSettings(50, 8, 4096, early_stopping=Settings(10, 8, 1e-5))
+    best = fit(panels, panels, engine, seeded_order(8, 1), 'best', arm, {'arm': arm},
+               settings, cube_meter, store)
+    assert arm['epochs_completed'] == engine.steps == epochs
+    assert arm['stop_reason'] == reason
+    selected = arm['selected']
+    assert isinstance(selected, dict) and selected['epoch'] == best_epoch
+    raw = f'fake-{best_epoch}'.encode()
+    assert best == ('model/best.pt', sha256(raw).hexdigest())
+    assert store.read_model(*best, 4096) == raw
+    assert cube_meter.snapshot()['completed_forward_rows'] == epochs * 16

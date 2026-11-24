@@ -1,0 +1,121 @@
+{
+  "method": "direct-block-cube-sharedm-50epoch-reuse-v1",
+  "cipher": "SIMON64/128",
+  "rounds": 7,
+  "key_bits": 128,
+  "key_protocol": "single-key",
+  "input_width": 128,
+  "target_width": 128,
+  "input": "P || P\u2032",
+  "target": "C || C\u2032",
+  "bit_order": "MSB0",
+  "active_positions_lsb0": [
+    0,
+    21,
+    42,
+    60
+  ],
+  "xor_mask": "0x1000040000200001",
+  "active_columns_msb0": [
+    63,
+    42,
+    21,
+    3,
+    127,
+    106,
+    85,
+    67
+  ],
+  "pairs_per_family": 8,
+  "families": {
+    "train": 131072,
+    "dev": 8192,
+    "test": 8192
+  },
+  "pairs": {
+    "train": 1048576,
+    "dev": 65536,
+    "test": 65536
+  },
+  "test_denominator_bits": 524288,
+  "arms": [
+    "mlp",
+    "sharedm"
+  ],
+  "parameters": {
+    "mlp": 49536,
+    "sharedm": 1876179
+  },
+  "epochs": 50,
+  "batch_size": 256,
+  "selection": "active-BCE/earliest",
+  "training_loss": "full-128-BCE",
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "weight_decay": 0.0,
+  "grad_clip": 1.0,
+  "precision": "FP32",
+  "amp": false,
+  "tf32": false,
+  "data_seed": 20261123,
+  "order_seed": 20261124,
+  "init_seed": 31,
+  "preflight_counts": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 0,
+    "forward_rows": 0
+  },
+  "total_caps": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 409600,
+    "forward_rows": 111542272
+  },
+  "retries": 0,
+  "wall_seconds": 10800,
+  "cpu_seconds": 43200,
+  "rss_stop_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "cpu_threads": 4,
+  "interop_threads": 1,
+  "physical_gpu_index": 1,
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "gpu_free_bytes_min": 17179869184,
+  "mode": "saved-panels",
+  "early_stopping": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "source": {
+    "run_id": "cube-sharedm-simon7-20261123-02",
+    "run_sha256": "bc2c87a5e2ab919021c7f4cdf556830f99b59380b858352ae72d30c93669f523",
+    "splits": {
+      "dataset/train.npz": {
+        "bytes": 41943816,
+        "sha256": "e01ca03e68a3feaaa98553cbb2d7662bdd943a31e304cc7abcec4ccaaaa1cf8a"
+      },
+      "dataset/dev.npz": {
+        "bytes": 2622216,
+        "sha256": "116ebebf97f4a1df3685f53bc9aa02d98f8d8d58ab202d3e85477f0ba5b6f2a3"
+      },
+      "dataset/test.npz": {
+        "bytes": 2622216,
+        "sha256": "f00dfe78821c28024b826eb8ad8444ebf1acd37e9525001061fe4b9c4f990ddc"
+      }
+    }
+  },
+  "max_scientific_counts": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 409600,
+    "forward_rows": 111542272
+  }
+}
