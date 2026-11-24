@@ -1,7 +1,8 @@
-"""One Adam fit over the recipe's stages, with strictly disk-reloaded final TEST."""
+"""Shared serial updates, with separate legacy TEST and volume DEV-only fits."""
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from hashlib import sha256
 from typing import Any
 
@@ -21,51 +22,108 @@ from ..resources import Resources, ResourceStop
 from ..single_train.config import BACKEND, learning_rate
 from ..single_train.data import PairBatch
 from ..single_train.weights import bound_identity
-from .config import SerialRecipe, estimate, official
-from .data import SerialPools, encode_test
+from .config import DEV_OBSERVATION_BYTES, SerialRecipe, VolumeRecipe, estimate, official
+from .data import SerialPools, VolumePools, encode_test
 from .models import SerialRuntime
 
 
-def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPools,
-         runtime: SerialRuntime, summary: dict[str, Any]) -> None:
-    tr, tasks, slots = recipe.training, recipe.tasks, recipe.stage_slots
-    totals, source = estimate(recipe), store.source_snapshot()
-    assert recipe.run_id is not None
-    run_id = recipe.run_id
-    pending: list[dict[str, Any]] = summary['pending']
-    stages: list[dict[str, Any]] = summary['stages']
-    refs: list[str] = summary['batch_refs']
-    updates: dict[str, dict[str, int]] = summary['updates']
+class _FitLedger:
+    def __init__(self, store: RunStore, res: Resources, summary: dict[str, Any]) -> None:
+        self.res, self.summary = res, summary
+        # Resolve the live source probe at each check, not only at assembly.
+        self._current_source: Callable[[], dict[str, str]] = (
+            lambda: store.current_source_identity())
+        self._snapshot = store.write_snapshot
+        self.write_payload = store.write_payload
+        self.source = store.source_snapshot()
+        self.pending: list[dict[str, Any]] = summary['pending']
+        self.refs: list[str] = summary['batch_refs']
+        self.updates: dict[str, dict[str, int]] = summary['updates']
 
-    def check_source() -> None:
-        res.check()
+    def check_source(self) -> None:
+        self.res.check()
         try:
-            current = store.current_source_identity()
+            current = self._current_source()
         except ArtifactError:
             raise ResourceStop('SOURCE_CHANGED') from None
-        if current != source:
+        if current != self.source:
             raise ResourceStop('SOURCE_CHANGED')
-        res.check()
+        self.res.check()
 
-    def snapshot() -> None:
-        store.write_snapshot(dict(summary=summary, counts=res.snapshot()))
-        res.check()
+    def snapshot(self) -> None:
+        self._snapshot(dict(summary=self.summary, counts=self.res.snapshot()))
+        self.res.check()
 
-    def flush() -> None:
-        if pending:
-            check_source()
-            snapshot()
-            refs.append(store.write_payload(f'batches-{len(refs):04d}', pending))
-            pending.clear()
-            snapshot()
+    def flush(self) -> None:
+        if self.pending:
+            self.check_source()
+            self.snapshot()
+            self.refs.append(self.write_payload(f'batches-{len(self.refs):04d}', self.pending))
+            self.pending.clear()
+            self.snapshot()
 
-    def audit(update_count: int, rows: int) -> None:
-        counts = res.snapshot()
+    def audit(self, update_count: int, rows: int) -> None:
+        counts = self.res.snapshot()
         expected = dict(real_blocks=0, null_words=0, optimizer_updates=update_count,
                         forward_rows=rows)
         if any(counts[f'{kind}_{unit}'] != n for unit, n in expected.items()
                for kind in ('attempted', 'completed')):
             raise ValueError('COUNT_MISMATCH')
+
+
+def _train_stage(recipe: SerialRecipe, task: Task, stage: int, ledger: _FitLedger,
+                 train: Callable[[Task, int], PairBatch], runtime: SerialRuntime, *,
+                 after_epoch: Callable[[int, int, float], None] | None = None) -> float:
+    tr, res, cipher = recipe.training, ledger.res, task.cipher
+    losses = 0.
+    for epoch in range(1, tr.epochs + 1):
+        ledger.check_source()
+        for offset in range(tr.batches_per_epoch):
+            cycle = (epoch - 1) * tr.batches_per_epoch + offset
+            loc = dict(phase='train', stage=stage, task=cipher, epoch=epoch, cycle=cycle)
+            ledger.summary['location'] = loc
+            res.check()
+            batch = train(task, cycle)
+            if (batch.split, batch.index, batch.groups, batch.namespace) != (
+                    'train', cycle, tr.batch_groups, recipe.namespace):
+                raise ValueError('TRAIN_BATCH_IDENTITY')
+            lr = learning_rate(recipe, cycle)  # restart schedule, not M or Adam
+            row = dict(loc, groups=batch.groups, digest=batch.digest, lr=lr,
+                       attempted=False, completed=False)
+            x, y = runtime.prepare(batch)
+            res.reserve('optimizer_updates', 1)
+            row['attempted'] = True
+            ledger.pending.append(row)
+            ledger.updates[cipher]['attempted'] += 1
+            loss = runtime.update(SLOT, task, x, y, lr, res)
+            res.complete('optimizer_updates', 1)
+            ledger.updates[cipher]['completed'] += 1
+            row['completed'] = True
+            if not math.isfinite(loss):
+                raise ValueError('UPDATE_INVALID')
+            row['bce'] = loss
+            if len(canonical(row)) + 1 > ROW_BYTES_LIMIT:
+                raise ValueError('BATCH_LEDGER_SIZE')
+            losses += loss
+            del batch, x, y
+            res.check()
+            if len(ledger.pending) >= BATCH_LEDGER_ROWS:
+                ledger.flush()
+        ledger.flush()
+        if after_epoch is not None:
+            after_epoch(epoch, epoch * tr.batches_per_epoch, losses)
+    return losses
+
+
+def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPools,
+         runtime: SerialRuntime, summary: dict[str, Any]) -> None:
+    tr, tasks, slots = recipe.training, recipe.tasks, recipe.stage_slots
+    ledger = _FitLedger(store, res, summary)
+    totals, source = estimate(recipe), ledger.source
+    assert recipe.run_id is not None
+    run_id = recipe.run_id
+    stages: list[dict[str, Any]] = summary['stages']
+    check_source, snapshot, audit = ledger.check_source, ledger.snapshot, ledger.audit
 
     def at_row(start: int) -> None:
         summary['location']['start_row'] = start
@@ -97,41 +155,7 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
 
     for stage, (task, checkpoint_slot) in enumerate(zip(tasks, slots, strict=True), 1):
         cipher = task.cipher
-        losses = 0.
-        for epoch in range(1, tr.epochs + 1):
-            check_source()
-            for offset in range(tr.batches_per_epoch):
-                cycle = (epoch - 1) * tr.batches_per_epoch + offset
-                loc = dict(phase='train', stage=stage, task=cipher, epoch=epoch, cycle=cycle)
-                summary['location'] = loc
-                res.check()
-                batch = pools.train(task, cycle)
-                if (batch.split, batch.index, batch.groups, batch.namespace) != (
-                        'train', cycle, tr.batch_groups, recipe.namespace):
-                    raise ValueError('TRAIN_BATCH_IDENTITY')
-                lr = learning_rate(recipe, cycle)  # restart schedule, not M or Adam
-                row = dict(loc, groups=batch.groups, digest=batch.digest, lr=lr,
-                           attempted=False, completed=False)
-                x, y = runtime.prepare(batch)
-                res.reserve('optimizer_updates', 1)
-                row['attempted'] = True
-                pending.append(row)
-                updates[cipher]['attempted'] += 1
-                loss = runtime.update(SLOT, task, x, y, lr, res)
-                res.complete('optimizer_updates', 1)
-                updates[cipher]['completed'] += 1
-                row['completed'] = True
-                if not math.isfinite(loss):
-                    raise ValueError('UPDATE_INVALID')
-                row['bce'] = loss
-                if len(canonical(row)) + 1 > ROW_BYTES_LIMIT:
-                    raise ValueError('BATCH_LEDGER_SIZE')
-                losses += loss
-                del batch, x, y
-                res.check()
-                if len(pending) >= BATCH_LEDGER_ROWS:
-                    flush()
-            flush()
+        losses = _train_stage(recipe, task, stage, ledger, pools.train, runtime)
 
         scores: dict[str, Any] = {}
         for target in tasks:
@@ -192,8 +216,8 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
         scores_test, logits = score(task, panel, runtime, tr.eval_batch_groups, res, at_row)
         outputs.append((task, panel, scores_test, logits, provenance))
     audit(totals['optimizer_updates'], totals['forward_rows'])
-    if any(updates[t.cipher] != dict.fromkeys(('attempted', 'completed'), totals['updates_each'])
-           for t in tasks):
+    expected_updates = dict.fromkeys(('attempted', 'completed'), totals['updates_each'])
+    if any(ledger.updates[t.cipher] != expected_updates for t in tasks):
         raise ValueError('UPDATE_COUNT_MISMATCH')
     entries = {}
     for task, panel, scores_test, logits, provenance in outputs:
@@ -212,6 +236,66 @@ def _fit(recipe: SerialRecipe, store: RunStore, res: Resources, pools: SerialPoo
     summary['test'] = entries
     summary['location'] = dict(phase='complete')
 
+def _fit_volume(recipe: VolumeRecipe, ledger: _FitLedger, pools: VolumePools) -> None:
+    tr, res, summary = recipe.training, ledger.res, ledger.summary
+    task, = recipe.tasks
+    totals = estimate(recipe)
+
+    def visit(cipher: str) -> None:
+        summary['location'] = dict(phase='pool-source-verify', task=cipher)
+
+    ledger.check_source()
+    summary['pool_status'] = 'PREPARING'
+    dev, summary['pools'] = pools.bind(visit)
+    panel = dev[task.cipher]
+    if (panel.split, panel.index, panel.groups, panel.namespace, panel.digest) != (
+            'dev', 0, tr.dev_groups, recipe.namespace, recipe.common_dev.digest):
+        raise PoolSourceError
+    ledger.audit(0, 0)
+    ledger.check_source()
+    summary['pool_status'] = 'READY'
+    summary['location'] = dict(phase='pool-ready')
+    ledger.snapshot()
+    runtime = SerialRuntime(recipe, res.check)
+    summary['models'] = runtime.metadata()  # geometry only; no checkpoint/weights
+    observations: list[dict[str, Any]] = summary['dev_observations']
+
+    def at_row(start: int) -> None:
+        summary['location']['start_row'] = start
+
+    def observe(epoch: int, updates: int, losses: float) -> None:
+        if updates not in recipe.dev_updates:
+            return
+        previous = len(observations)
+        if updates != recipe.dev_updates[previous]:
+            raise ValueError('VOLUME_OBSERVATION_ORDER')
+        train_rows = updates * tr.batch_groups
+        ledger.audit(updates, train_rows + previous * tr.dev_groups)
+        summary['location'] = dict(phase='dev-score', task=task.cipher,
+                                   epoch=epoch, updates=updates)
+        scores, _ = score(task, panel, runtime, tr.eval_batch_groups, res, at_row)
+        observation = dict(updates=updates, epoch=epoch, task=task.cipher, dev=scores,
+                           routes=runtime.routes(), mean_online_train_bce=losses / updates)
+        if len(canonical(observation)) + 1 > DEV_OBSERVATION_BYTES:
+            raise ValueError('DEV_OBSERVATION_SIZE')
+        ledger.audit(updates, train_rows + (previous + 1) * tr.dev_groups)
+        ledger.check_source()
+        summary['location'] = dict(phase='dev-save', task=task.cipher, epoch=epoch, updates=updates)
+        ledger.snapshot()
+        ref = ledger.write_payload(f'dev-{updates}', observation)
+        observations.append(dict(observation, evidence_ref=ref))
+        ledger.snapshot()
+
+    _train_stage(recipe, task, 1, ledger, pools.train, runtime, after_epoch=observe)
+    pools.release_train()
+    ledger.audit(totals['optimizer_updates'], totals['forward_rows'])
+    if (tuple(o['updates'] for o in observations) != recipe.dev_updates
+            or ledger.updates[task.cipher] != dict.fromkeys(('attempted', 'completed'),
+                                                          totals['optimizer_updates'])):
+        raise ValueError('VOLUME_COUNT_MISMATCH')
+    ledger.check_source()
+    summary['location'] = dict(phase='complete')
+
 
 def execute(recipe: SerialRecipe, store: RunStore, res: Resources, *,
             launch: dict[str, str]) -> None:
@@ -224,7 +308,11 @@ def _execute(recipe: SerialRecipe, store: RunStore, res: Resources, *, launch: d
     summary: dict[str, Any] = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
         scientific_validation=False, launch=launch, location=dict(phase='assembly'),
         pools={}, pool_status='NOT_READY', updates={t.cipher: dict(attempted=0, completed=0)
-        for t in recipe.tasks}, pending=[], batch_refs=[], stages=[], test={}, retries=0)
+        for t in recipe.tasks}, pending=[], batch_refs=[], retries=0)
+    if isinstance(recipe, VolumeRecipe):
+        summary['dev_observations'] = []
+    else:
+        summary.update(stages=[], test={})
     status = 'FAILED'
     try:
         if estimate(recipe)['artifact_peak_bound_bytes'] > recipe.resources.artifact_bytes:
@@ -232,11 +320,16 @@ def _execute(recipe: SerialRecipe, store: RunStore, res: Resources, *, launch: d
         store._failure_evidence_key = 'pending'
         store.write_snapshot(dict(summary=summary, counts=res.snapshot()))
         res.check()
-        if pools is None:
-            pools = SerialPools(recipe, res.check)
-        if runtime is None:
-            runtime = SerialRuntime(recipe, res.check)
-        _fit(recipe, store, res, pools, runtime, summary)
+        if isinstance(recipe, VolumeRecipe):
+            if pools is not None or runtime is not None:
+                raise ValueError('VOLUME_ASSEMBLY')
+            _fit_volume(recipe, _FitLedger(store, res, summary), VolumePools(recipe, res.check))
+        else:
+            if pools is None:
+                pools = SerialPools(recipe, res.check)
+            if runtime is None:
+                runtime = SerialRuntime(recipe, res.check)
+            _fit(recipe, store, res, pools, runtime, summary)
         summary['reason'] = 'COMPLETE'
         status = 'SUCCEEDED'
     except ArtifactError:

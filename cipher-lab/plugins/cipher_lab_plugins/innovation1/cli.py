@@ -7,17 +7,28 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, cast
 
-from .config import GPU_UUID, Recipe, estimate, load_config, validate_run_id
+from .config import GPU_UUID, Recipe, canonical, estimate, load_config, validate_run_id
 from .four_single.config import METHOD as FOUR_SINGLE_METHOD
 from .four_single.config import REPLAY_METHOD, FourSingleRecipe, ReplayRecipe, validate_replay_root
 from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
-from .serial_bc.config import INDEPENDENT_METHOD, INDEPENDENT_ROOT, IndependentRecipe, SerialRecipe
+from .serial_bc.config import (
+    DEV_OBSERVATION_BYTES,
+    INDEPENDENT_METHOD,
+    INDEPENDENT_ROOT,
+    VOLUME_GPU_UUID,
+    VOLUME_METHOD,
+    VOLUME_ROOT,
+    IndependentRecipe,
+    SerialRecipe,
+    VolumeRecipe,
+)
 from .serial_bc.config import METHOD as SERIAL_METHOD
 from .serial_bc.config import estimate as estimate_serial
 from .serial_bc.config import official as official_serial
@@ -61,13 +72,111 @@ def _owner_record(store: RunStore, root: Path, run_id: str) -> tuple[dict[str, A
     return saved, frozen
 
 
-def _verified_artifacts(root: Path, saved: dict[str, Any], run_id: str) -> None:
+def _volume_points(recipe: dict[str, Any]) -> dict[str, tuple[int, int]]:
+    tr = recipe['training']
+    per_epoch, epochs = tr['batches_per_epoch'], tr['epochs']
+    updates = recipe['selection']['dev_updates']
+    if (any(type(n) is not int or n <= 0 for n in
+            (per_epoch, epochs, tr['batch_groups'], tr['dev_groups']))
+            or not isinstance(updates, list) or len(updates) != 3
+            or any(type(n) is not int or n <= 0 or n % per_epoch for n in updates)
+            or updates != sorted(set(updates)) or updates[-1] != per_epoch * epochs):
+        raise ValueError('VOLUME_DEV_EVIDENCE')
+    return {f'payload/dev-{n}.json': (n, n // per_epoch) for n in updates}
+
+
+def _dev_observation(raw: bytes, ref: str, point: tuple[int, int],
+                     dev_groups: int) -> dict[str, Any]:
+    from cipher_lab.artifacts import _decode, _mapping
+
+    def scalar(value: object, upper: float = float('inf')) -> bool:
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return False
+        return isfinite(value) and 0 <= value <= upper
+
+    row = _mapping(_decode(raw))
+    dev, routes = _mapping(row.get('dev')), _mapping(row.get('routes'))
+    weights = _mapping(routes.get('SKINNY'))
+    if (set(row) != {'updates', 'epoch', 'task', 'dev', 'routes', 'mean_online_train_bce'}
+            or row['task'] != 'SKINNY'
+            or any(type(row[k]) is not int or row[k] != n
+                   for k, n in zip(('updates', 'epoch'), point, strict=True))
+            or set(dev) != {'groups', 'bce', 'accuracy'}
+            or type(dev['groups']) is not int or dev['groups'] != dev_groups
+            or not scalar(dev['bce']) or not scalar(dev['accuracy'], 1.)
+            or not scalar(row['mean_online_train_bce'])
+            or set(routes) != {'SKINNY'} or not weights
+            or not all(stem.isascii() and stem.isidentifier() and scalar(w, 1.)
+                       for stem, w in weights.items())):
+        raise ValueError('VOLUME_DEV_EVIDENCE')
+    return dict(row, evidence_ref=ref)
+
+
+def _check_volume_counts(saved: dict[str, Any], observations: list[dict[str, Any]]) -> None:
+    # Counts can include later partial TRAIN/DEV work. Require enough completed
+    # work for every saved observation, not equality to the last saved point.
+    tr, counts = saved['recipe']['training'], saved['counts']
+    total = tr['batches_per_epoch'] * tr['epochs']
+    batch, dev = tr['batch_groups'], tr['dev_groups']
+    completed = counts.get('completed_optimizer_updates')
+    attempted = counts.get('attempted_optimizer_updates')
+    last_saved = observations[-1]['updates'] if observations else 0
+    success = saved['status'] == 'SUCCEEDED'
+    if (type(completed) is not int or type(attempted) is not int
+            or not last_saved <= completed <= attempted <= total
+            or success and completed != total):
+        raise ValueError('VOLUME_DEV_EVIDENCE')
+    points = saved['recipe']['selection']['dev_updates']
+    reached = sum(point <= completed for point in points)
+    lower_bounds = dict(forward_rows=completed * batch + len(observations) * dev,
+                        real_blocks=0, null_words=0)
+    upper_bounds = dict(forward_rows=attempted * batch + reached * dev,
+                        real_blocks=0, null_words=0)
+    for kind, low in lower_bounds.items():
+        done, tried = counts.get(f'completed_{kind}'), counts.get(f'attempted_{kind}')
+        high = upper_bounds[kind]
+        if (type(done) is not int or type(tried) is not int or not low <= done <= tried <= high
+                or success and done != high):
+            raise ValueError('VOLUME_DEV_EVIDENCE')
+
+
+def _verified_artifacts(root: Path, saved: dict[str, Any], run_id: str) -> dict[str, Any]:
     from cipher_lab.artifacts import _location, _stream
 
     from .source import no_reparse
 
-    for ref, metadata in saved['artifacts'].items():
-        _stream(no_reparse(_location(root, run_id, ref)), metadata)
+    artifacts, recipe = saved['artifacts'], saved['recipe']
+    volume = recipe.get('method') == VOLUME_METHOD
+    points: dict[str, tuple[int, int]] = {}
+    registered: list[str] = []
+    if volume:
+        if any(not ref.startswith(('payload/batches-', 'payload/dev-')) for ref in artifacts):
+            raise ValueError('VOLUME_ARTIFACT_KIND')
+        points = _volume_points(recipe)
+        registered = [ref for ref in points if ref in artifacts]
+        if (set(registered) != {ref for ref in artifacts if ref.startswith('payload/dev-')}
+                or registered != list(points)[:len(registered)]
+                or saved['status'] == 'SUCCEEDED' and registered != list(points)):
+            raise ValueError('VOLUME_DEV_EVIDENCE')
+    verified: dict[str, dict[str, Any]] = {}
+    for ref, metadata in artifacts.items():
+        collect = ref in points
+        if collect and not 0 < metadata['bytes'] <= DEV_OBSERVATION_BYTES:
+            raise ValueError('VOLUME_DEV_EVIDENCE')
+        raw = _stream(no_reparse(_location(root, run_id, ref)), metadata, collect=collect)
+        if collect:
+            verified[ref] = _dev_observation(raw, ref, points[ref],
+                                             recipe['training']['dev_groups'])
+    if not volume:
+        return saved
+    observations = [verified[ref] for ref in registered]
+    _check_volume_counts(saved, observations)
+    if (saved['status'] == 'SUCCEEDED'
+            and canonical(saved['summary'].get('dev_observations')) != canonical(observations)):
+        raise ValueError('VOLUME_DEV_EVIDENCE')
+    # Keep the sealed summary and digest intact. The renderer uses only these
+    # separately verified rows, even if the bounded FAILED seal dropped its list.
+    return {**saved, 'verified_dev_observations': observations}
 
 
 def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
@@ -99,7 +208,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
             request_identity = {**requested, 'scope': 'REQUESTED_ONLY_NOT_PERSISTED'}
         if reason is None:
             try:
-                _verified_artifacts(root, saved, run_id)
+                render_record = _verified_artifacts(root, saved, run_id)
                 integrity = 'VERIFIED'
                 resources.check()
                 if not saved['recipe']:
@@ -115,7 +224,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
                     elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
-                                    INDEPENDENT_METHOD):
+                                    INDEPENDENT_METHOD, VOLUME_METHOD):
                         from .four_single.report import render
                     elif method == Recipe().method:
                         from .report import render
@@ -123,7 +232,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                         raise ValueError('SAVED_METHOD_UNVERIFIED')
                     command = scientific
                     code = {'SUCCEEDED': 0, 'STOPPED': 3, 'FAILED': 4}[scientific]
-                    files = render({**saved, 'run_ref': f'data/{run_id}/run.json',
+                    files = render({**render_record, 'run_ref': f'data/{run_id}/run.json',
                                     'run_sha256': frozen})
                     for name in ('report.md', 'index.html', 'source.json'):
                         no_reparse(root / 'result' / run_id / name)
@@ -192,7 +301,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             pool_source = recipe.pool_source
         elif isinstance(recipe, SerialRecipe):
             official_serial(recipe, args.id)
-            if isinstance(recipe, IndependentRecipe):
+            if isinstance(recipe, VolumeRecipe):
+                validate_serial_root(args.root, expected=VOLUME_ROOT)
+                if args.gpu_uuid.casefold() != VOLUME_GPU_UUID.casefold():
+                    raise ValueError('VOLUME_GPU_UUID')
+            elif isinstance(recipe, IndependentRecipe):
                 validate_serial_root(args.root, expected=INDEPENDENT_ROOT)
             else:
                 validate_serial_root(args.root)
@@ -227,16 +340,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Serial's wall budget starts before touching the output/source owner.
         serial_resources = make_resources(recipe) if isinstance(recipe, SerialRecipe) else None
         root = no_reparse(args.root)
-        for kind in ('data', 'models', 'result'):
+        needs_models = not isinstance(recipe, VolumeRecipe)
+        for kind in (('data', 'models', 'result') if needs_models else ('data', 'result')):
             no_reparse(root / kind / args.id)
         resources = serial_resources if serial_resources is not None else make_resources(recipe)
         resources.check()
+        claim_in_progress = True
+
+        def volume_claim_source() -> dict[str, str]:
+            identity = source_identity()
+            # Claim scans before any owner mkdir. This is cooperative, not atomic
+            # with subsequent filesystem calls. Later live scans share the supplier.
+            if claim_in_progress:
+                resources.check()
+            return identity
+
+        source_supplier = (volume_claim_source if isinstance(recipe, VolumeRecipe)
+                           else source_identity)
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
-                               needs_models=True, source_supplier=source_identity,
+                               needs_models=needs_models, source_supplier=source_supplier,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
                                else recipe.stage_slots if isinstance(recipe, SerialRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
+        claim_in_progress = False
     except Stopped as error:
         print(json.dumps(dict(scientific_status='UNKNOWN', command_status='STOPPED',
                               report_status='NOT_ATTEMPTED', reason=error.reason, exit_code=3,

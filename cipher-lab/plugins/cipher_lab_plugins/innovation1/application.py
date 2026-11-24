@@ -17,7 +17,15 @@ from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
 from .resources import Resources, ResourceStop
-from .serial_bc.config import DEADLINE_ENV, INDEPENDENT_ROOT, IndependentRecipe, SerialRecipe
+from .serial_bc.config import (
+    DEADLINE_ENV,
+    INDEPENDENT_ROOT,
+    VOLUME_GPU_UUID,
+    VOLUME_ROOT,
+    IndependentRecipe,
+    SerialRecipe,
+    VolumeRecipe,
+)
 from .serial_bc.config import make_policy as make_serial_policy
 from .serial_bc.config import official as official_serial
 from .serial_bc.config import validate_root as validate_serial_root
@@ -104,7 +112,11 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         official(recipe, run_id)
     elif isinstance(recipe, SerialRecipe):
         official_serial(recipe, run_id)
-        if isinstance(recipe, IndependentRecipe):
+        if isinstance(recipe, VolumeRecipe):
+            validate_serial_root(store._root, expected=VOLUME_ROOT)
+            if gpu_uuid.casefold() != VOLUME_GPU_UUID.casefold():
+                raise ValueError('VOLUME_GPU_UUID')
+        elif isinstance(recipe, IndependentRecipe):
             validate_serial_root(store._root, expected=INDEPENDENT_ROOT)
         else:
             validate_serial_root(store._root)
@@ -123,6 +135,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         policy['deadline_utc'] = res.meter._policy.deadline_utc
     summary = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
                    scientific_validation=False, launch=launch, location=dict(phase='device-setup'))
+    if isinstance(recipe, VolumeRecipe):
+        summary['dev_observations'] = []
     status = 'FAILED'
     try:
         store.write_snapshot(dict(recipe=recipe.to_dict(), policy=policy,

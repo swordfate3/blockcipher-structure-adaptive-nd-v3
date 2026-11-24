@@ -5,14 +5,60 @@ from html import escape
 from typing import Any
 
 from ..config import canonical
-from ..serial_bc.config import INDEPENDENT_METHOD
+from ..serial_bc.config import INDEPENDENT_METHOD, VOLUME_METHOD
 from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
+
+
+def _volume_text(saved: dict[str, Any]) -> str:
+    summary, recipe = saved['summary'], saved['recipe']
+    tr = recipe['training']
+    rows = []
+    observations = saved['verified_dev_observations']
+    for observation in observations:
+        dev = observation['dev']
+        routes = ', '.join(f'{stem}: {weight:.6g}'
+                           for stem, weight in observation['routes'][observation['task']].items())
+        rows.append(f"|{observation['updates']}|{observation['epoch']}|{observation['task']}|"
+                    f"{dev['groups']}|{dev['bce']:.6f}|{dev['accuracy']*100:.4f}|"
+                    f"{observation['mean_online_train_bce']:.6f}|{routes}|")
+    evidence = canonical({**{key: saved[key] for key in ('counts', 'source', 'artifacts')},
+                          'summary': {k: v for k, v in summary.items() if k != 'dev_observations'},
+                          'verified_dev_observations': observations})
+    completed = saved['counts'].get('completed_optimizer_updates', '未保存')
+    return ('# 创新1 · SKINNY TRAIN 池大小对照\n\n'
+            f'状态：{saved["status"]}；终态原因：{summary.get("reason", "未保存")}。\n\n'
+            f'固定 TRAIN：{tr["batch_groups"] * tr["batches_per_epoch"]:,} 对；'
+            f'计划轮数：{tr["epochs"]}；已记录完成更新：{completed}。'
+            '原 TRAIN/DEV 分割不变。只核验 SKINNY 原归档 → '
+            '以真实公开卡从零更新同一 M 架构 → 按完成更新数在共同 DEV 评分。'
+            '主指标为末点 DEV BCE；未到达或未保存末点时不以中间值替代。'
+            '在线 TRAIN BCE 为到该点的累计更新均值，不是固定 TRAIN 重新评分。'
+            '不早停、不选模、不保存模型权重，TEST 不打开、不评分。\n\n'
+            '|更新|轮|任务|DEV 行数|DEV BCE|DEV 准确率 %|在线 TRAIN BCE|分支及权重|\n'
+            '|---:|---:|---|---:|---:|---:|---:|---|\n'
+            + ('\n'.join(rows) if rows else '|—|—|—|—|—|—|—|未保存|') + '\n\n'
+            '仅报告已登记且经校验的 DEV 观测；本对照使用一个配对初值和已用于历史观察的固定 DEV，'
+            '仅作探索，不证明跨种子或全新样本泛化。资源门禁为协作式。\n\n'
+            f'## 保存证据\n\n```json\n{evidence}\n```\n')
+
+
+def _report_files(saved: dict[str, Any], text: str, html: str) -> dict[str, bytes]:
+    provenance = dict(schema=1, run_id=saved['run_id'], run_ref=saved['run_ref'],
+                      run_sha256=saved['run_sha256'])
+    return {'report.md': text.encode(), 'index.html': html.encode(),
+            'source.json': canonical(provenance).encode()}
 
 
 def render(saved: dict[str, Any]) -> dict[str, bytes]:
     summary = saved['summary']
     method = saved['recipe']['method']
+    if method == VOLUME_METHOD:
+        text = _volume_text(saved)
+        html = ('<!doctype html><html lang="zh"><meta charset="utf-8">'
+                '<title>SKINNY TRAIN 池大小对照</title>'
+                f'<h1>SKINNY TRAIN 池大小对照</h1><pre>{escape(text)}</pre></html>')
+        return _report_files(saved, text, html)
     independent = method == INDEPENDENT_METHOD
     title = '创新1 · 单算法独立 B/C' if independent else '创新1 · 四任务单对共享 M'
     best = summary.get('best', {})
@@ -89,7 +135,4 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
     html = ('<!doctype html><html lang="zh"><meta charset="utf-8">'
             f'<title>{heading}</title><h1>{heading}</h1>'
             f'<p aria-label="方法流程">{escape(flow)}</p>{svg}<pre>{escape(text)}</pre></html>')
-    provenance = dict(schema=1, run_id=saved['run_id'], run_ref=saved['run_ref'],
-                      run_sha256=saved['run_sha256'])
-    return {'report.md': text.encode(), 'index.html': html.encode(),
-            'source.json': canonical(provenance).encode()}
+    return _report_files(saved, text, html)
