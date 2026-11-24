@@ -114,3 +114,65 @@ class PairedScore:
             'families': [{'family_id': base, 'majority': a, 'mlp': b, 'sharedm': c}
                          for base, (_, a, b, c) in families],
         }
+
+
+class LSTMScore:
+    """LSTM versus frozen TRAIN majority; no historical arm in these families."""
+
+    def __init__(self, rows: int, majority: tuple[int, ...]) -> None:
+        if type(rows) is not int or rows < 2 * PAIRS_PER_FAMILY or rows % PAIRS_PER_FAMILY:
+            raise ValueError('invalid TEST family count')
+        if len(majority) != _BITS or any(type(b) is not int or b not in (0, 1) for b in majority):
+            raise ValueError('invalid TRAIN majority')
+        self._expected, self._majority = rows, majority
+        self._rows = 0
+        self._ones = np.zeros(_BITS, dtype=np.int64)
+        self._correct = np.zeros((2, _BITS), dtype=np.int64)
+        self._families: dict[int, tuple[int, int, int]] = {}
+
+    def add(self, family_ids: Words, labels: Labels, logits: Floats) -> None:
+        active = _active(labels)
+        if family_ids.shape != (len(labels),) or family_ids.dtype != np.uint64:
+            raise ValueError('invalid family ids')
+        if self._rows + len(labels) > self._expected:
+            raise ValueError('too many TEST rows')
+        if (logits.dtype != np.float32 or logits.shape != labels.shape
+                or not np.isfinite(logits).all()):
+            raise ValueError('invalid logits')
+        good = np.stack((self._majority == active, (logits[:, ACTIVE_COLUMNS] >= 0) == active))
+        baseline, lstm = good.sum(axis=2)
+        changed: dict[int, tuple[int, int, int]] = {}
+        for base, m, z in zip(family_ids, baseline, lstm, strict=True):
+            key = int(base)
+            n, a, b = changed.get(key, self._families.get(key, (0, 0, 0)))
+            if n >= PAIRS_PER_FAMILY:
+                raise ValueError('too many rows for TEST family')
+            changed[key] = (n + 1, a + int(m), b + int(z))
+        self._families.update(changed)
+        self._correct += good.sum(axis=1)
+        self._ones += active.sum(axis=0, dtype=np.int64)
+        self._rows += len(labels)
+
+    def result(self) -> dict[str, object]:
+        if self._rows != self._expected or any(f[0] != PAIRS_PER_FAMILY
+                                               for f in self._families.values()):
+            raise ValueError('incomplete TEST families')
+        denom = self._rows * _BITS
+        by_bit = dict(zip(('majority', 'lstm'), self._correct.tolist(), strict=True))
+        totals = {name: sum(counts) for name, counts in by_bit.items()}
+        families = sorted(self._families.items())
+        interval = paired_interval([b for _, (_, _, b) in families],
+                                   [a for _, (_, a, _) in families])
+        return {
+            'rows': self._rows, 'denominator_bits': denom,
+            'active_columns_msb0': list(ACTIVE_COLUMNS),
+            'train_majority_bits': list(self._majority),
+            'label_ones': int(self._ones.sum()), 'label_zeros': denom - int(self._ones.sum()),
+            'label_ones_by_bit': self._ones.tolist(),
+            'label_zeros_by_bit': (self._rows - self._ones).tolist(),
+            'correct_by_bit': by_bit, 'correct_bits': totals,
+            'accuracy': {name: n / denom for name, n in totals.items()},
+            'confidence': .975, 'comparisons': {'lstm_minus_majority': interval},
+            'families': [{'family_id': base, 'majority': a, 'lstm': b}
+                         for base, (_, a, b) in families],
+        }

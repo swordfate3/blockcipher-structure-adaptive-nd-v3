@@ -1,4 +1,4 @@
-"""FP32 device runtime for the two registered cube arms; never constructs labels."""
+"""FP32 device runtime for fixed cube models; never constructs labels."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -21,11 +21,13 @@ from .config import (
     INIT_SEED,
     INTEROP_THREADS,
     LR,
+    LSTM_METHOD,
     METHOD,
     WEIGHT_DECAY,
     WIDTH,
 )
 from .data import Floats, Labels
+from .lstm import CubeLSTM
 from .model import CubeSharedM
 
 
@@ -62,6 +64,13 @@ def make_engine(arm: Literal['mlp', 'sharedm']) -> TorchEngine:
         else:
             model = CubeSharedM()
     return TorchEngine(model, torch.device(GPU_DEVICE), identity=f'{METHOD}/{arm}')
+
+
+def make_lstm_engine() -> TorchEngine:
+    with torch.random.fork_rng(devices=[]), torch.device('cpu'):
+        torch.default_generator.manual_seed(INIT_SEED)
+        model = CubeLSTM()
+    return TorchEngine(model, torch.device(GPU_DEVICE), identity=f'{LSTM_METHOD}/lstm')
 
 
 class TorchEngine:

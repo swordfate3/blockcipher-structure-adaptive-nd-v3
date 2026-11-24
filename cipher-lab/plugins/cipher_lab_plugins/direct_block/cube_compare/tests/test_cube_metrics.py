@@ -71,3 +71,36 @@ def test_cube_metrics_reject_incomplete_or_nonfinite_scores() -> None:
         score.add(families, labels, z, z)
     with pytest.raises(ValueError, match='famil'):
         paired_interval([0], [0])
+
+
+def test_cube_lstm_complete_family_stats_and_no_old_pairing() -> None:
+    from cipher_lab_plugins.direct_block.cube_compare.config import ACTIVE_COLUMNS
+    from cipher_lab_plugins.direct_block.cube_compare.metrics import LSTMScore, paired_interval
+
+    ids = np.repeat(np.array([11, 7, 23], np.uint64), 8)
+    y = np.zeros((24, 128), np.uint8)
+    y[:8, ACTIVE_COLUMNS] = 1
+    z = np.full(y.shape, -1, np.float32)
+    z[:8, ACTIVE_COLUMNS] = 0  # ties in logits predict one
+    z[8:16, ACTIVE_COLUMNS[:4]] = 1
+    score = LSTMScore(24, (1, 0, 0, 0, 0, 0, 0, 0))
+    score.add(ids[:10], y[:10], z[:10])
+    with pytest.raises(ValueError, match='incomplete'):
+        score.result()
+    # Invalid partial additions must not contaminate the complete result.
+    bad = z[10:].copy()
+    bad[-1, 0] = np.nan
+    with pytest.raises(ValueError, match='logits'):
+        score.add(ids[10:], y[10:], bad)
+    with pytest.raises(ValueError, match='family'):
+        score.add(np.zeros(14, np.uint64), y[10:], z[10:])
+    score.add(ids[10:], y[10:], z[10:])
+    result = score.result()
+    assert result['confidence'] == .975 and 'familywise_alpha' not in result
+    assert result['label_ones_by_bit'] == [8] * 8 and result['denominator_bits'] == 192
+    assert result['correct_by_bit'] == {'majority': [8] + [16] * 7,
+                                       'lstm': [16] * 4 + [24] * 4}
+    assert result['families'] == [{'family_id': i, 'majority': m, 'lstm': s}
+                                  for i, m, s in ((7, 56, 32), (11, 8, 64), (23, 56, 64))]
+    assert result['comparisons'] == {
+        'lstm_minus_majority': paired_interval([32, 64, 64], [56, 8, 56])}

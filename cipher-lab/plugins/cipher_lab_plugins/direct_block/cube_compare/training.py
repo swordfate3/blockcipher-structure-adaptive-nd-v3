@@ -1,4 +1,4 @@
-"""One cube provider, serial fits, and an all-or-nothing paired TEST score."""
+"""One cube provider, serial fits, and an all-or-nothing TEST score."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -17,12 +17,13 @@ from ..fit import (
     batch_indices,
     fit,
     predict_batch,
+    reload_best,
     reload_then,
     seeded_order,
 )
 from . import config
 from .data import Panel
-from .metrics import PairedScore, train_majority
+from .metrics import LSTMScore, PairedScore, train_majority
 
 Arm = Literal['mlp', 'sharedm']
 
@@ -40,27 +41,35 @@ class Plan:
     epochs: int = config.EPOCHS
     batch_size: int = config.BATCH
     early_stopping: Settings | None = None
+    topology: Literal['dual', 'lstm-single'] = 'dual'
 
 
-def completed_epochs(summary: dict[str, object], plan: Plan) -> tuple[int, int]:
+def _completed_epochs(summary: dict[str, object], plan: Plan, name: str) -> int:
     arms = summary.get('arms')
     if not isinstance(arms, dict):
         raise ValueError('missing completed arms')
+    arm = arms.get(name)
+    if not isinstance(arm, dict):
+        raise ValueError('missing completed arm')
+    epochs, reason, dev = arm.get('epochs_completed'), arm.get('stop_reason'), arm.get('dev')
+    stop = plan.early_stopping
+    if (type(epochs) is not int or not 1 <= epochs <= plan.epochs or stop is None
+            or not isinstance(dev, list) or len(dev) != epochs
+            or (reason != 'EPOCH_CEILING' if epochs == plan.epochs else
+                reason != 'EARLY_STOPPING' or epochs < stop.warmup_epochs + stop.patience)):
+        raise ValueError('invalid completed epochs')
+    return epochs
 
-    def count(name: Arm) -> int:
-        arm = arms.get(name)
-        if not isinstance(arm, dict):
-            raise ValueError('missing completed arm')
-        epochs, reason, dev = arm.get('epochs_completed'), arm.get('stop_reason'), arm.get('dev')
-        stop = plan.early_stopping
-        if (type(epochs) is not int or not 1 <= epochs <= plan.epochs or stop is None
-                or not isinstance(dev, list) or len(dev) != epochs
-                or (reason != 'EPOCH_CEILING' if epochs == plan.epochs else
-                    reason != 'EARLY_STOPPING' or epochs < stop.warmup_epochs + stop.patience)):
-            raise ValueError('invalid completed epochs')
-        return epochs
 
-    return count('mlp'), count('sharedm')
+def completed_epochs(summary: dict[str, object], plan: Plan) -> tuple[int, int]:
+    return _completed_epochs(summary, plan, 'mlp'), _completed_epochs(summary, plan, 'sharedm')
+
+
+def completed_lstm_epochs(summary: dict[str, object], plan: Plan) -> int:
+    arms = summary.get('arms')
+    if plan.topology != 'lstm-single' or not isinstance(arms, dict) or set(arms) != {'lstm'}:
+        raise ValueError('expected one completed LSTM arm')
+    return _completed_epochs(summary, plan, 'lstm')
 
 
 def _quiet(phase: str) -> None:
@@ -68,9 +77,20 @@ def _quiet(phase: str) -> None:
 
 
 def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
-        make_engine: Callable[[Arm], Engine], make_panels: Callable[[Meter], Panels],
+        make_panels: Callable[[Meter], Panels], make_engine: Callable[[Arm], Engine] | None = None,
+        make_lstm_engine: Callable[[], Engine] | None = None,
         plan: Plan = Plan(), phase: Callable[[str], None] = _quiet) -> dict[str, object]:
     """Return one complete score only; never attach a TEST score to live snapshots."""
+    single = plan.topology == 'lstm-single'
+    roster: tuple[tuple[str, str], ...]
+    if single and make_lstm_engine is not None and make_engine is None:
+        if plan.early_stopping is None:
+            raise ValueError('LSTM requires epoch early stopping')
+        roster = (('lstm', config.LSTM_SLOT),)
+    elif plan.topology == 'dual' and make_engine is not None and make_lstm_engine is None:
+        roster = tuple(zip(config.ARMS, config.SLOTS, strict=True))
+    else:
+        raise ValueError('invalid cube fit topology')
     train_rows, dev_rows, test_rows = (n * config.PAIRS_PER_FAMILY for n in plan.families)
     settings = FitSettings(plan.epochs, plan.batch_size, config.CHECKPOINT_BYTES,
                            config.ACTIVE_COLUMNS, early_stopping=plan.early_stopping)
@@ -109,29 +129,48 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
     arms: dict[str, dict[str, object]] = {}
     summary['arms'] = arms
     reloads: list[tuple[Engine, Best | None, dict[str, object]]] = []
-    for name, slot in zip(config.ARMS, config.SLOTS, strict=True):
+    for name, slot in roster:
         phase('ENGINE')
         assert_source(store)
         meter.check()
-        engine = make_engine(cast(Arm, name))
+        if make_lstm_engine is not None:
+            engine = make_lstm_engine()
+            method = config.LSTM_METHOD
+        else:
+            assert make_engine is not None
+            engine = make_engine(cast(Arm, name))
+            method = config.METHOD  # preserve legacy identities in both dual recipes
         arm: dict[str, object] = {
-            'identity': f'{config.METHOD}/{name}', 'slot': slot, 'best_reloaded': False,
+            'identity': f'{method}/{name}', 'slot': slot, 'best_reloaded': False,
         }
         arms[name] = arm
         best = fit(train, dev, engine, order, slot, arm, summary, settings,
                    meter, store, phase=progress)
         reloads.append((engine, best, arm))
 
-    test = reload_then(reloads, summary, settings, meter, store, panels.label_test, phase=progress)
+    if single:
+        [(engine, best, arm)] = reloads
+        reload_best(engine, best, arm, summary, settings.checkpoint_bytes, meter, store,
+                    phase=progress)
+        phase('TEST')
+        assert_source(store)
+        meter.check()
+        test = panels.label_test()
+    else:
+        test = reload_then(reloads, summary, settings, meter, store, panels.label_test,
+                           phase=progress)
     if len(test) != test_rows:
         raise ValueError('TEST panel size')
     phase('TEST_SCORE')
-    score = PairedScore(test_rows, majority)
+    score = LSTMScore(test_rows, majority) if single else PairedScore(test_rows, majority)
     for at in batch_indices(test_rows, plan.batch_size):
         x, y = test.batch(at)
-        mlp = predict_batch(reloads[0][0], x, y, meter)
-        sharedm = predict_batch(reloads[1][0], x, y, meter)
-        score.add(test.family_ids[at], y, mlp, sharedm)
+        first = predict_batch(reloads[0][0], x, y, meter)
+        if isinstance(score, LSTMScore):
+            score.add(test.family_ids[at], y, first)
+        else:
+            sharedm = predict_batch(reloads[1][0], x, y, meter)
+            score.add(test.family_ids[at], y, first, sharedm)
     meter.check()
     result = score.result()
     phase('TEST_SAVE')

@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, NoReturn
 from uuid import UUID
 
@@ -55,11 +56,87 @@ def cube_entropy_probe(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     return calls
 
 
+_RNN_NUMERICAL = ('lstm', 'gru', 'rnn_tanh', 'rnn_relu', 'lstm_cell', 'gru_cell',
+                  'rnn_tanh_cell', 'rnn_relu_cell')
+_RNN_DISPATCH = ('RNN_TANH', 'RNN_RELU')
+_RNN_LAYERS = (torch.nn.LSTM, torch.nn.RNN, torch.nn.GRU,
+               torch.nn.LSTMCell, torch.nn.RNNCell, torch.nn.GRUCell)
+
+
+@pytest.fixture
+def cube_rnn_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[list[str], dict[str, Callable[..., object]]]:
+    """Install safe lower callables and capture the real handles before the guard."""
+    calls: list[str] = []
+
+    def record(*args: object, **kwargs: object) -> NoReturn:
+        calls.append('reached harmless recurrent stub')
+        raise AssertionError('recurrent guard missing')
+
+    for layer in _RNN_LAYERS:
+        monkeypatch.setattr(layer, 'forward', record)
+    functions = SimpleNamespace(**dict.fromkeys(_RNN_NUMERICAL, record))
+    monkeypatch.setattr(torch._C, '_VariableFunctions', functions)
+    monkeypatch.setattr(torch._VF, 'vf', functions)
+    for name in _RNN_NUMERICAL:
+        monkeypatch.setattr(torch, name, record)
+        monkeypatch.setattr(torch._VF, name, record)
+    packet = torch.ops.aten.lstm
+    handles = {'packet': packet, 'input': packet.input, 'data': packet.data,
+               'bound-call': packet.input.__call__}
+    monkeypatch.setattr(packet, '_op', record)
+    for op in (packet.input, packet.data):
+        monkeypatch.setattr(op, '_op', record)
+        if hasattr(op, '_cpp_dispatch_handle'):
+            monkeypatch.setattr(op, '_cpp_dispatch_handle', record)
+    for name in _RNN_DISPATCH:
+        monkeypatch.setitem(torch.nn.modules.rnn._rnn_impls, name, record)
+    return calls, handles
+
+
+def _block_recurrent_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    for layer in _RNN_LAYERS:
+        monkeypatch.setattr(layer, 'forward', forbidden)
+    functions = torch._C._VariableFunctions
+
+    class GuardedVariableFunctions:
+        # The native object's methods are read-only. Delegate non-recurrent
+        # access unchanged; this proxy exists only inside the owner fixture.
+        def __getattr__(self, name: str) -> Any:
+            if name in _RNN_NUMERICAL:
+                return forbidden
+            return getattr(functions, name)
+
+    guarded = GuardedVariableFunctions()
+    monkeypatch.setattr(torch._C, '_VariableFunctions', guarded)
+    monkeypatch.setattr(torch._VF, 'vf', guarded)
+    for name in _RNN_NUMERICAL:
+        for owner in (torch, torch._VF):
+            if hasattr(owner, name):
+                monkeypatch.setattr(owner, name, forbidden)
+        packet = getattr(torch.ops.aten, name)
+        # Protect the call targets on the actual objects before replacing the
+        # namespace lookup, including packets/overloads cached before setup.
+        overloads = [getattr(packet, key) for key in packet.overloads()]
+        monkeypatch.setattr(packet, '_op', forbidden)
+        for op in overloads:
+            monkeypatch.setattr(op, '_op', forbidden)
+            if hasattr(op, '_cpp_dispatch_handle'):
+                monkeypatch.setattr(op, '_cpp_dispatch_handle', forbidden)
+        monkeypatch.setattr(torch.ops.aten, name, forbidden)
+    # Older Torch versions also cache VF functions in this dispatch table.
+    for name in _RNN_DISPATCH:
+        monkeypatch.setitem(torch.nn.modules.rnn._rnn_impls, name, forbidden)
+
+
 @pytest.fixture(autouse=True)
 def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest,
                      tmp_path_factory: pytest.TempPathFactory) -> None:
     if 'cube_entropy_probe' in request.fixturenames:
         request.getfixturevalue('cube_entropy_probe')
+    if 'cube_rnn_probe' in request.fixturenames:
+        request.getfixturevalue('cube_rnn_probe')
     counter = itertools.count(1)
     monkeypatch.setattr(artifacts, 'uuid4', lambda: UUID(int=next(counter)))
     for owner, names in (
@@ -87,6 +164,7 @@ def cube_manual_only(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReq
     for layer in (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d,
                   torch.nn.GroupNorm):
         monkeypatch.setattr(layer, 'forward', forbidden)
+    _block_recurrent_calls(monkeypatch)
     # Prohibit opening any saved archives here, including outside the repo.
     for loader in (torch, np):
         original = loader.load

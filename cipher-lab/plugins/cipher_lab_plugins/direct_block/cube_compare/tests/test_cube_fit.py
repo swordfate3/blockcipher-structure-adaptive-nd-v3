@@ -194,3 +194,25 @@ def test_cube_reuse50_fit_core_stop_separate_from_best(
     assert best == ('model/best.pt', sha256(raw).hexdigest())
     assert store.read_model(*best, 4096) == raw
     assert cube_meter.snapshot()['completed_forward_rows'] == epochs * 16
+
+
+@pytest.mark.parametrize('failure', ['one', 'missing', 'engine', 'ref'])
+def test_cube_dual_gate_still_rejects_missing_or_duplicate_best_before_restore(
+    cube_meter: Meter, tmp_path: Path, failure: str,
+) -> None:
+    from cipher_lab_plugins.direct_block.fit import Best, FitSettings, reload_then
+
+    store = RunStore.claim(tmp_path, 'dual', needs_models=True, output_bytes=2**20,
+                           model_slots=('mlp-best', 'sharedm-best'),
+                           source_supplier=lambda: {'fake/synthetic.py': '0' * 64})
+    a, b = ManualArm(), ManualArm()
+    left: Best = ('model/mlp-best.pt', '0' * 64)
+    right: Best | None = {'missing': None, 'ref': left}.get(
+        failure, ('model/sharedm-best.pt', '1' * 64))
+    arms: list[tuple[ManualArm, Best | None, dict[str, object]]] = [(a, left, {})]
+    if failure != 'one':
+        arms.append((a if failure == 'engine' else b, right, {}))
+    with pytest.raises(ValueError, match='two distinct persisted best'):
+        reload_then(arms, {}, FitSettings(1, 8, 4096), cube_meter, store,
+                    lambda: pytest.fail('dual TEST accessed'))
+    assert not a.restored and not b.restored

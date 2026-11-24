@@ -539,3 +539,75 @@ def test_cube_fix1_overlap_through_output_kind_alias(
                      (now + timedelta(hours=1)).isoformat()]) == 2
     assert json.loads(capsys.readouterr().err)['reason'] == 'SOURCE_OUTPUT_OVERLAP'
     assert not list(old.iterdir())
+
+
+def test_cube_lstm_fixed_recipe_source_policy_and_launcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cipher_lab_plugins.direct_block.cube_compare import cli, config
+
+    from cipher_lab.execution import Clocks
+
+    cfg = Path('configs/direct-block-cube-lstm-simon7.json')
+    actual = cli._fixed(cfg)
+    assert actual == config.lstm_recipe()
+    assert actual['method'] == config.LSTM_METHOD and actual['arms'] == ['lstm']
+    assert actual['source'] == config.reuse_recipe()['source']
+    assert actual['parameters'] == {'lstm': 216192}
+    assert actual['fits'] == 1 and actual['epochs'] == 50 and actual['batch_size'] == 256
+    assert actual['early_stopping'] == dict(warmup_epochs=10, patience=8, min_delta=1e-5)
+    assert actual['total_caps'] == config.lstm_counts(50) == dict(
+        real_blocks=0, null_words=0, optimizer_updates=204800, forward_rows=55771136)
+    assert config.lstm_counts(18) == dict(real_blocks=0, null_words=0,
+                                         optimizer_updates=73728, forward_rows=20119552)
+    for bad in (True, 0, 51, 18.0):
+        with pytest.raises(ValueError, match='epochs'):
+            config.lstm_counts(bad)  # type: ignore[arg-type]
+    now = datetime(2026, 11, 24, tzinfo=UTC)
+    clocks = Clocks(lambda: 0., lambda: 0., lambda: now)
+    monkeypatch.setattr(cli, 'Clocks', lambda: clocks)
+    end = now + timedelta(seconds=10800)
+    p = cli._policy(end.isoformat(), clocks, method=config.LSTM_METHOD)
+    assert (p.wall_seconds, p.cpu_seconds, p.rss_stop_bytes, p.output_bytes) == (
+        10800, 43200, 8 * 2**30, 512 * 2**20)
+    assert actual['checkpoint_bytes'] == 16 * 2**20
+    root = tmp_path / 'no claim'
+    argv = ['run', '--config', str(cfg), '--root', str(root), '--run-id', 'dummy']
+    assert cli.main([*argv, '--deadline-utc', end.isoformat()]) == 2
+    assert cli.main([*argv, '--source-root', str(tmp_path), '--deadline-utc',
+                     (end + timedelta(seconds=1)).isoformat()]) == 2
+    drift = tmp_path / 'unknown.json'
+    drift.write_text(json.dumps({**actual, 'method': 'unknown'}), encoding='utf-8')
+    assert cli.main(['check', '--config', str(drift)]) == 2
+    assert not root.exists()
+    script = Path('scripts/start-cube-sharedm.ps1').read_text(encoding='ascii')
+    assert script.count("'direct-block-cube-lstm-simon7.json'") == 2
+    assert '$wallSeconds = if ($reuse) { 10800 } else { 7200 }' in script
+    assert "if ($reuse) { $cliArgs += @('--source-root', $SourceRoot) }" in script
+
+
+@pytest.mark.parametrize('conf', ['reuse', 'lstm'])
+def test_cube_saved_panels_source_overlap_modes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                               conf: str) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cipher_lab_plugins.direct_block.cube_compare import cli, config
+
+    from cipher_lab.artifacts import RunStore
+    from cipher_lab.execution import Clocks
+
+    old = tmp_path / 'source'
+    protected = old / 'data' / config.SOURCE_RUN_ID
+    protected.mkdir(parents=True)
+    now = datetime(2026, 11, 24, tzinfo=UTC)
+    monkeypatch.setattr(cli, 'Clocks', lambda: Clocks(lambda: 0., lambda: 0., lambda: now))
+    monkeypatch.setattr(RunStore, 'claim', lambda *a, **k: pytest.fail('claim attempted'))
+    fixed = config.lstm_recipe() if conf == 'lstm' else config.reuse_recipe()
+    cfg = tmp_path / 'config.json'
+    cfg.write_text(json.dumps(fixed), encoding='utf-8')
+    assert cli.main(['run', '--config', str(cfg), '--root', str(protected), '--source-root',
+                     str(old), '--run-id', 'new', '--deadline-utc',
+                     (now + timedelta(seconds=10)).isoformat()]) == 2
+    assert not list(protected.iterdir())

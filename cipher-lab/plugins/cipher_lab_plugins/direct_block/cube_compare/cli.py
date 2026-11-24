@@ -31,19 +31,34 @@ def _fixed(path: Path) -> dict[str, object]:
     actual = _load(path)  # bounded strict JSON; rejects duplicate/non-finite fields
     if not isinstance(actual, dict):
         raise ValueError('INVALID_CONFIG')
-    expected = (config.reuse_recipe() if actual.get('method') == config.REUSE_METHOD
-                else config.recipe())
+    match actual.get('method'):
+        case config.METHOD:
+            expected = config.recipe()
+        case config.REUSE_METHOD:
+            expected = config.reuse_recipe()
+        case config.LSTM_METHOD:
+            expected = config.lstm_recipe()
+        case _:
+            raise ValueError('INVALID_CONFIG')
     # Python equality alone accepts False==0 and 7.0==7, including in lists.
     if json.dumps(actual, sort_keys=True) != json.dumps(expected, sort_keys=True):
         raise ValueError('INVALID_CONFIG')
     return expected
 
 
-def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False) -> Policy:
-    wall = config.REUSE_WALL_SECONDS if reuse else config.WALL_SECONDS
-    cpu = config.REUSE_CPU_SECONDS if reuse else config.CPU_SECONDS
-    caps = (config.reuse_counts(config.REUSE_EPOCHS, config.REUSE_EPOCHS) if reuse
-            else config.total_caps())
+def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False,
+            method: str | None = None) -> Policy:
+    match method if method is not None else (config.REUSE_METHOD if reuse else config.METHOD):
+        case config.METHOD:
+            wall, cpu, caps = config.WALL_SECONDS, config.CPU_SECONDS, config.total_caps()
+        case config.REUSE_METHOD:
+            wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
+            caps = config.reuse_counts(config.REUSE_EPOCHS, config.REUSE_EPOCHS)
+        case config.LSTM_METHOD:
+            wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
+            caps = config.lstm_counts(config.REUSE_EPOCHS)
+        case _:
+            raise ValueError('INVALID_CONFIG')
     policy = Policy(2, wall, cpu, deadline, rss_stop_bytes=config.RSS_BYTES,
                     output_bytes=config.OUTPUT_BYTES, **caps)
     end = datetime.fromisoformat(deadline)
@@ -96,6 +111,7 @@ def _read_report(store: RunStore, root: Path, run_id: str, meter: Meter) -> None
 
 def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clocks: Clocks,
          source_root: Path | None = None) -> int:
+    single = recipe['method'] == config.LSTM_METHOD
     try:
         # Still no native probe, DLL binding, Torch or NumPy at claim time.
         from . import preflight
@@ -103,7 +119,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
         meter = Meter(policy, clocks, working_set_bytes)
         store = RunStore.claim(root, run_id, output_bytes=policy.output_bytes,
-                               needs_models=True, model_slots=config.SLOTS,
+                               needs_models=True,
+                               model_slots=(config.LSTM_SLOT,) if single else config.SLOTS,
                                source_supplier=source_identity)
     except Stopped as error:
         return _emit('STOPPED', error.reason, 3)
@@ -116,6 +133,8 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
                                  'preflight': {'status': 'NOT_STARTED'}}
     if source_root is not None:
         summary.update(mode='saved-panels', preflight={'status': 'SKIPPED_REUSE'})
+    if single:
+        summary['topology'] = 'lstm-single'
 
     def phase(stage: str) -> None:
         summary['phase'] = stage
@@ -168,10 +187,13 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
             make_panels = saved_panels
             plan = training.Plan(config.FAMILIES, config.REUSE_EPOCHS, config.BATCH,
-                                 Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA))
+                                 Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA),
+                                 topology='lstm-single' if single else 'dual')
         phase('SCIENCE')
         science_started = True
-        score = training.run(meter, store, summary, make_engine=engine.make_engine,
+        score = training.run(meter, store, summary,
+                             make_engine=None if single else engine.make_engine,
+                             make_lstm_engine=engine.make_lstm_engine if single else None,
                              make_panels=make_panels, plan=plan, phase=phase)
         phase('FINALIZE')
         if store.current_source_identity() != store.source_snapshot():
@@ -180,8 +202,12 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         summary['cuda_peaks'] = preflight.gpu_peaks()
         meter.check()
         counts = meter.snapshot()
-        expected = (config.total_caps() if source_root is None else
-                    config.reuse_counts(*training.completed_epochs(summary, plan)))
+        if single:
+            expected = config.lstm_counts(training.completed_lstm_epochs(summary, plan))
+        elif source_root is not None:
+            expected = config.reuse_counts(*training.completed_epochs(summary, plan))
+        else:
+            expected = config.total_caps()
         for kind, n in expected.items():
             if counts[f'attempted_{kind}'] != n or counts[f'completed_{kind}'] != n:
                 raise ValueError('count mismatch')
@@ -267,11 +293,13 @@ def main(argv: list[str]) -> int:
         if args.command == 'check':
             print(json.dumps({'status': 'VALID', 'recipe': recipe}, sort_keys=True))
             return 0
-        reuse = recipe['method'] == config.REUSE_METHOD
+        method = recipe['method']
+        assert isinstance(method, str)  # _fixed accepts only the named recipes
+        reuse = method in (config.REUSE_METHOD, config.LSTM_METHOD)
         if reuse != (args.source_root is not None):
             raise ValueError('INVALID_SOURCE_ROOT')
         clocks = Clocks()
-        policy = _policy(args.deadline_utc, clocks, reuse=reuse)
+        policy = _policy(args.deadline_utc, clocks, method=method)
     except (OSError, ValueError, RecursionError):
         return _emit('FAILED', 'INVALID_ARGUMENTS_OR_CONFIG', 2)
     if args.source_root is not None:

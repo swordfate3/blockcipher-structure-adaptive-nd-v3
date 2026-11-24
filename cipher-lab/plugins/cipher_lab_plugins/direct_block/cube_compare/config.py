@@ -107,3 +107,28 @@ def reuse_recipe() -> dict[str, object]:
             'source': source_recipe(), 'preflight_counts': dict.fromkeys(caps, 0),
             'max_scientific_counts': caps, 'total_caps': caps,
             'wall_seconds': REUSE_WALL_SECONDS, 'cpu_seconds': REUSE_CPU_SECONDS}
+
+
+LSTM_METHOD = 'direct-block-cube-lstm-reuse-v1'
+LSTM_SLOT = 'lstm-best'
+
+
+def lstm_counts(epochs: int) -> dict[str, int]:
+    if type(epochs) is not int or not 1 <= epochs <= REUSE_EPOCHS:
+        raise ValueError('invalid completed epochs')
+    train, dev, test = (n * PAIRS_PER_FAMILY for n in FAMILIES)
+    return dict(real_blocks=0, null_words=0, optimizer_updates=epochs * (train // BATCH),
+                forward_rows=epochs * (train + dev) + test)
+
+
+def lstm_recipe() -> dict[str, object]:
+    caps = lstm_counts(REUSE_EPOCHS)
+    return {**reuse_recipe(), 'method': LSTM_METHOD, 'topology': 'lstm-single',
+            'arms': ['lstm'], 'fits': 1, 'parameters': {'lstm': 216192},
+            'lstm': dict(sequence_steps=64, sequence_order='MSB0 (P_i, P′_i)',
+                         input_size=2, hidden_size=128, num_layers=2, batch_first=True,
+                         bias=True, dropout=0., bidirectional=False, proj_size=0,
+                         initial_state='fresh zeros [2,N,128] per call',
+                         readout='h_n[-1] -> Linear(128,128)'),
+            'preflight_counts': dict.fromkeys(caps, 0),
+            'max_scientific_counts': caps, 'total_caps': caps}

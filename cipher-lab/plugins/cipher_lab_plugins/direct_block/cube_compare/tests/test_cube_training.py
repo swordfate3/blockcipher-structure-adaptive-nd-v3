@@ -192,3 +192,200 @@ def test_cube_reuse50_manual_cli_exact_counts_and_lazy_paired_test(
     for report in ('index.html', 'report.md'):
         text = (out / 'result/reuse' / report).read_text(encoding='utf-8')
         assert 'EARLY_STOPPING' in text and digest in text and 'previously' in text
+
+
+@pytest.mark.parametrize('fault', ['', 'ceiling', 'restore', 'bestsha', 'missing-best', 'testsha',
+                                  'source', 'score', 'stop', 'count', 'commit', 'reportbudget',
+                                  'reclaim'])
+def test_cube_lstm_single_fit_manual_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+    cube_reuse50_source: Callable[..., tuple[Path, str, dict[str, bytes]]], fault: str,
+) -> None:
+    from cipher_lab_plugins.direct_block.cube_compare import (
+        cli,
+        engine,
+        preflight,
+        report,
+        resources,
+    )
+    from cipher_lab_plugins.direct_block.source import source_identity
+
+    root, digest, datasets = cube_reuse50_source(two_test_families=True)
+    cube_reuse50_bind(monkeypatch, digest, datasets)
+    monkeypatch.setattr(config, 'FAMILIES', (1, 1, 2))
+    if fault == 'testsha':
+        (root / 'data' / config.SOURCE_RUN_ID / 'dataset/test.npz').write_bytes(
+            b'!' + datasets['test'][1:])
+    now = datetime(2026, 11, 24, tzinfo=UTC)
+    deadline = now + timedelta(hours=3)
+    events: list[str] = []
+    checkpoint = root / 'models/lstm/lstm-best.pt'
+    opened = Path.open
+    reading_best = False
+
+    def track(path: Path, *args: Any, **kwargs: Any) -> Any:
+        if any(path.is_relative_to(root / kind / config.SOURCE_RUN_ID)
+               for kind in ('data', 'models', 'result')):
+            assert path.name in ('run.json', 'train.npz', 'dev.npz', 'test.npz')
+            if path.suffix == '.npz':
+                events.append(f'read/{path.stem}')
+            if path.name == 'test.npz':
+                assert events[-3:-1] == ['read/best', 'loaded']
+        if path == checkpoint and args == ('rb',) and reading_best:
+            events.append('read/best')
+        return opened(path, *args, **kwargs)
+
+    read_model = artifacts.RunStore.read_model
+
+    def guarded_read(store: artifacts.RunStore, ref: str, sha: str, size: int) -> bytes:
+        nonlocal reading_best
+        assert ref == 'model/lstm-best.pt' and size == 16 * 2**20
+        reading_best = True
+        try:
+            return read_model(store, ref, sha, size)
+        finally:
+            reading_best = False
+
+    monkeypatch.setattr(artifacts.RunStore, 'read_model', guarded_read)
+    monkeypatch.setattr(Path, 'open', track)
+    monkeypatch.setattr(cli, 'Clocks', lambda: Clocks(lambda: 0., lambda: 0., lambda: now))
+    monkeypatch.setattr(resources, 'working_set_bytes', lambda: 1)
+    monkeypatch.setattr(preflight, 'gpu_gate', lambda: {'uuid': config.GPU_UUID})
+    monkeypatch.setattr(preflight, 'gpu_peaks', lambda: {'manual': True})
+    monkeypatch.setattr(engine, 'configure_runtime', lambda: {'manual': True})
+    for module, attr in ((preflight, 'run'), (data, 'production_panels'), (engine, 'make_engine')):
+        monkeypatch.setattr(module, attr, lambda *a, **k: pytest.fail('legacy path invoked'))
+    def source() -> dict[str, str]:
+        identity = source_identity()
+        if fault == 'source' and 'loaded' in events:
+            identity[next(iter(identity))] = 'f' * 64
+        return identity
+
+    monkeypatch.setattr(cli, 'source_identity', source)
+    if fault == 'count':
+        actual = config.lstm_counts
+        monkeypatch.setattr(config, 'lstm_counts', lambda e: {
+            **actual(e), 'optimizer_updates': e + (e == 18)})
+
+    class ManualLSTM:
+        def __init__(self) -> None:
+            assert events == ['read/train', 'read/dev']
+            events.append('made')
+            self.step = 0
+
+        def train_forward(self, inputs: data.Floats) -> Callable[[data.Labels], float]:
+            def backward(labels: data.Labels) -> float:
+                assert labels.shape == (8, 128) and np.array_equal(labels, 1 - inputs)
+                return .125
+            return backward
+
+        def predict(self, inputs: data.Floats) -> data.Floats:
+            nonlocal now
+            if 'loaded' in events:
+                events.append('predict/test')
+                if fault == 'score':
+                    raise ValueError('private predictor detail')
+                if fault == 'stop':
+                    now = deadline
+            strength = 1 + (self.step * .01 if fault == 'ceiling' else self.step * 1e-6)
+            return np.float32(strength) * (1 - 2 * inputs)
+
+        def update(self) -> None:
+            self.step += 1
+
+        def dump(self) -> bytes:
+            return str(self.step).encode()
+
+        def restore(self, raw: bytes) -> None:
+            assert raw == (b'50' if fault == 'ceiling' else b'18')
+            if fault == 'restore':
+                raise ValueError('private restore detail')
+            events.append('loaded')
+
+    monkeypatch.setattr(engine, 'make_lstm_engine', ManualLSTM)
+    # Tamper after the final best write, before strict read; a sub-delta minimum
+    # can replace the checkpoint at epoch 18 even though the stopper terminates.
+    write_snapshot = artifacts.RunStore.write_snapshot
+
+    def snapshot(store: artifacts.RunStore, values: dict[str, object]) -> None:
+        if fault in ('bestsha', 'missing-best') and 'made' in events and checkpoint.exists():
+            summary = values.get('summary')
+            assert isinstance(summary, dict)
+            if summary['phase'] == 'BEST_RELOAD':
+                if fault == 'bestsha':
+                    checkpoint.write_bytes(b'??')
+                else:
+                    checkpoint.unlink()
+        write_snapshot(store, values)
+
+    monkeypatch.setattr(artifacts.RunStore, 'write_snapshot', snapshot)
+    if fault == 'commit':
+        atomic = artifacts.RunStore._atomic
+
+        def fail_commit(store: artifacts.RunStore, path: Path, raw: bytes) -> None:
+            if path.name == 'run.json' and b'"test":{' in raw:
+                raise OSError('private disk detail')
+            atomic(store, path, raw)
+
+        monkeypatch.setattr(artifacts.RunStore, '_atomic', fail_commit)
+    if fault == 'reportbudget':
+        space = artifacts.RunStore._space
+        render = report.report_files
+
+        def tight_report(store: artifacts.RunStore, size: int) -> None:
+            if 'report' in events:
+                monkeypatch.setattr(store, '_limit', store._total())
+            space(store, size)
+
+        def track_report(saved: dict[str, object]) -> dict[str, bytes]:
+            events.append('report')
+            return render(saved)
+
+        monkeypatch.setattr(artifacts.RunStore, '_space', tight_report)
+        monkeypatch.setattr(report, 'report_files', track_report)
+    cfg = tmp_path / 'lstm.json'
+    cfg.write_text(json.dumps(config.lstm_recipe()), encoding='utf-8')
+    argv = ['run', '--plugin', cli.__name__, '--config', str(cfg), '--root', str(root),
+            '--source-root', str(root), '--run-id', 'lstm', '--deadline-utc', deadline.isoformat()]
+    code = dispatch(argv)
+    logs = capsys.readouterr()
+    assert 'private ' not in logs.err and 'Traceback' not in logs.err
+    assert events.count('made') == 1
+    saved = json.loads((root / 'data/lstm/run.json').read_bytes())
+    if fault not in ('', 'ceiling', 'reclaim'):
+        reason = {'restore': 'BEST_RELOAD_FAILED', 'bestsha': 'HASH_MISMATCH',
+                  'missing-best': 'HASH_MISMATCH', 'testsha': 'HASH_MISMATCH',
+                  'source': 'SOURCE_CHANGED', 'score': 'TEST_SCORE_FAILED',
+                  'stop': 'DEADLINE', 'count': 'FINALIZE_FAILED', 'commit': 'WRITE_FAILED',
+                  'reportbudget': 'REPORT_FAILED'}[fault]
+        assert code == (3 if fault == 'stop' else 4)
+        assert json.loads(logs.err)['reason'] == reason
+        assert ('test' in saved['summary']) == (fault == 'reportbudget')
+        assert ('read/test' in events) == (fault not in ('source', 'restore', 'bestsha',
+                                                        'missing-best'))
+        if fault == 'reportbudget':
+            assert not list((root / 'result/lstm').iterdir())
+        return
+    assert code == 0 and saved['status'] == 'SUCCEEDED'
+    assert saved['summary']['preflight']['status'] == 'SKIPPED_REUSE'
+    assert saved['summary']['mode'] == 'saved-panels'
+    assert saved['summary']['topology'] == 'lstm-single'
+    arm = saved['summary']['arms']['lstm']
+    e = 50 if fault == 'ceiling' else 18
+    assert arm['epochs_completed'] == arm['selected']['epoch'] == e
+    assert arm['stop_reason'] == ('EPOCH_CEILING' if e == 50 else 'EARLY_STOPPING')
+    assert arm['identity'] == f'{config.LSTM_METHOD}/lstm' and arm['best_reloaded'] is True
+    assert saved['summary']['test']['accuracy'] == {'lstm': 1., 'majority': .625}
+    assert set(saved['artifacts']) == {'model/lstm-best.pt',
+                                      *(f'dataset/{s}.npz' for s in config.SPLITS)}
+    assert events == ['read/train', 'read/dev', 'made', 'read/best', 'loaded', 'read/test',
+                      'predict/test', 'predict/test']
+    for kind, n in config.lstm_counts(e).items():
+        assert saved['counts'][f'attempted_{kind}'] == saved['counts'][f'completed_{kind}'] == n
+    for split, raw in datasets.items():
+        assert (root / 'data/lstm/dataset' / f'{split}.npz').read_bytes() == raw
+    source_files = saved['source']
+    assert any(p.endswith('/cube_compare/lstm.py') for p in source_files)
+    if fault == 'reclaim':
+        assert dispatch(argv) == 4 and events.count('made') == 1
+        assert json.loads(capsys.readouterr().err)['reason'] == 'OCCUPIED'
