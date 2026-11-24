@@ -16,9 +16,10 @@ def computation_slots(bits: Any) -> Any:
 
 
 def shared_logits(model: Any, slots: Any, public: Any, *, rounds: int,
-                  nibble: Callable[[Any, Any], Any] | None = None) -> Any:
+                  nibble: Callable[[Any, Any], Any] | None = None,
+                  route_for: Callable[[Any], Any] | None = None) -> Any:
     represented = model.representation(slots, public, rounds=rounds)
-    route = model.router(public)
+    route = model.router(public) if route_for is None else route_for(public)
     # Restored modules and inputs are FP32. Stems and suffix use per-row GN.
     def stem(index: int) -> Any:
         name = STEM_NAMES[index]

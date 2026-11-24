@@ -17,12 +17,18 @@ from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
 from .resources import Resources, ResourceStop
+from .serial_bc.config import DEADLINE_ENV, SerialRecipe
+from .serial_bc.config import make_policy as make_serial_policy
+from .serial_bc.config import official as official_serial
+from .serial_bc.config import validate_root as validate_serial_root
 from .single_train.config import BACKEND, DEVICE, make_policy
 
 
 def make_resources(recipe: Recipe | LayoutRecipe | FourSingleRecipe) -> Resources:
     clocks = Clocks()
-    policy = (make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
+    policy = (make_serial_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
+              if isinstance(recipe, SerialRecipe)
+              else make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
               else make_four_single_policy(recipe, clocks) if isinstance(recipe, FourSingleRecipe)
               else resources.policy(recipe, clocks))
     return Resources(Meter(policy, clocks, resources.production_rss_bytes))
@@ -96,6 +102,9 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         raise ValueError('RUN_IDENTITY')
     if isinstance(recipe, LayoutRecipe):
         official(recipe, run_id)
+    elif isinstance(recipe, SerialRecipe):
+        official_serial(recipe, run_id)
+        validate_serial_root(store._root)
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
         if isinstance(recipe, ReplayRecipe):
@@ -107,6 +116,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     # request is the stable saved request identity; a later storage seal keeps policy
     # even when the reduced failure summary drops launch.
     policy = dict(vars(recipe.resources), request=dict(launch))
+    if isinstance(recipe, SerialRecipe):
+        policy['deadline_utc'] = res.meter._policy.deadline_utc
     summary = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
                    scientific_validation=False, launch=launch, location=dict(phase='device-setup'))
     status = 'FAILED'
@@ -119,6 +130,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
         summary['location'] = dict(phase='assembly')
         if isinstance(recipe, LayoutRecipe):
             from .layout_probe.application import _execute
+        elif isinstance(recipe, SerialRecipe):
+            from .serial_bc.training import execute as execute_serial
         elif isinstance(recipe, FourSingleRecipe):
             from .four_single.training import execute as execute_four_single
         else:
@@ -141,6 +154,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     else:
         if isinstance(recipe, LayoutRecipe):
             _execute(recipe, store, res, BACKEND, launch=launch)
+        elif isinstance(recipe, SerialRecipe):
+            execute_serial(recipe, store, res, launch=launch)
         elif isinstance(recipe, FourSingleRecipe):
             execute_four_single(recipe, store, res, launch=launch)
         else:

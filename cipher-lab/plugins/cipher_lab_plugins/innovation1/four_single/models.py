@@ -39,6 +39,9 @@ class SinglePairM(nn.Module):
         added = stem.relation_projection(gather_relation(channel, self.skinny_column))
         return cast(Tensor, stem.network[1:](base + added)).reshape(-1, 4, stem.channels, 64)
 
+    def _route(self, public: Tensor) -> Route:
+        return cast(Route, self.shared.router(public))
+
     def forward(self, bits: Tensor, public: Tensor, *, rounds: int) -> Tensor:
         slots = computation_slots(bits)
         weight = next(self.shared.parameters())
@@ -49,22 +52,23 @@ class SinglePairM(nn.Module):
         validate_public(public)
         skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
         logits = cast(Tensor, shared_logits(self.shared, slots, public, rounds=rounds,
-                                           nibble=self._column if skinny else None))
+                                           nibble=self._column if skinny else None,
+                                           route_for=self._route))
         if logits.shape != (bits.shape[0], 1) or not bool(torch.isfinite(logits).all()):
             raise ValueError('SINGLE_PAIR_LOGITS')
         return logits
 
     @torch.inference_mode()
     def route_weights(self, public: Tensor) -> dict[str, float]:
-        route = cast(Route, self.shared.router(public))
+        route = self._route(public)
         return {STEM_NAMES[i]: float(w) for i, w in zip(route.indices.tolist(),
                                                        route.weights.tolist(), strict=True)}
 
 
-def build(recipe: FourSingleRecipe) -> SinglePairM:
+def build(recipe: FourSingleRecipe, cls: type[SinglePairM] = SinglePairM) -> SinglePairM:
     require_fp32()
     with torch.device('cpu'):
-        model = SinglePairM(construct(recipe.streams, SLOT))
+        model = cls(construct(recipe.streams, SLOT))
     if sum(p.numel() for p in model.parameters()) != PARAMETERS:
         raise ValueError('MODEL_PARAMETERS')
     return model

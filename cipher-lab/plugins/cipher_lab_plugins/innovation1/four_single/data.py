@@ -88,6 +88,13 @@ def encode_panel(batch: PairBatch, task: Task, recipe: FourSingleRecipe, source:
             or (replay and not scored)
             or (task.cipher == 'SKINNY' and not scored)):
         raise ValueError('PANEL_IDENTITY')
+    return _panel_bytes(batch, task, recipe, source, backend, logits=logits, best=best,
+                        reused_input=reused_input)
+
+
+def _panel_bytes(batch: PairBatch, task: Task, recipe: FourSingleRecipe, source: dict[str, str],
+                 backend: str, *, logits: NDArray[np.float64] | None,
+                 best: dict[str, Any] | None, reused_input: dict[str, Any] | None) -> bytes:
     meta = dict(schema=1, method=recipe.method, run_id=recipe.run_id, recipe=recipe.to_dict(),
                 backend=backend, source=source, cipher=task.cipher, split=batch.split,
                 namespace=batch.namespace, digest=batch.digest, rows=batch.groups,
@@ -105,6 +112,6 @@ def encode_panel(batch: PairBatch, task: Task, recipe: FourSingleRecipe, source:
     np.savez(stream, metadata=np.frombuffer(canonical(meta).encode('ascii'), dtype=np.uint8),
              **arrays)
     raw = stream.getvalue()
-    if len(raw) > batch.groups * (25 if scored else 17) + PANEL_OVERHEAD:
+    if len(raw) > batch.groups * (25 if logits is not None else 17) + PANEL_OVERHEAD:
         raise ValueError('PANEL_SIZE')
     return raw

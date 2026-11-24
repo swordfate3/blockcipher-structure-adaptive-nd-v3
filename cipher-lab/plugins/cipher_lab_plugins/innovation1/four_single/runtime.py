@@ -22,7 +22,7 @@ class Runtime(TorchRuntime):
         super().__init__(recipe.streams, DEVICE, inference_only=True)
         self.contract = recipe
         check()
-        model = build(recipe)
+        model = self._build()
         self.tables = geometry(model)
         self.models[SLOT] = model.to(self.device, dtype=torch.float32)
         self.public = {t: torch.tensor(public_features(t.cipher), device=self.device,
@@ -30,6 +30,9 @@ class Runtime(TorchRuntime):
         check()
         self.add_adam(SLOT)
         check()
+
+    def _build(self) -> SinglePairM:
+        return build(self.contract)
 
     def metadata(self) -> dict[str, Any]:
         value = super().metadata()
@@ -52,6 +55,6 @@ class Runtime(TorchRuntime):
     def restore(self, slot: str, raw: bytes, metadata: dict[str, Any]) -> None:
         if slot != SLOT or self.models or self.optimizers:
             raise ValueError('RELOAD_NOT_RELEASED')
-        model = build(self.contract)
+        model = self._build()
         load_state(model, raw, metadata)
         self.models[SLOT] = model.to(self.device, dtype=torch.float32).eval()

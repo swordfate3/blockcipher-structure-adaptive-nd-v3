@@ -5,6 +5,7 @@ from html import escape
 from typing import Any
 
 from ..config import canonical
+from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
 
 
@@ -44,9 +45,28 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                 entries = ', '.join(f'{stem}: {weight:.6g}' for stem, weight in weights.items())
                 route_table += f'|{name}|{entries}|\n'
             route_table += '\n'
+    if saved['recipe']['method'] == SERIAL_METHOD:
+        best = summary.get('persisted_reload', {})
+        flow = ('原 TRAIN/DEV 分割内分层固定抽样 → SIMECK／PRESENT／SIMON／SKINNY 串行，'
+                '共用一个 M 与 Adam → 每阶段保存四项 DEV 及路由，DEV 不选模 → '
+                '第四阶段权重严格重载 → 复用原四份 TEST，仅以新权重评分。'
+                '旧 logits 不参与；不是全新独立确认，也不能与历史轮换实验归因比较。')
+        mode = saved['recipe']['routing']['mode']
+        termination = f'路由模式：{mode}；终态原因：{summary.get("reason", "未保存")}。'
+        route_table = ('## 阶段 DEV 与路由\n\n|阶段|训练任务|DEV 任务|BCE|准确率 %|分支及权重|\n'
+                       '|---:|---|---|---:|---:|---|\n')
+        for stage in summary.get('stages', []):
+            for name, value in stage['dev'].items():
+                routes = ', '.join(f'{stem}: {w:.6g}' for stem, w in stage['routes'][name].items())
+                route_table += (f"|{stage['stage']}|{stage['task']}|{name}|{value['bce']:.6f}|"
+                                f"{value['accuracy']*100:.4f}|{routes}|\n")
+        route_table += '\n'
     evidence = canonical({key: saved[key] for key in ('summary', 'counts', 'source', 'artifacts')})
+    selected = (f'最终重载阶段：{best.get("stage", "未保存")}。'
+                if saved['recipe']['method'] == SERIAL_METHOD
+                else f'选中轮：{best.get("epoch", "未保存")}。')
     text = (f'# 创新1 · 四任务单对共享 M\n\n状态：{saved["status"]}。'
-            f'选中轮：{best.get("epoch", "未保存")}。{termination}\n\n{flow}\n\n'
+            f'{selected}{termination}\n\n{flow}\n\n'
             '|任务|TEST 行数|BCE|准确率 %|\n|---|---:|---:|---:|\n'
             + '\n'.join(rows) + '\n\n仅报告已保存值；部分 TEST 不代表完整执行。'
             '不是行扫/列扫因果对照，不做跨配置配对比较或置信区间。'

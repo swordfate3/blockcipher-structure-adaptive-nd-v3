@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, cast
@@ -135,7 +135,8 @@ class ReplayPools:
         return dict(origin='reused', ref=pin.ref, **asdict(pin.file), digest=pin.digest,
                     groups=pin.groups, namespace=pin.namespace, source_record=self.source_record)
 
-    def bind(self, visit: Callable[[str], None]) -> tuple[dict[str, PairBatch], dict[str, Any]]:
+    def _read_pools(self, visit: Callable[[str], None]) -> Iterator[
+            tuple[Task, PairBatch, PairBatch, dict[str, Any]]]:
         if self._record:
             raise ValueError('POOL_ORDER')
         try:
@@ -151,15 +152,11 @@ class ReplayPools:
                 self._record, summary['test'][task.cipher]['panel'], task, 'test',
                 tr.test_groups, self.recipe.namespace) for task in tasks}
             visit('SKINNY')
-            train, skinny_dev, source = load_reused_pool(self._skinny, self._check)
+            train, dev, source = load_reused_pool(self._skinny, self._check)
             if canonical(source) != canonical(old_pools['SKINNY']):
                 raise PoolSourceError
-            streams = replace(PUBLIC_STREAMS, namespace=self._skinny.namespace)
-            self._fixed['SKINNY'] = FixedPairReplay(train, tr, streams, tasks[-1],
-                                                    self._skinny.shuffle_namespace, self._check)
-            del train
-            dev = {'SKINNY': skinny_dev}
-            evidence = {'SKINNY': source}
+            yield tasks[-1], train, dev, source
+            del train, dev
             train_groups = estimate(self.recipe)['fixed_train_rows_each']
             for task in tasks[:-1]:
                 cipher = task.cipher
@@ -168,16 +165,25 @@ class ReplayPools:
                                        train_groups, self.recipe.namespace)
                 dev_pin = _panel_pin(self._record, old_pools[cipher]['dev'], task, 'dev',
                                      tr.dev_groups, self.recipe.namespace)
-                train = self._read(task, 'train', train_pin)
-                dev[cipher] = self._read(task, 'dev', dev_pin)
-                self._fixed[cipher] = FixedPairReplay(train, tr, self.recipe.streams, task,
-                                                     self.recipe.namespace, self._check)
-                del train
-                evidence[cipher] = dict(train=self._reference(train_pin),
-                                        dev=self._reference(dev_pin))
-            return dev, evidence
+                yield (task, self._read(task, 'train', train_pin),
+                       self._read(task, 'dev', dev_pin), dict(train=self._reference(train_pin),
+                                                           dev=self._reference(dev_pin)))
         except _SOURCE_ERRORS:
             raise PoolSourceError from None
+
+    def bind(self, visit: Callable[[str], None]) -> tuple[dict[str, PairBatch], dict[str, Any]]:
+        dev: dict[str, PairBatch] = {}
+        evidence: dict[str, Any] = {}
+        for task, train, valid, source in self._read_pools(visit):
+            dev[task.cipher], evidence[task.cipher] = valid, source
+            streams, namespace = self.recipe.streams, self.recipe.namespace
+            if task.cipher == 'SKINNY':
+                streams = replace(PUBLIC_STREAMS, namespace=self._skinny.namespace)
+                namespace = self._skinny.shuffle_namespace
+            self._fixed[task.cipher] = FixedPairReplay(train, self.recipe.training, streams,
+                                                     task, namespace, self._check)
+            del train
+        return dev, evidence
 
     def activate(self) -> None:
         if self._ready or len(self._fixed) != len(self.recipe.tasks):

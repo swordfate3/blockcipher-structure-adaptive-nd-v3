@@ -734,6 +734,17 @@ PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.i
 PYTHONPATH=src:plugins python -B -m cipher_lab.cli --plugin cipher_lab_plugins.innovation1.cli check --config configs/innovation1-four-task-single-pair-50epoch.json
 ```
 
+串行 B/C（`configs/innovation1-four-task-serial-b.json`／`configs/innovation1-four-task-serial-c.json`）
+只比较门控输入：B 用真实公开卡，C 用固定 13 维全 0.5（不是合法公开卡）；两版仍用真实卡预处理，
+仅 SKINNY 选中 nibble 时使用原列扫。每任务从原 TRAIN／DEV 内分别分层抽取固定 90 万／10 万对，
+记录来源、索引和数据摘要。两版分别从相同初值出发，均按 SIMECK → PRESENT → SIMON → SKINNY
+连续用一个 M 与 Adam，每任务 10 轮、每轮 180 批×5000 对，逐任务重放同一余弦学习率，不早停。
+四阶段均保存权重、四项 DEV 与路由；只严格重载第四阶段 `M-best.pt` 后验证、重评分原四份 TEST，
+不使用旧 logits，不视为独立确认，也不能把与历史轮换结果的差异归因到顺序。
+每版 7200 更新、38648576 前向行、0 新加密块、0 重试，墙钟协作上限 5400 秒。
+控制器应为两次调用传同一个绝对 UTC `CIPHER_LAB_SERIAL_DEADLINE_UTC`；若设置，取它与每版自身
+截止时间的较早者，格式错误或已到期即停止。两版同用固定新根，按配置内的独立 ID 保存。
+
 现场运行须另行授权。在 Windows 新进程中以 `-B` 启动，绝对输出根必须位于 `G:\lxy` 下。
 示例（将 UUID 占位符替换为明确指定的完整 `GPU-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`）：
 

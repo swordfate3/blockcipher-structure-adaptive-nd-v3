@@ -55,6 +55,7 @@ def source_identity() -> dict[str, str]:
             'layout_probe': ('__init__', 'application', 'config', 'data', 'layout', 'metrics',
                              'models', 'report', 'reuse', 'runtime', 'weights'),
             'single_train': ('__init__', 'config', 'data', 'training', 'weights'),
+            'serial_bc': ('__init__', 'config', 'data', 'models', 'training'),
             'single_pair': ('__init__', 'models'),
         }
         paths = [owner.parent / '__init__.py']

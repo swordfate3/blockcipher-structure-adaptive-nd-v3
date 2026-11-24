@@ -53,6 +53,7 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
             for c in (0, 17999, 18000, 89999)] == [.001, .0001, .0001, .0001]
     assert main(['check', '--config', str(CONFIG)]) == 0
     assert {p.name for p in Path('configs').glob('innovation1-*.json') if p != CONFIG} == {
+        'innovation1-four-task-serial-b.json', 'innovation1-four-task-serial-c.json',
         'innovation1-fresh.json', 'innovation1-four-task-single-pair.json',
         'innovation1-skinny-layout-early-stop.json', 'innovation1-skinny-layout-fixed-bce.json',
         'innovation1-skinny-layout-fixed-mse.json'}

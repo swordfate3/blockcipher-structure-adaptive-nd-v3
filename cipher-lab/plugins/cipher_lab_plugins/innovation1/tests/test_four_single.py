@@ -122,17 +122,20 @@ def test_fresh_pool_finishes_before_replay_and_keeps_stratified_split() -> None:
     assert permutations[0] != permutations[1] and len(generated) == 10
 
 
+@pytest.mark.parametrize('no_card', [False, True])
 @pytest.mark.parametrize('select_nibble', [False, True])
 def test_card_selects_column_only_for_skinny_nibble_without_cross_pair_pooling(
-        select_nibble: bool) -> None:
+        select_nibble: bool, no_card: bool) -> None:
     from types import SimpleNamespace
     from typing import Any
 
     import torch
     from cipher_lab_plugins.innovation1.four_single.models import SinglePairM
     from cipher_lab_plugins.innovation1.layout_probe.layout import nibble_indices
+    from cipher_lab_plugins.innovation1.serial_bc.models import NoCardM
     from plugin_isolation import forbidden
 
+    from cipher_lab.models.shared_m.router import PublicRouter
     from cipher_lab.representations.tasks import public_features
 
     class FakeNetwork:
@@ -167,11 +170,25 @@ def test_card_selects_column_only_for_skinny_nibble_without_cross_pair_pooling(
     fake.register_parameter('anchor', torch.nn.Parameter(torch.zeros(1)))
     fake.stems = torch.nn.ModuleDict({name: Stem(name) for name in ('local', 'word', 'nibble')})
     fake.spec = SimpleNamespace(channels=1)
-    fake.representation, fake.router = represent, route
+    fake.representation = represent
+    if no_card:
+        class ConstantScores(torch.nn.Module):
+            weight = torch.zeros(1)
+
+            def forward(self, vector: torch.Tensor) -> torch.Tensor:
+                assert torch.equal(vector, torch.full((13,), .5))
+                scores = [-100., -100., -100.]
+                scores[0], scores[2 if select_nibble else 1] = 0., 1.
+                return vector.new_tensor(scores)
+
+        fake.router = PublicRouter(2)
+        fake.router.gate = torch.nn.Sequential(ConstantScores())
+    else:
+        fake.router = route
     fake.suffix = lambda x: x + 1
     fake.readout = SimpleNamespace(forward=forbidden, base=lambda x: x[:, 64-1:64],
                                    residual=lambda x: x[:, 63:64].square())
-    model = SinglePairM(fake)
+    model = NoCardM(fake) if no_card else SinglePairM(fake)
     ids = torch.arange(1., 9.)
     bits = ids[:, None, None, None].repeat(1, 1, 2, 64)
     column = nibble_indices('column')
@@ -185,7 +202,8 @@ def test_card_selects_column_only_for_skinny_nibble_without_cross_pair_pooling(
         result = model(bits, public, rounds=wanted_rounds)
         special = cipher == 'SKINNY' and select_nibble
         assert calls == (['local'] if special else ['nibble' if select_nibble else 'word', 'local'])
-        h = (1.25 * ids if special else ids) + 1
+        frac = torch.tensor([1., 0.]).softmax(0)[0] if no_card else .25
+        h = ((1 + frac) * ids if special else ids) + 1
         torch.testing.assert_close(result, (h + h.square())[:, None])
         assert torch.equal(before, fake.stems['nibble'].indices)
     public = public.clone()

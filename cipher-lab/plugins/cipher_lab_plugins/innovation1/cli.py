@@ -17,6 +17,11 @@ from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
+from .serial_bc.config import METHOD as SERIAL_METHOD
+from .serial_bc.config import STAGE_SLOTS, SerialRecipe
+from .serial_bc.config import estimate as estimate_serial
+from .serial_bc.config import official as official_serial
+from .serial_bc.config import validate_root as validate_serial_root
 from .single_train.config import estimate as estimate_pair
 
 if TYPE_CHECKING:
@@ -109,7 +114,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     method = saved['recipe'].get('method')
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
-                    elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD):
+                    elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD):
                         from .four_single.report import render
                     elif method == Recipe().method:
                         from .report import render
@@ -169,7 +174,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         recipe = load_config(args.config)
         if args.command == 'check':
             print(json.dumps(dict(recipe=recipe.to_dict(), estimate=(
-                estimate_four_single(recipe) if isinstance(recipe, FourSingleRecipe)
+                estimate_serial(recipe) if isinstance(recipe, SerialRecipe)
+                else estimate_four_single(recipe) if isinstance(recipe, FourSingleRecipe)
                 else estimate_pair(recipe) if isinstance(recipe, LayoutRecipe)
                 else estimate(recipe)),
                 scope='STATIC_ONLY_NO_DEVICE_ADMISSION'), allow_nan=False))
@@ -183,6 +189,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if isinstance(recipe, LayoutRecipe):
             recipe = official(replace(recipe, run_id=args.id), args.id)
             pool_source = recipe.pool_source
+        elif isinstance(recipe, SerialRecipe):
+            official_serial(recipe, args.id)
+            validate_serial_root(args.root)
+            pool_source = recipe.skinny_source
         elif isinstance(recipe, FourSingleRecipe):
             recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
             if isinstance(recipe, ReplayRecipe):
@@ -210,14 +220,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     from .source import no_reparse, source_identity
 
     try:
+        # Serial's wall budget starts before touching the output/source owner.
+        serial_resources = make_resources(recipe) if isinstance(recipe, SerialRecipe) else None
         root = no_reparse(args.root)
         for kind in ('data', 'models', 'result'):
             no_reparse(root / kind / args.id)
-        resources = make_resources(recipe)
+        resources = serial_resources if serial_resources is not None else make_resources(recipe)
         resources.check()
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=True, source_supplier=source_identity,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
+                               else STAGE_SLOTS if isinstance(recipe, SerialRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
     except Stopped as error:
