@@ -114,8 +114,14 @@ def _no_phase(value: str) -> None:
 
 def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int], Indices],
         slot: str, arm: dict[str, object], summary: dict[str, object], settings: FitSettings,
-        meter: Meter, store: RunStore, *, phase: Callable[[str], None] = _no_phase) -> Best | None:
-    """Compute full-label training updates and select the earliest minimum DEV BCE."""
+        meter: Meter, store: RunStore, *, phase: Callable[[str], None] = _no_phase,
+        batch_update: Callable[[Floats, Labels, Meter], float] | None = None) -> Best | None:
+    """Compute full-label updates and select the earliest minimum DEV BCE.
+
+    A supplied batch_update owns the complete, synchronized training batch and
+    its forward accounting only. fit reserves the optimizer update before the
+    call and completes it on normal return, before validating the reported BCE.
+    """
     batch = settings.batch_size
     rows = len(train)
     if not rows or rows % batch or not len(dev):
@@ -139,20 +145,26 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
             step += 1
             phase('TRAIN')
             x, y = train.batch(at[start:start + batch])
-            meter.reserve('forward_rows', len(x))
-            backward = engine.train_forward(x)
-            meter.complete('forward_rows', len(x))
-            meter.check()
-            loss = backward(y)
-            del backward
+            if batch_update is None:
+                meter.reserve('forward_rows', len(x))
+                backward = engine.train_forward(x)
+                meter.complete('forward_rows', len(x))
+                meter.check()
+                loss = backward(y)
+                del backward
+            else:
+                meter.reserve('optimizer_updates', 1)
+                loss = batch_update(x, y, meter)
+                meter.complete('optimizer_updates', 1)
             if settings.record_train_bce:
                 if loss is None or not math.isfinite(loss) or loss < 0:
                     raise ValueError('invalid training BCE')
                 train_total += loss * len(x)
                 train_rows += len(x)
-            meter.reserve('optimizer_updates', 1)
-            engine.update()
-            meter.complete('optimizer_updates', 1)
+            if batch_update is None:
+                meter.reserve('optimizer_updates', 1)
+                engine.update()
+                meter.complete('optimizer_updates', 1)
             every = settings.dev_every_steps
             if (step % every != 0 if every is not None else start + batch != rows):
                 continue

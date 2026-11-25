@@ -55,9 +55,14 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
     assert {p.name for p in Path('configs').glob('innovation1-*.json') if p != CONFIG} == {
         'innovation1-fresh.json', 'innovation1-four-task-single-pair.json',
         'innovation1-skinny-layout-early-stop.json', 'innovation1-skinny-layout-fixed-bce.json',
-        'innovation1-skinny-layout-fixed-mse.json'}
+        'innovation1-skinny-layout-fixed-mse.json', 'innovation1-present-prefix2-bridge.json'}
     for path in Path('configs').glob('innovation1-*.json'):
-        load_config(path)
+        if path.name == 'innovation1-present-prefix2-bridge.json':
+            from cipher_lab_plugins.innovation1.prefix_bridge.cli import main as bridge_main
+
+            assert bridge_main(['check', '--config', str(path)]) == 0
+        else:
+            load_config(path)
     value = recipe.to_dict()
     value['selection']['early_stopping']['patience'] = 11
     bad = tmp_path / 'bad.json'

@@ -9,7 +9,8 @@ param(
                  'direct-block-cube-lstm-simon7.json',
                  'direct-block-cube-lstm-simon-r1r3.json',
                  'direct-block-lstm-direct64-r1r3.json',
-                 'direct-block-simon32-split8.json')]
+                 'direct-block-simon32-split8.json',
+                 'innovation1-present-prefix2-bridge.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -21,6 +22,8 @@ $work = Join-Path $runRoot 'work'
 $python = 'C:\Python313\python.exe'
 $config = Join-Path (Join-Path $lab 'configs') $ConfigName
 $split8 = $ConfigName -ieq 'direct-block-simon32-split8.json'
+$prefixBridge = $ConfigName -ieq 'innovation1-present-prefix2-bridge.json'
+if ($prefixBridge -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $reuse = ($ConfigName -ieq 'direct-block-cube-sharedm-simon7-50epoch.json' -or
           $ConfigName -ieq 'direct-block-cube-lstm-simon7.json' -or
           $ConfigName -ieq 'direct-block-cube-lstm-simon-r1r3.json' -or
@@ -73,6 +76,8 @@ $wallSeconds = if ($reuse) { 10800 } else { 7200 }
 $plugin = 'cipher_lab_plugins.direct_block.cube_compare.cli'
 if ($split8) { $wallSeconds = 10800 }
 if ($split8) { $plugin = 'cipher_lab_plugins.direct_block.split8.cli' }
+if ($prefixBridge) { $wallSeconds = 14400 }
+if ($prefixBridge) { $plugin = 'cipher_lab_plugins.innovation1.prefix_bridge.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',

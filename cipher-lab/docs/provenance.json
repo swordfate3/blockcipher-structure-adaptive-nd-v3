@@ -442,6 +442,27 @@
       "algorithms": ["SIMON32/64 with m=4, z0 and 1..32 rounds"],
       "changes": ["Implement separate scalar and NumPy uint16-vector arithmetic from the specification, not extracted code; native contiguous uint32 blocks, high x / low y, low-word-first key."],
       "validation": "Source observations supplied by controller. Original 2013/404 PDF returned HTTP 403 and was not directly read. Development used static inspection and artificial interfaces only; the two real public-vector blocks remain unexecuted by the implementer."
+    },
+    {
+      "destination": [
+        "src/cipher_lab/ciphers/present_prefix.py",
+        "plugins/cipher_lab_plugins/innovation1/prefix_bridge/kat.py"
+      ],
+      "source_path": "https://crypto.orange-labs.fr/papers/ches2007-450.pdf",
+      "related_read_only_sources": [
+        {"path": "https://raw.githubusercontent.com/sagemath/sage/develop/src/sage/crypto/block_cipher/present.py", "role": "Independent formula reference per design review; Sage comparisons would require doFinalRound=True."},
+        {"path": "src/cipher_lab/ciphers/present.py", "role": "Unchanged scalar path and project low-word-first key contract."}
+      ],
+      "algorithms": [
+        "Bogdanov et al., PRESENT: An Ultra-Lightweight Block Cipher, CHES 2007, Figure 1, section 3 and Appendix I; official zero key / zero plaintext full 31-round KAT 0x5579C1387B228445.",
+        "PRESENT-80 schedule: round key is register >> 16; rotate the 80-bit register left by 61, S-box its top nibble, then XOR the one-based round counter into bits 19..15 (LSB0). Public API packs low uint32 | middle uint32 << 32 | high uint16 << 64.",
+        "Each round uses key XOR, nibble S-box and pLayer (i -> 16*i mod 63 for i < 63, bit 63 fixed); the NumPy path combines S-box and pLayer contributions in a public byte table. The r-round output is the retained pLayer state XOR Kr+1, without feeding that final whitening into further rounds. S2 is the r=2 result with K3 whitening."
+      ],
+      "changes": [
+        "Native contiguous uint64 input, fresh matrix of ordered prefix columns; no sampling, model, storage or resource coupling in the cipher module.",
+        "Public gate charges two official-vector blocks (scalar and prefix) and twelve same-vector path-consistency blocks (six reduced rounds with a fixed nonzero public key and point); the latter are not official known answers."
+      ],
+      "validation": "Source citations and KAT literal from the approved design/review; implementer checked equations statically and exercised validation/dispatch/accounting with artificial stubs only. No full cipher execution, real public-vector gate, production RSS, Windows or GPU verification by implementer."
     }
   ]
 }
