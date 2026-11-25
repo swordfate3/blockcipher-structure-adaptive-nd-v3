@@ -30,11 +30,18 @@ from .serial_bc.config import make_policy as make_serial_policy
 from .serial_bc.config import official as official_serial
 from .serial_bc.config import validate_root as validate_serial_root
 from .single_train.config import BACKEND, DEVICE, make_policy
+from .skinny_card.config import GPU_UUID as CARD_GPU_UUID
+from .skinny_card.config import CardRecipe
+from .skinny_card.config import make_policy as make_card_policy
+from .skinny_card.config import official as official_card
+from .skinny_card.config import validate_root as validate_card_root
 
 
 def make_resources(recipe: Recipe | LayoutRecipe | FourSingleRecipe) -> Resources:
     clocks = Clocks()
-    policy = (make_serial_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
+    policy = (make_card_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
+              if isinstance(recipe, CardRecipe)
+              else make_serial_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
               if isinstance(recipe, SerialRecipe)
               else make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
               else make_four_single_policy(recipe, clocks) if isinstance(recipe, FourSingleRecipe)
@@ -120,6 +127,11 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             validate_serial_root(store._root, expected=INDEPENDENT_ROOT)
         else:
             validate_serial_root(store._root)
+    elif isinstance(recipe, CardRecipe):
+        official_card(recipe, run_id)
+        validate_card_root(store._root)
+        if gpu_uuid.casefold() != CARD_GPU_UUID.casefold():
+            raise ValueError('CARD_GPU_UUID')
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
         if isinstance(recipe, ReplayRecipe):
@@ -131,7 +143,7 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     # request is the stable saved request identity; a later storage seal keeps policy
     # even when the reduced failure summary drops launch.
     policy = dict(vars(recipe.resources), request=dict(launch))
-    if isinstance(recipe, SerialRecipe):
+    if isinstance(recipe, (SerialRecipe, CardRecipe)):
         policy['deadline_utc'] = res.meter._policy.deadline_utc
     summary = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
                    scientific_validation=False, launch=launch, location=dict(phase='device-setup'))
@@ -149,6 +161,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             from .layout_probe.application import _execute
         elif isinstance(recipe, SerialRecipe):
             from .serial_bc.training import execute as execute_serial
+        elif isinstance(recipe, CardRecipe):
+            from .skinny_card.application import execute as execute_card
         elif isinstance(recipe, FourSingleRecipe):
             from .four_single.training import execute as execute_four_single
         else:
@@ -173,6 +187,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             _execute(recipe, store, res, BACKEND, launch=launch)
         elif isinstance(recipe, SerialRecipe):
             execute_serial(recipe, store, res, launch=launch)
+        elif isinstance(recipe, CardRecipe):
+            execute_card(recipe, store, res, launch=launch)
         elif isinstance(recipe, FourSingleRecipe):
             execute_four_single(recipe, store, res, launch=launch)
         else:

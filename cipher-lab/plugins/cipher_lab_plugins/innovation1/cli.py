@@ -34,6 +34,13 @@ from .serial_bc.config import estimate as estimate_serial
 from .serial_bc.config import official as official_serial
 from .serial_bc.config import validate_root as validate_serial_root
 from .single_train.config import estimate as estimate_pair
+from .skinny_card.config import GPU_UUID as CARD_GPU_UUID
+from .skinny_card.config import METHOD as CARD_METHOD
+from .skinny_card.config import SLOTS as CARD_SLOTS
+from .skinny_card.config import CardRecipe
+from .skinny_card.config import estimate as estimate_card
+from .skinny_card.config import official as official_card
+from .skinny_card.config import validate_root as validate_card_root
 
 if TYPE_CHECKING:
     from cipher_lab.artifacts import RunStore
@@ -226,6 +233,8 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
                                     INDEPENDENT_METHOD, VOLUME_METHOD):
                         from .four_single.report import render
+                    elif method == CARD_METHOD:
+                        from .skinny_card.report import render
                     elif method == Recipe().method:
                         from .report import render
                     else:
@@ -285,6 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == 'check':
             print(json.dumps(dict(recipe=recipe.to_dict(), estimate=(
                 estimate_serial(recipe) if isinstance(recipe, SerialRecipe)
+                else estimate_card(recipe) if isinstance(recipe, CardRecipe)
                 else estimate_four_single(recipe) if isinstance(recipe, FourSingleRecipe)
                 else estimate_pair(recipe) if isinstance(recipe, LayoutRecipe)
                 else estimate(recipe)),
@@ -309,6 +319,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 validate_serial_root(args.root, expected=INDEPENDENT_ROOT)
             else:
                 validate_serial_root(args.root)
+            pool_source = recipe.skinny_source
+        elif isinstance(recipe, CardRecipe):
+            official_card(recipe, args.id)
+            validate_card_root(args.root)
+            if args.gpu_uuid.casefold() != CARD_GPU_UUID.casefold():
+                raise ValueError('CARD_GPU_UUID')
             pool_source = recipe.skinny_source
         elif isinstance(recipe, FourSingleRecipe):
             recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
@@ -337,17 +353,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     from .source import no_reparse, source_identity
 
     try:
-        # Serial's wall budget starts before touching the output/source owner.
-        serial_resources = make_resources(recipe) if isinstance(recipe, SerialRecipe) else None
+        # Start the inherited wall budget before touching the output/source owner.
+        inherited_resources = (make_resources(recipe)
+                               if isinstance(recipe, (SerialRecipe, CardRecipe)) else None)
         root = no_reparse(args.root)
         needs_models = not isinstance(recipe, VolumeRecipe)
         for kind in (('data', 'models', 'result') if needs_models else ('data', 'result')):
             no_reparse(root / kind / args.id)
-        resources = serial_resources if serial_resources is not None else make_resources(recipe)
+        resources = (inherited_resources if inherited_resources is not None
+                     else make_resources(recipe))
         resources.check()
         claim_in_progress = True
 
-        def volume_claim_source() -> dict[str, str]:
+        def deadline_claim_source() -> dict[str, str]:
             identity = source_identity()
             # Claim scans before any owner mkdir. This is cooperative, not atomic
             # with subsequent filesystem calls. Later live scans share the supplier.
@@ -355,12 +373,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 resources.check()
             return identity
 
-        source_supplier = (volume_claim_source if isinstance(recipe, VolumeRecipe)
-                           else source_identity)
+        source_supplier = (deadline_claim_source
+                           if isinstance(recipe, (VolumeRecipe, CardRecipe)) else source_identity)
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=needs_models, source_supplier=source_supplier,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
                                else recipe.stage_slots if isinstance(recipe, SerialRecipe)
+                               else CARD_SLOTS if isinstance(recipe, CardRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
         claim_in_progress = False

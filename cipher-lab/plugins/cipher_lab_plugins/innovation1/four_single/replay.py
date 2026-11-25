@@ -143,7 +143,8 @@ class ReplayPools:
             raise ValueError('POOL_TASK')
         return (only,)
 
-    def _read_pools(self, visit: Callable[[str], None], *, only: Task | None = None
+    def _read_pools(self, visit: Callable[[str], None], *, only: Task | None = None,
+                    test_identity: tuple[str, str] | None = None
                     ) -> Iterator[tuple[Task, PairBatch, PairBatch, dict[str, Any]]]:
         if self._record:
             raise ValueError('POOL_ORDER')
@@ -160,6 +161,12 @@ class ReplayPools:
             self._test_pins = {task.cipher: _panel_pin(
                 self._record, summary['test'][task.cipher]['panel'], task, 'test',
                 tr.test_groups, self.recipe.namespace) for task in self._pool_tasks}
+            if test_identity is not None:
+                if only is None:
+                    raise PoolSourceError
+                pin = self._test_pins[only.cipher]
+                if (pin.file.sha256, pin.digest) != test_identity:
+                    raise PoolSourceError
             if only is None or only == tasks[-1]:
                 visit('SKINNY')
                 train, dev, source = load_reused_pool(self._skinny, self._check)
@@ -188,14 +195,17 @@ class ReplayPools:
         evidence: dict[str, Any] = {}
         for task, train, valid, source in self._read_pools(visit):
             dev[task.cipher], evidence[task.cipher] = valid, source
-            streams, namespace = self.recipe.streams, self.recipe.namespace
-            if task.cipher == 'SKINNY':
-                streams = replace(PUBLIC_STREAMS, namespace=self._skinny.namespace)
-                namespace = self._skinny.shuffle_namespace
-            self._fixed[task.cipher] = FixedPairReplay(train, self.recipe.training, streams,
-                                                     task, namespace, self._check)
+            self._bind_train(task, train)
             del train
         return dev, evidence
+
+    def _bind_train(self, task: Task, train: PairBatch) -> None:
+        streams, namespace = self.recipe.streams, self.recipe.namespace
+        if task.cipher == 'SKINNY':
+            streams = replace(PUBLIC_STREAMS, namespace=self._skinny.namespace)
+            namespace = self._skinny.shuffle_namespace
+        self._fixed[task.cipher] = FixedPairReplay(train, self.recipe.training, streams,
+                                                 task, namespace, self._check)
 
     def activate(self) -> None:
         if self._ready or set(self._fixed) != {task.cipher for task in self._pool_tasks}:

@@ -57,6 +57,7 @@ def source_identity() -> dict[str, str]:
             'single_train': ('__init__', 'config', 'data', 'training', 'weights'),
             'serial_bc': ('__init__', 'config', 'data', 'models', 'training'),
             'single_pair': ('__init__', 'models'),
+            'skinny_card': ('__init__', 'config', 'data', 'runtime', 'application', 'report'),
         }
         paths = [owner.parent / '__init__.py']
         paths += [owner / sub / f'{name}.py' for sub, names in modules.items() for name in names]

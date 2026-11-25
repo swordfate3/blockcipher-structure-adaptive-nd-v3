@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import Any, Protocol
 
@@ -12,6 +12,7 @@ import numpy as np
 from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.training.early_stopping import EarlyStopping, Settings
 
+from ..config import canonical
 from ..contracts import MAX_CHECKPOINT
 from ..resources import Resources, ResourceStop
 from ..scoring import bce, mse, predict, tensor_digest
@@ -29,11 +30,22 @@ CheckpointIdentity = Callable[[SingleRecipe, dict[str, str], str, str, int, floa
 TestResult = Callable[[PairBatch, dict[str, dict[str, float]], dict[str, Any]], dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class SavedTest:
+    """Opt in to verified archive TEST, route observations and terminal-only comparisons."""
+
+    open_panel: Callable[[dict[str, Any]], PairBatch]
+    observe_routes: Callable[[str], dict[str, float]]
+    estimate: Callable[[SingleRecipe], dict[str, int]]
+    batch_row_bytes: int
+
+
 def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
                resources: Resources, summary: dict[str, Any], backend: str, *,
                slots: tuple[str, str], panel_bytes: PanelEncoder,
                checkpoint_identity: CheckpointIdentity, test_result: TestResult,
-               early_stopping: Settings | None = None, cosine_epochs: int | None = None) -> None:
+               early_stopping: Settings | None = None, cosine_epochs: int | None = None,
+               saved_test: SavedTest | None = None) -> dict[str, Any] | None:
     """Compute and snapshot only; application owns the single terminal transition."""
     tr = recipe.training
     stopper = (None if early_stopping is None else
@@ -58,11 +70,23 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
 
     def snapshot() -> None:
         check()
-        store.write_snapshot(dict(summary=summary, counts=resources.snapshot()))
+        value = summary
+        if saved_test is not None:
+            # Bounded evidence copied by the store on a storage seal. Registered
+            # ledgers are already in artifacts; never duplicate their full rows here.
+            progress: dict[str, Any] = {key: summary[key] for key in (
+                'location', 'updates', 'paired_completed', 'pending', 'best', 'persisted_reloads',
+                'reload_routes', 'training_termination') if key in summary}
+            progress['last_dev'] = summary['curves'][-1] if summary['curves'] else None
+            value = dict(summary, progress=progress)
+        store.write_snapshot(dict(summary=value, counts=resources.snapshot()))
         check()
 
     def flush() -> None:
         if pending:
+            if saved_test is not None and any(
+                    len(canonical(row)) + 1 > saved_test.batch_row_bytes for row in pending):
+                raise ValueError('BATCH_ROW_SIZE')
             snapshot()  # a sealing storage fault must not lose committed update evidence
             refs.append(store.write_payload(f'batches-{len(refs):04d}', pending))
             pending.clear()
@@ -85,7 +109,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         logits = {slot: np.concatenate(chunks[slot]) for slot in slots}
         scores = {slot: dict(accuracy=float(np.mean((z >= 0) == panel.labels)),
                              bce=bce(panel.labels, z)) for slot, z in logits.items()}
-        if recipe.fixed_pool:
+        if recipe.fixed_pool and saved_test is None:
             for slot, z in logits.items():
                 scores[slot]['mse'] = mse(panel.labels, z)
         return scores, logits
@@ -105,7 +129,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     # Only the committed pending rows (at most 256) need inline failure evidence.
     # Earlier chunks are already registered payloads, not copied into the seal.
     if hasattr(store, '_failure_evidence_key'):
-        setattr(store, '_failure_evidence_key', 'pending')  # optional release-core capability
+        setattr(store, '_failure_evidence_key', 'pending' if saved_test is None else 'progress')
     summary['models'] = runtime.metadata()
     if recipe.fixed_pool:
         summary['location'] = dict(phase='pool-prepare')
@@ -181,7 +205,13 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         scores, _ = score(dev)
         summary['curves'].append({'epoch': epoch, 'dev': scores, f'train_{loss_key}': {
             s: v / tr.batches_per_epoch for s, v in losses.items()}})
+        if saved_test is not None:
+            summary['last_dev'] = dict(epoch=epoch, dev=scores)
         snapshot()  # full DEV and counts survive before any best write
+        if saved_test is not None:
+            summary['curves'][-1]['routes'] = {
+                slot: saved_test.observe_routes(slot) for slot in slots}
+            snapshot()
         for slot in slots:
             val = scores[slot][loss_key]
             if slot in best and val >= best[slot][loss_key]:
@@ -194,6 +224,8 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             ref = store.write_model(slot, raw, replace=slot in best)
             best[slot] = dict(ref=ref, sha256=sha256(raw).hexdigest(), epoch=epoch,
                               dev_digest=summary['dev_panel']['digest'], **{loss_key: val})
+            if saved_test is not None:
+                best[slot]['dev'] = dict(scores[slot])
             del raw
             snapshot()
         if stopper is not None:
@@ -222,23 +254,29 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         del raw
         summary['persisted_reloads'][slot] = dict(selected)
         snapshot()
-    summary['location'] = dict(phase='test-generate')
+        if saved_test is not None:
+            summary['reload_routes'][slot] = saved_test.observe_routes(slot)
+            snapshot()
+    summary['location'] = dict(phase='test-generate' if saved_test is None else 'test-reuse')
     check_source()
-    test = provider.panel('test')
+    test = (provider.panel('test') if saved_test is None
+            else saved_test.open_panel(summary['persisted_reloads']))
     summary['location'] = dict(phase='test-score')
     scores, logits = score(test)
     summary['location'] = dict(phase='test-save')
     raw = panel_bytes(test, recipe, source, backend, logits=logits,
                       weights=summary['persisted_reloads'])
-    snapshot()  # include generation and both scoring passes, not TEST results
+    snapshot()  # include both scoring passes, not TEST results
     ref = store.write_dataset('test-SKINNY', raw)
     check()
-    summary['test_panel'] = dict(ref=ref, sha256=sha256(raw).hexdigest(), digest=test.digest)
-    summary.update(test_scores=scores, **test_result(test, scores, logits))
-    snapshot()
+    panel_info = dict(ref=ref, sha256=sha256(raw).hexdigest(), digest=test.digest)
+    if saved_test is None:
+        summary['test_panel'] = panel_info
+        summary.update(test_scores=scores, **test_result(test, scores, logits))
+        snapshot()
     check_source()
     counts = resources.snapshot()
-    totals = estimate(counted_recipe)
+    totals = (estimate if saved_test is None else saved_test.estimate)(counted_recipe)
     if (any(counts[f'{kind}_{unit}'] != totals[unit]
             for kind in ('attempted', 'completed')
             for unit in ('real_blocks', 'optimizer_updates', 'forward_rows', 'null_words'))
@@ -246,3 +284,6 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                 or any(summary['updates'][slot][kind] != totals['updates_each']
                        for slot in slots for kind in ('attempted', 'completed'))))):
         raise ValueError('COUNT_MISMATCH')
+    if saved_test is None:
+        return None
+    return dict(test_panel=panel_info, test_scores=scores, **test_result(test, scores, logits))
