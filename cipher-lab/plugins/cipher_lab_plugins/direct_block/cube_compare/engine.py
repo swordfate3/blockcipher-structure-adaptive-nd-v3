@@ -16,6 +16,7 @@ from .config import (
     BETAS,
     CLIP,
     CPU_THREADS,
+    DIRECT_METHOD,
     EPS,
     GPU_DEVICE,
     INIT_SEED,
@@ -30,6 +31,7 @@ from .config import (
 )
 from .data import Floats, Labels
 from .lstm import CubeLSTM
+from .lstm64 import DirectLSTM64
 from .model import CubeSharedM
 
 
@@ -78,15 +80,27 @@ def make_low_engine(rounds: int) -> TorchEngine:
     return _lstm_engine(f'{LOW_METHOD}/r{rounds}')
 
 
-def _lstm_engine(identity: str) -> TorchEngine:
+def make_direct_engine(rounds: int) -> TorchEngine:
+    if type(rounds) is not int or rounds not in LOW_ROUNDS:
+        raise ValueError('invalid direct64 round')
+    return _lstm_engine(f'{DIRECT_METHOD}/r{rounds}', direct=True)
+
+
+def _lstm_engine(identity: str, *, direct: bool = False) -> TorchEngine:
     with torch.random.fork_rng(devices=[]), torch.device('cpu'):
         torch.default_generator.manual_seed(INIT_SEED)
-        model = CubeLSTM()
+        model = DirectLSTM64() if direct else CubeLSTM()
+    if direct:
+        return TorchEngine(model, torch.device(GPU_DEVICE), identity=identity, width=64)
     return TorchEngine(model, torch.device(GPU_DEVICE), identity=identity)
 
 
 class TorchEngine:
-    def __init__(self, model: nn.Module, device: torch.device, *, identity: str) -> None:
+    def __init__(self, model: nn.Module, device: torch.device, *, identity: str,
+                 width: int = WIDTH) -> None:
+        if type(width) is not int or width not in (64, WIDTH):
+            raise ValueError('invalid cube engine width')
+        self._width = width
         self._device = device
         self._model = model.to(device=device, dtype=torch.float32)
         self._identity = identity
@@ -95,7 +109,7 @@ class TorchEngine:
                                            foreach=False, fused=False)
 
     def _input(self, inputs: Floats) -> Tensor:
-        if inputs.dtype != np.float32 or inputs.ndim != 2 or inputs.shape[1] != WIDTH:
+        if inputs.dtype != np.float32 or inputs.ndim != 2 or inputs.shape[1] != self._width:
             raise ValueError('invalid FP32 plaintext')
         return torch.from_numpy(inputs).to(self._device)
 

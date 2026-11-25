@@ -162,7 +162,9 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
             meter.check()
             point: dict[str, object] = {'step': step, 'bce': bce}
             if every is None:
-                point.update(epoch=epoch + 1, active_bce=bce, full_bce=full)
+                point.update(epoch=epoch + 1, full_bce=full)
+                if settings.selected_columns is not None:
+                    point['active_bce'] = bce
             if settings.record_train_bce:
                 point['train_bce'] = train_total / train_rows
             curve.append(point)

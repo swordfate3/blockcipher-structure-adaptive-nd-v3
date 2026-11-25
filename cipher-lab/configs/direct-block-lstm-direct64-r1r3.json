@@ -1,0 +1,168 @@
+{
+  "method": "direct-block-lstm-direct64-r1r3-v1",
+  "cipher": "SIMON64/128",
+  "rounds": [
+    1,
+    2,
+    3
+  ],
+  "key_bits": 128,
+  "key_protocol": "one fixed synthetic key inherited from source",
+  "input_width": 64,
+  "target_width": 64,
+  "input": "P",
+  "target": "absolute C_r",
+  "bit_order": "MSB0",
+  "families": {
+    "train": 131072,
+    "dev": 8192,
+    "test": 8192
+  },
+  "arms": [
+    "r1",
+    "r2",
+    "r3"
+  ],
+  "parameters": {
+    "r1": 207424,
+    "r2": 207424,
+    "r3": 207424
+  },
+  "epochs": 50,
+  "batch_size": 256,
+  "selection": "full64-BCE/earliest",
+  "training_loss": "full64-BCE",
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "weight_decay": 0.0,
+  "grad_clip": 1.0,
+  "precision": "FP32",
+  "amp": false,
+  "tf32": false,
+  "order_seed": 20261124,
+  "init_seed": 31,
+  "preflight_counts": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 0,
+    "forward_rows": 0
+  },
+  "total_caps": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 1228800,
+    "forward_rows": 334626816
+  },
+  "retries": 0,
+  "wall_seconds": 10800,
+  "cpu_seconds": 43200,
+  "rss_stop_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "cpu_threads": 4,
+  "interop_threads": 1,
+  "physical_gpu_index": 1,
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "gpu_free_bytes_min": 17179869184,
+  "mode": "absolute-word-source",
+  "early_stopping": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "source": {
+    "run_id": "cube-lstm-simon-r1r3-20261124-01",
+    "run_sha256": "e967e9cdc18f164f0f98c28e3eda391d6c3664c0b46d305ffc60795a9391b65d",
+    "splits": {
+      "dataset/r1-train.npz": {
+        "bytes": 41943816,
+        "sha256": "322dbf480f8ab2f282737ad69d1259e357824dcd80301c9a5bb7f9b41a53b9bb"
+      },
+      "dataset/r1-dev.npz": {
+        "bytes": 2622216,
+        "sha256": "de7c8ee2e1b4b175f6fb36a1a014e3e42b5198ae5407f5a9dfb643959a09309a"
+      },
+      "dataset/r1-test.npz": {
+        "bytes": 2622216,
+        "sha256": "2fea353b0d6e1a9c59cc721658a5fa2806be4c117b7ae4a3382dd06283ed1d58"
+      },
+      "dataset/r2-train.npz": {
+        "bytes": 41943816,
+        "sha256": "4917189d1fdb8da0a3b259944c8441719e5b049bb2556f416ef0494b0d178202"
+      },
+      "dataset/r2-dev.npz": {
+        "bytes": 2622216,
+        "sha256": "644f64f52804798dddf33075ec54c2c56c85b96b131c782aafb2c67c76327bc5"
+      },
+      "dataset/r2-test.npz": {
+        "bytes": 2622216,
+        "sha256": "b48b23afcd5007b64e0e1e80e545efd7aa5c09f0f66107d9cb597a488202b942"
+      },
+      "dataset/r3-train.npz": {
+        "bytes": 41943816,
+        "sha256": "d0b099ec4580d8ff943c80881cc64d4470ff685827c96f5903def95706285e55"
+      },
+      "dataset/r3-dev.npz": {
+        "bytes": 2622216,
+        "sha256": "716b395534868e188b6cadeaae39df3982fab3b264a5b8d8cea53d826e3eebe6"
+      },
+      "dataset/r3-test.npz": {
+        "bytes": 2622216,
+        "sha256": "eecdc2a84ca0c05fc74b93f209d64090a4373afee5db0cb4f1995aefcd991972"
+      }
+    },
+    "view": "Exact source NPZ bytes; flatten plaintext and absolute ciphertext in C order (left then right per pair row); repeat each family ID twice. Only one plaintext word enters the model."
+  },
+  "max_scientific_counts": {
+    "real_blocks": 0,
+    "null_words": 0,
+    "optimizer_updates": 1228800,
+    "forward_rows": 334626816
+  },
+  "topology": "direct64-r1r3",
+  "fits": 3,
+  "lstm": {
+    "sequence_steps": 64,
+    "sequence_order": "MSB0 P_i",
+    "input_size": 1,
+    "hidden_size": 128,
+    "num_layers": 2,
+    "batch_first": true,
+    "bias": true,
+    "dropout": 0.0,
+    "bidirectional": false,
+    "proj_size": 0,
+    "initial_state": "fresh zeros [2,N,128] per call",
+    "readout": "h_n[-1] -> Linear(128,64)"
+  },
+  "model_slots": [
+    "r1-best",
+    "r2-best",
+    "r3-best"
+  ],
+  "test_denominators": {
+    "full64": 8388608,
+    "x32": 4194304,
+    "y32": 4194304,
+    "wholeword64": 131072
+  },
+  "baselines": {
+    "majority": "TRAIN full64 majority, ties zero",
+    "r1_copy": "input x copies to output y; TRAIN majority for output x"
+  },
+  "prediction": "logits>=0",
+  "secret_entropy_draws": 0,
+  "rows": {
+    "train": 2097152,
+    "dev": 131072,
+    "test": 131072
+  },
+  "rows_per_family": 16,
+  "row_unit": "one 64-bit word",
+  "primary_metric": "full64"
+}

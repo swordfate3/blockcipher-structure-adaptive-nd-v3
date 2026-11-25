@@ -40,6 +40,8 @@ def _fixed(path: Path) -> dict[str, object]:
             expected = config.lstm_recipe()
         case config.LOW_METHOD:
             expected = config.low_recipe()
+        case config.DIRECT_METHOD:
+            expected = config.direct_recipe()
         case _:
             raise ValueError('INVALID_CONFIG')
     # Python equality alone accepts False==0 and 7.0==7, including in lists.
@@ -62,6 +64,9 @@ def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False,
         case config.LOW_METHOD:
             wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
             caps = config.low_counts((config.REUSE_EPOCHS,) * 3)
+        case config.DIRECT_METHOD:
+            wall, cpu = config.REUSE_WALL_SECONDS, config.REUSE_CPU_SECONDS
+            caps = config.direct_counts((config.REUSE_EPOCHS,) * 3)
         case _:
             raise ValueError('INVALID_CONFIG')
     policy = Policy(2, wall, cpu, deadline, rss_stop_bytes=config.RSS_BYTES,
@@ -72,12 +77,14 @@ def _policy(deadline: str, clocks: Clocks, *, reuse: bool = False,
     return policy
 
 
-def _source_output_overlap(root: Path, run_id: str, source_root: Path) -> bool:
+def _source_output_overlap(root: Path, run_id: str, source_root: Path,
+                           source_run_id: str | None = None) -> bool:
     # Compare the output root as well as every directory that claim would own.
     # A shared base is fine; its distinct run-id siblings are not descendants.
     _token(run_id)
     kinds = ('data', 'models', 'result')
-    source_dirs = [source_root / kind / config.SOURCE_RUN_ID for kind in kinds]
+    source_id = config.SOURCE_RUN_ID if source_run_id is None else source_run_id
+    source_dirs = [source_root / kind / source_id for kind in kinds]
     outputs = [root, *(root / kind / run_id for kind in kinds)]
     # Check requested paths and filesystem aliases, without opening any artifacts.
     for normalize in (Path.absolute, Path.resolve):
@@ -118,6 +125,7 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
          source_root: Path | None = None) -> int:
     single = recipe['method'] == config.LSTM_METHOD
     low = recipe['method'] == config.LOW_METHOD
+    direct = recipe['method'] == config.DIRECT_METHOD
     try:
         # Still no native probe, DLL binding, Torch or NumPy at claim time.
         from . import preflight
@@ -126,7 +134,7 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         meter = Meter(policy, clocks, working_set_bytes)
         store = RunStore.claim(root, run_id, output_bytes=policy.output_bytes,
                                needs_models=True,
-                               model_slots=(config.LOW_SLOTS if low else
+                               model_slots=(config.LOW_SLOTS if low or direct else
                                             (config.LSTM_SLOT,) if single else config.SLOTS),
                                source_supplier=source_identity)
     except Stopped as error:
@@ -138,7 +146,10 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
 
     summary: dict[str, object] = {'phase': 'ADMISSION', 'retry_count': 0,
                                  'preflight': {'status': 'NOT_STARTED'}}
-    if low:
+    if direct:
+        summary.update(mode='absolute-word-source', topology='direct64-r1r3',
+                       preflight={'status': 'SKIPPED_FIXED_MATRIX'})
+    elif low:
         summary.update(mode='plaintext-only-source', topology='lstm-r1r3',
                        preflight={'status': 'SKIPPED_FIXED_MATRIX'})
     elif source_root is not None:
@@ -174,6 +185,7 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         meter.check()
         make_panels: Callable[[Meter], training.Panels] | None = None
         make_low_panels: Callable[[Meter], training.LowPanels] | None = None
+        make_direct_panels: Callable[[Meter], training.LowPanels] | None = None
         if source_root is None:
             from .data import production_panels
 
@@ -196,7 +208,16 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
                 summary['source'] = panels.provenance
                 return panels
 
-            if low:
+            if direct:
+                from .direct64 import DirectPanels, production_direct_panels
+
+                def direct_panels(panel_meter: Meter) -> DirectPanels:
+                    panels = production_direct_panels(source_root, panel_meter)
+                    summary['source'] = config.direct_source_recipe()
+                    return panels
+
+                make_direct_panels = direct_panels
+            elif low:
                 from .low_rounds import LowRounds, production_low_rounds
 
                 def low_panels(panel_meter: Meter) -> LowRounds:
@@ -210,11 +231,16 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
             plan = training.Plan(
                 config.FAMILIES, config.REUSE_EPOCHS, config.BATCH,
                 Settings(config.WARMUP_EPOCHS, config.PATIENCE, config.MIN_DELTA),
-                topology=('lstm-r1r3' if low else 'lstm-single' if single else 'dual'),
+                topology=('direct64-r1r3' if direct else 'lstm-r1r3' if low else
+                          'lstm-single' if single else 'dual'),
             )
         phase('SCIENCE')
         science_started = True
-        if low:
+        if direct:
+            score = training.run(meter, store, summary, make_direct_panels=make_direct_panels,
+                                 make_direct_engine=engine.make_direct_engine,
+                                 plan=plan, phase=phase)
+        elif low:
             score = training.run(meter, store, summary, make_low_panels=make_low_panels,
                                  make_low_engine=engine.make_low_engine, plan=plan, phase=phase)
         else:
@@ -229,7 +255,9 @@ def _run(root: Path, run_id: str, recipe: dict[str, object], policy: Policy, clo
         summary['cuda_peaks'] = preflight.gpu_peaks()
         meter.check()
         counts = meter.snapshot()
-        if low:
+        if direct:
+            expected = config.direct_counts(training.completed_low_epochs(summary, plan))
+        elif low:
             expected = config.low_counts(training.completed_low_epochs(summary, plan))
         elif single:
             expected = config.lstm_counts(training.completed_lstm_epochs(summary, plan))
@@ -324,7 +352,8 @@ def main(argv: list[str]) -> int:
             return 0
         method = recipe['method']
         assert isinstance(method, str)  # _fixed accepts only the named recipes
-        reuse = method in (config.REUSE_METHOD, config.LSTM_METHOD, config.LOW_METHOD)
+        reuse = method in (config.REUSE_METHOD, config.LSTM_METHOD, config.LOW_METHOD,
+                           config.DIRECT_METHOD)
         if reuse != (args.source_root is not None):
             raise ValueError('INVALID_SOURCE_ROOT')
         clocks = Clocks()
@@ -333,7 +362,8 @@ def main(argv: list[str]) -> int:
         return _emit('FAILED', 'INVALID_ARGUMENTS_OR_CONFIG', 2)
     if args.source_root is not None:
         try:
-            if _source_output_overlap(args.root, args.run_id, args.source_root):
+            pinned = config.DIRECT_SOURCE_RUN_ID if method == config.DIRECT_METHOD else None
+            if _source_output_overlap(args.root, args.run_id, args.source_root, pinned):
                 return _emit('FAILED', 'SOURCE_OUTPUT_OVERLAP', 2)
         except (OSError, ValueError, RuntimeError):
             return _emit('FAILED', 'INVALID_ARGUMENTS_OR_CONFIG', 2)

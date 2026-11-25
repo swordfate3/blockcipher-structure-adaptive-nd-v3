@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import stat
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
@@ -11,7 +12,16 @@ from zipfile import ZIP_STORED, BadZipFile, ZipFile
 
 import numpy as np
 
-from cipher_lab.artifacts import ArtifactError, _decode, _mapping, _path, _validate, read_binary
+from cipher_lab.artifacts import (
+    ArtifactError,
+    _decode,
+    _mapping,
+    _path,
+    _ref,
+    _stream,
+    _token,
+    _validate,
+)
 from cipher_lab.execution import Meter
 
 from . import config
@@ -37,16 +47,16 @@ def _source_path(path: Path) -> Path:
     return checked
 
 
-def _record(root: Path) -> bytes:
+def _record(root: Path, run_id: str, digest: str) -> bytes:
     try:
-        path = _source_path(root / 'data' / config.SOURCE_RUN_ID / 'run.json')
+        path = _source_path(root / 'data' / run_id / 'run.json')
         if not stat.S_ISREG(path.stat().st_mode):
             raise ArtifactError('INVALID_SOURCE_RUN')
         with path.open('rb') as stream:
             raw = stream.read(_RUN_BYTES + 1)
     except OSError:
         raise ArtifactError('READ_FAILED') from None
-    if len(raw) > _RUN_BYTES or sha256(raw).hexdigest() != config.SOURCE_RUN_SHA256:
+    if len(raw) > _RUN_BYTES or sha256(raw).hexdigest() != digest:
         raise ArtifactError('HASH_MISMATCH')
     return raw
 
@@ -109,27 +119,63 @@ def _panel(raw: bytes, families: int, meter: Meter) -> tuple[SavedPanel, Words]:
     return panel, bases
 
 
+class _PinnedSource:
+    """An explicit run identity and its allowed dataset references only."""
+
+    def __init__(self, root: Path, meter: Meter, *, run_id: str, run_sha256: str,
+                 pins: Mapping[str, tuple[int, str]]) -> None:
+        self._root, self._meter = root.absolute(), meter
+        self._run_id, self._sha = _token(run_id), run_sha256
+        meter.check()
+        # Identity precedes interpretation. Never open any score/model/payload.
+        record = _validate(_decode(_record(self._root, self._run_id, self._sha)), run_id)
+        if record['status'] != 'SUCCEEDED':
+            raise ArtifactError('INVALID_SOURCE_RUN')
+        artifacts = _mapping(record['artifacts'])
+        self._pins: dict[str, dict[str, object]] = {}
+        for ref, (size, digest) in pins.items():
+            if not _ref(ref).startswith('dataset/') or artifacts.get(ref) != {
+                'kind': 'dataset', 'bytes': size, 'sha256': digest,
+            }:
+                raise ArtifactError('INVALID_SOURCE_RUN')
+            self._pins[ref] = {'kind': 'dataset', 'bytes': size, 'sha256': digest}
+        meter.check()
+
+    def panel(self, ref: str, families: int) -> tuple[SavedPanel, Words]:
+        meter = self._meter
+        meter.check()
+        _record(self._root, self._run_id, self._sha)
+        meter.check()
+        try:
+            path = _source_path(self._root / 'data' / self._run_id / ref)
+            raw = _stream(path, self._pins[ref], collect=True)
+        except OSError:
+            raise ArtifactError('READ_FAILED') from None
+        meter.check()
+        _record(self._root, self._run_id, self._sha)
+        meter.check()
+        return _panel(raw, families, meter)
+
+
+def _check_disjoint(bases: Words, earlier: list[Words], meter: Meter) -> None:
+    if any(np.intersect1d(bases, other, assume_unique=True).size for other in earlier):
+        raise ArtifactError('SOURCE_SPLIT_OVERLAP')
+    meter.check()
+
+
 class SavedPanels:
     """Single read-only provider. TEST can only be requested as the last split."""
 
     def __init__(self, source_root: Path, meter: Meter) -> None:
-        self._root, self._meter = source_root.absolute(), meter
+        self._meter = meter
         self._next = 0
         self._failed = False
         self._bases: list[Words] = []
-        meter.check()
-        # Identity precedes JSON interpretation. Only artifact declarations are
-        # consulted; no old score, event, checkpoint or data content is consumed.
-        record = _validate(_decode(_record(self._root)), config.SOURCE_RUN_ID)
-        if record['status'] != 'SUCCEEDED':
-            raise ArtifactError('INVALID_SOURCE_RUN')
-        artifacts = _mapping(record['artifacts'])
-        for split, (size, digest) in zip(config.SPLITS, config.SOURCE_SPLITS, strict=True):
-            if artifacts.get(f'dataset/{split}.npz') != {
-                'kind': 'dataset', 'bytes': size, 'sha256': digest,
-            }:
-                raise ArtifactError('INVALID_SOURCE_RUN')
-        meter.check()
+        self._source = _PinnedSource(
+            source_root, meter, run_id=config.SOURCE_RUN_ID, run_sha256=config.SOURCE_RUN_SHA256,
+            pins={f'dataset/{split}.npz': pin for split, pin in
+                  zip(config.SPLITS, config.SOURCE_SPLITS, strict=True)},
+        )
 
     @property
     def provenance(self) -> dict[str, object]:
@@ -158,26 +204,8 @@ class SavedPanels:
         if self._failed or idx >= len(config.SPLITS) or config.SPLITS[idx] != split:
             raise ValueError('invalid split order')
         self._failed = True
-        meter = self._meter
-        meter.check()
-        _record(self._root)
-        meter.check()
-        size, digest = config.SOURCE_SPLITS[idx]
-        ref = f'dataset/{split}.npz'
-        try:
-            _source_path(self._root / 'data' / config.SOURCE_RUN_ID / ref)
-        except OSError:
-            raise ArtifactError('READ_FAILED') from None
-        raw = read_binary(self._root, config.SOURCE_RUN_ID, ref, digest, size)
-        meter.check()
-        _record(self._root)
-        if len(raw) != size:
-            raise ArtifactError('HASH_MISMATCH')
-        meter.check()
-        panel, bases = _panel(raw, config.FAMILIES[idx], meter)
-        if any(np.intersect1d(bases, other, assume_unique=True).size for other in self._bases):
-            raise ArtifactError('SOURCE_SPLIT_OVERLAP')
-        meter.check()
+        panel, bases = self._source.panel(f'dataset/{split}.npz', config.FAMILIES[idx])
+        _check_disjoint(bases, self._bases, self._meter)
         self._bases.append(bases)
         self._next += 1
         self._failed = False

@@ -25,7 +25,9 @@ def test_cube_fix1_ticks_sparse_with_full_saved_50_epoch_curves() -> None:
 
     points = [{'epoch': e, 'train_bce': 1 / e, 'full_bce': 2 / e, 'active_bce': 3 / e}
               for e in range(1, 51)]
-    html = report.render_report({'summary': {'arms': {'mlp': {'dev': points}}}}).decode()
+    html = report.render_report({
+        'recipe': recipe(), 'status': 'SUCCEEDED', 'summary': {'arms': {'mlp': {'dev': points}}},
+    }).decode()
     ticks = re.findall(r'y="184" text-anchor="middle">(\d+)</text>', html)
     assert 2 <= len(ticks) <= 10 and ticks[0] == '1' and ticks[-1] == '50'
     assert html.count('<circle ') == 150

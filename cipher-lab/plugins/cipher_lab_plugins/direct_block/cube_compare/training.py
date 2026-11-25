@@ -10,6 +10,7 @@ from cipher_lab.execution import Meter
 from cipher_lab.training.early_stopping import Settings
 
 from ..fit import (
+    BatchPanel,
     Best,
     Engine,
     FitSettings,
@@ -22,10 +23,11 @@ from ..fit import (
     seeded_order,
 )
 from . import config
-from .data import Labels, Panel
+from .data import Indices, Labels, Panel, Words
+from .direct_metrics import DirectScore
+from .direct_metrics import train_majority as train_direct_majority
 from .low_metrics import LowScore
 from .low_metrics import train_majority as train_full_majority
-from .low_rounds import Matrix
 from .metrics import LSTMScore, PairedScore, train_majority
 
 Arm = Literal['mlp', 'sharedm']
@@ -36,9 +38,16 @@ class Panels(Protocol):
     def label_test(self) -> Panel: ...
 
 
+class ArchivedPanel(BatchPanel, Protocol):
+    @property
+    def family_ids(self) -> Words: ...
+    def archive(self) -> bytes: ...
+    def label_batch(self, indices: Indices) -> Labels: ...
+
+
 class LowPanels(Protocol):
-    def build(self, split: Literal['train', 'dev']) -> Matrix: ...
-    def label_test(self) -> Matrix: ...
+    def build(self, split: Literal['train', 'dev']) -> tuple[ArchivedPanel, ...]: ...
+    def label_test(self) -> tuple[ArchivedPanel, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +58,7 @@ class Plan:
     epochs: int = config.EPOCHS
     batch_size: int = config.BATCH
     early_stopping: Settings | None = None
-    topology: Literal['dual', 'lstm-single', 'lstm-r1r3'] = 'dual'
+    topology: Literal['dual', 'lstm-single', 'lstm-r1r3', 'direct64-r1r3'] = 'dual'
 
 
 def _completed_epochs(summary: dict[str, object], plan: Plan, name: str) -> int:
@@ -82,7 +91,7 @@ def completed_lstm_epochs(summary: dict[str, object], plan: Plan) -> int:
 
 def completed_low_epochs(summary: dict[str, object], plan: Plan) -> tuple[int, int, int]:
     arms = summary.get('arms')
-    if (plan.topology != 'lstm-r1r3' or not isinstance(arms, dict)
+    if (plan.topology not in ('lstm-r1r3', 'direct64-r1r3') or not isinstance(arms, dict)
             or set(arms) != set(config.LOW_NAMES)):
         raise ValueError('expected three completed low-round arms')
     return (_completed_epochs(summary, plan, 'r1'), _completed_epochs(summary, plan, 'r2'),
@@ -99,17 +108,28 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         make_lstm_engine: Callable[[], Engine] | None = None,
         make_low_panels: Callable[[Meter], LowPanels] | None = None,
         make_low_engine: Callable[[config.LowRound], Engine] | None = None,
+        make_direct_panels: Callable[[Meter], LowPanels] | None = None,
+        make_direct_engine: Callable[[config.LowRound], Engine] | None = None,
         plan: Plan = Plan(), phase: Callable[[str], None] = _quiet) -> dict[str, object]:
     """Return one complete score only; never attach a TEST score to live snapshots."""
     single = plan.topology == 'lstm-single'
-    low = plan.topology == 'lstm-r1r3'
+    direct = plan.topology == 'direct64-r1r3'
+    matrix = plan.topology in ('lstm-r1r3', 'direct64-r1r3')
+    if direct:
+        if make_low_panels is not None or make_low_engine is not None:
+            raise ValueError('invalid direct64 topology')
+        matrix_provider, matrix_engine = make_direct_panels, make_direct_engine
+    else:
+        if make_direct_panels is not None or make_direct_engine is not None:
+            raise ValueError('invalid direct64 topology')
+        matrix_provider, matrix_engine = make_low_panels, make_low_engine
     roster: tuple[tuple[str, str], ...]
-    if low:
-        if (make_low_panels is None or make_low_engine is None or plan.early_stopping is None
+    if matrix:
+        if (matrix_provider is None or matrix_engine is None or plan.early_stopping is None
                 or any(fn is not None for fn in (make_panels, make_engine, make_lstm_engine))):
             raise ValueError('invalid low-round fit topology')
         roster = tuple(zip(config.LOW_NAMES, config.LOW_SLOTS, strict=True))
-    elif make_panels is None or make_low_panels is not None or make_low_engine is not None:
+    elif make_panels is None or matrix_provider is not None or matrix_engine is not None:
         raise ValueError('invalid cube panel topology')
     elif single and make_lstm_engine is not None and make_engine is None:
         if plan.early_stopping is None:
@@ -119,9 +139,11 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         roster = tuple(zip(config.ARMS, config.SLOTS, strict=True))
     else:
         raise ValueError('invalid cube fit topology')
-    train_rows, dev_rows, test_rows = (n * config.PAIRS_PER_FAMILY for n in plan.families)
+    rows_per_family = config.PAIRS_PER_FAMILY * (2 if direct else 1)
+    train_rows, dev_rows, test_rows = (n * rows_per_family for n in plan.families)
     settings = FitSettings(plan.epochs, plan.batch_size, config.CHECKPOINT_BYTES,
-                           config.ACTIVE_COLUMNS, early_stopping=plan.early_stopping)
+                           None if direct else config.ACTIVE_COLUMNS,
+                           early_stopping=plan.early_stopping)
 
     def progress(stage: str) -> None:
         phase(stage)
@@ -130,7 +152,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         if stage in ('BEST_SAVE', 'BEST_RELOAD'):
             store.write_snapshot({'counts': meter.snapshot(), 'summary': summary})
 
-    def archive(split: str, panel: Panel) -> None:
+    def archive(split: str, panel: ArchivedPanel) -> None:
         assert_source(store)
         meter.check()
         raw = panel.archive()
@@ -139,13 +161,13 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         store.write_dataset(split, raw)
         meter.check()
 
-    def prepare(split: str, panel: Panel, rows: int) -> Panel:
+    def prepare(split: str, panel: ArchivedPanel, rows: int) -> ArchivedPanel:
         if len(panel) != rows:
             raise ValueError(f'{split.upper()} panel size')
         archive(split, panel)
         return panel
 
-    def low_train_labels(panel: Panel) -> Iterator[Labels]:
+    def matrix_train_labels(panel: ArchivedPanel) -> Iterator[Labels]:
         for at in batch_indices(len(panel), plan.batch_size):
             meter.check()
             yield panel.label_batch(at)
@@ -155,17 +177,18 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
     assert_source(store)
     meter.check()
     panels: Panels | None = None
-    low_panels: LowPanels | None = None
+    matrix_panels: LowPanels | None = None
     majorities: tuple[tuple[int, ...], ...] = ()
     majority: tuple[int, ...] = ()
-    if low:
-        assert make_low_panels is not None
-        low_panels = make_low_panels(meter)
+    if matrix:
+        assert matrix_provider is not None
+        matrix_panels = matrix_provider(meter)
         trains = tuple(prepare(f'{name}-train', panel, train_rows) for (name, _), panel in
-                       zip(roster, low_panels.build('train'), strict=True))
+                       zip(roster, matrix_panels.build('train'), strict=True))
         devs = tuple(prepare(f'{name}-dev', panel, dev_rows) for (name, _), panel in
-                     zip(roster, low_panels.build('dev'), strict=True))
-        majorities = tuple(train_full_majority(low_train_labels(panel)) for panel in trains)
+                     zip(roster, matrix_panels.build('dev'), strict=True))
+        reducer = train_direct_majority if direct else train_full_majority
+        majorities = tuple(reducer(matrix_train_labels(panel)) for panel in trains)
     else:
         assert make_panels is not None
         panels = make_panels(meter)
@@ -182,9 +205,9 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         phase('ENGINE')
         assert_source(store)
         meter.check()
-        if make_low_engine is not None:
-            engine = make_low_engine(config.LOW_ROUNDS[i])
-            method = config.LOW_METHOD
+        if matrix_engine is not None:
+            engine = matrix_engine(config.LOW_ROUNDS[i])
+            method = config.DIRECT_METHOD if direct else config.LOW_METHOD
             if any(engine is prior for prior, _, _ in reloads):
                 raise ValueError('expected independent low-round engines')
         elif make_lstm_engine is not None:
@@ -202,7 +225,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                    meter, store, phase=progress)
         reloads.append((engine, best, arm))
 
-    if low_panels is not None:
+    if matrix_panels is not None:
         for (engine, best, arm), slot in zip(reloads, config.LOW_SLOTS, strict=True):
             if best is None or best[0] != f'model/{slot}.pt':
                 raise ValueError('missing or incorrect low-round best slot')
@@ -211,7 +234,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         phase('TEST')
         assert_source(store)
         meter.check()
-        tests = low_panels.label_test()
+        tests = matrix_panels.label_test()
         phase('TEST_SCORE')
         scores: dict[str, object] = {}
         for name, rounds, (engine, _, _), panel, bits in zip(
@@ -219,13 +242,17 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         ):
             if len(panel) != test_rows:
                 raise ValueError('TEST panel size')
-            low_score = LowScore(test_rows, bits, rounds)
+            matrix_score = (DirectScore(test_rows, bits, rounds) if direct else
+                            LowScore(test_rows, bits, rounds))
             for at in batch_indices(test_rows, plan.batch_size):
                 x, y = panel.batch(at)
                 logits = predict_batch(engine, x, y, meter)
-                low_score.add(panel.family_ids[at], x, y, logits)
+                if isinstance(matrix_score, DirectScore):
+                    matrix_score.add(x, y, logits)
+                else:
+                    matrix_score.add(panel.family_ids[at], x, y, logits)
             meter.check()
-            scores[name] = low_score.result()
+            scores[name] = matrix_score.result()
         phase('TEST_SAVE')
         for name, panel in zip(config.LOW_NAMES, tests, strict=True):
             archive(f'{name}-test', panel)
