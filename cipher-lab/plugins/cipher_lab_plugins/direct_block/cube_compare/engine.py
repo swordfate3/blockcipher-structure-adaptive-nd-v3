@@ -98,7 +98,7 @@ def _lstm_engine(identity: str, *, direct: bool = False) -> TorchEngine:
 class TorchEngine:
     def __init__(self, model: nn.Module, device: torch.device, *, identity: str,
                  width: int = WIDTH) -> None:
-        if type(width) is not int or width not in (64, WIDTH):
+        if type(width) is not int or width not in (32, 64, WIDTH):
             raise ValueError('invalid cube engine width')
         self._width = width
         self._device = device

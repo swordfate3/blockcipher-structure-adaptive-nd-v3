@@ -1,0 +1,91 @@
+{
+  "method": "direct-block-simon32-split8-v1",
+  "cipher": "SIMON32/64",
+  "rounds": [
+    1,
+    2,
+    3
+  ],
+  "plaintext_bits": 32,
+  "target_columns_msb0": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      6,
+      7
+    ]
+  ],
+  "label": "absolute-cipher-high8",
+  "train_rows": 262144,
+  "dev_rows": 32768,
+  "test_rows": 65536,
+  "plaintext_sampling": "unique-uint32-without-replacement/shared-splits",
+  "data_seed": 20261123,
+  "secret_key_draw_bits": 64,
+  "secret_key_draws": 1,
+  "fits": 12,
+  "mlp": [
+    32,
+    128,
+    128,
+    2
+  ],
+  "activation": "ReLU",
+  "params_per_network": 20994,
+  "init_seeds_by_chunk": [
+    31,
+    32,
+    33,
+    34
+  ],
+  "order_seed": 20261124,
+  "max_epochs": 50,
+  "batch_size": 256,
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "dtype": "FP32",
+  "amp": false,
+  "tf32": false,
+  "selection": "two-bit-DEV-BCE/earliest-min",
+  "early_stop": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "min_epochs": 18,
+  "kat_real_blocks": 2,
+  "science_real_blocks": 1081344,
+  "count_caps": {
+    "real_blocks": 1081346,
+    "null_words": 0,
+    "optimizer_updates": 614400,
+    "forward_rows": 177733632
+  },
+  "wall_seconds": 10800,
+  "cpu_seconds": 43200,
+  "rss_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "gpu_entry_free_bytes": 17179869184,
+  "primary": "correct-bits/TEST-times-8",
+  "retry_count": 0
+}

@@ -429,6 +429,19 @@
         "Implement a narrow platform-specific current RSS function; no Job object, child process, SSH, scheduler or installation behavior. Missing/unsupported telemetry fails closed."
       ],
       "validation": "Static signature review and injected failure fixtures only; production RSS entry is poisoned in engineering tests. No actual Linux procfs or Windows GetProcessMemoryInfo measurement, peak-memory proof or target-machine acceptance."
+    },
+    {
+      "destination": "src/cipher_lab/ciphers/simon32.py",
+      "source_path": "https://eprint.iacr.org/2013/404",
+      "related_read_only_sources": [
+        {"path": "https://github.com/nsacyber/simon-speck", "role": "authors' repository"},
+        {"path": "https://csrc.nist.gov/csrc/media/events/lightweight-cryptography-workshop-2015/documents/papers/session1-shors-paper.pdf", "role": "authors' 2015 workshop paper: 16-bit words, 32 rounds and rotate 1/8/2 round function"},
+        {"path": "https://cryptography.academy/papers/the-simon-and-speck-families-of-lightweight-block-ciphers-2013", "role": "automatically converted, not author-approved: z0, m=4 schedule, public KAT and packing"},
+        {"path": "https://raw.githubusercontent.com/inmcm/Simon_Speck_Ciphers/master/Python/simonspeckciphers/simon/simon.py", "role": "independent implementation source (read only): z0 direction, key and block word order; not an independent KAT assertion"}
+      ],
+      "algorithms": ["SIMON32/64 with m=4, z0 and 1..32 rounds"],
+      "changes": ["Implement separate scalar and NumPy uint16-vector arithmetic from the specification, not extracted code; native contiguous uint32 blocks, high x / low y, low-word-first key."],
+      "validation": "Source observations supplied by controller. Original 2013/404 PDF returned HTTP 403 and was not directly read. Development used static inspection and artificial interfaces only; the two real public-vector blocks remain unexecuted by the implementer."
     }
   ]
 }

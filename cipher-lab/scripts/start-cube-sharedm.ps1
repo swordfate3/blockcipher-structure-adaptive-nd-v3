@@ -8,7 +8,8 @@ param(
                  'direct-block-cube-sharedm-simon7-50epoch.json',
                  'direct-block-cube-lstm-simon7.json',
                  'direct-block-cube-lstm-simon-r1r3.json',
-                 'direct-block-lstm-direct64-r1r3.json')]
+                 'direct-block-lstm-direct64-r1r3.json',
+                 'direct-block-simon32-split8.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -19,6 +20,7 @@ $lab = Join-Path $runRoot 'release\cipher-lab'
 $work = Join-Path $runRoot 'work'
 $python = 'C:\Python313\python.exe'
 $config = Join-Path (Join-Path $lab 'configs') $ConfigName
+$split8 = $ConfigName -ieq 'direct-block-simon32-split8.json'
 $reuse = ($ConfigName -ieq 'direct-block-cube-sharedm-simon7-50epoch.json' -or
           $ConfigName -ieq 'direct-block-cube-lstm-simon7.json' -or
           $ConfigName -ieq 'direct-block-cube-lstm-simon-r1r3.json' -or
@@ -68,10 +70,13 @@ $env:OPENBLAS_NUM_THREADS = '4'
 $PSNativeCommandUseErrorActionPreference = $false
 Set-Location -LiteralPath $work
 $wallSeconds = if ($reuse) { 10800 } else { 7200 }
+$plugin = 'cipher_lab_plugins.direct_block.cube_compare.cli'
+if ($split8) { $wallSeconds = 10800 }
+if ($split8) { $plugin = 'cipher_lab_plugins.direct_block.split8.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',
-    'cipher_lab_plugins.direct_block.cube_compare.cli', '--config', $config,
+    $plugin, '--config', $config,
     '--root', $work, '--run-id', $RunId, '--deadline-utc', $deadline)
 if ($reuse) { $cliArgs += @('--source-root', $SourceRoot) }
 $stdout = Join-Path $work 'stdout.log'
