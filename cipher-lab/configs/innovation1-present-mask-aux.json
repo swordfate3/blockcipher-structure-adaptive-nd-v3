@@ -1,0 +1,96 @@
+{
+  "method": "innovation1-present-mask-aux-v1",
+  "cipher": "PRESENT-80",
+  "rounds": [
+    7
+  ],
+  "slots": [
+    "r7-baseline",
+    "r7-mask-aux"
+  ],
+  "fits": 2,
+  "pairs_per_group": 4,
+  "label_columns": 1,
+  "train_rows": 32768,
+  "dev_rows": 8192,
+  "test_rows": 32768,
+  "difference": 13631488,
+  "secret_key_draw_bits": 80,
+  "secret_key_draws": 1,
+  "sampling": "balanced-per-split/positive-xor/negative-independent/both-encrypted",
+  "data_seed": 20261125,
+  "order_seed": 20261126,
+  "init_seed": 31,
+  "stem_inputs": 54,
+  "channels": 96,
+  "norm_groups": 8,
+  "public_features": 13,
+  "router_top_k": 2,
+  "head_hidden": 64,
+  "router_hidden": 16,
+  "suffix_kernels": [
+    3,
+    5,
+    7,
+    9,
+    11
+  ],
+  "batch_size": 128,
+  "max_epochs": 30,
+  "min_epochs": 18,
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "dtype": "FP32",
+  "amp": false,
+  "tf32": false,
+  "selection": "group-DEV-BCE/earliest-min",
+  "early_stop": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "kat_real_blocks": 4,
+  "roundstateoutputs": 589824,
+  "trajectories": 589824,
+  "count_caps": {
+    "real_blocks": 589828,
+    "null_words": 0,
+    "optimizer_updates": 15360,
+    "forward_rows": 3506176
+  },
+  "wall_seconds": 3600,
+  "cpu_seconds": 14400,
+  "rss_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "primary": "correct-groups/TEST-groups",
+  "retry_count": 0,
+  "panel": "r7-cipher",
+  "mask_seed": 20261127,
+  "mask_sites_per_pair": 16,
+  "mask_schedule": "public-seed/one-based-step/uniform-sites-and-endpoints",
+  "masked_channels": [
+    "flag-left",
+    "flag-right",
+    "flag-xor",
+    "left",
+    "right",
+    "xor"
+  ],
+  "aux_targets_per_group": 64,
+  "aux_weight": 0.1,
+  "aux_head": [
+    96,
+    2
+  ],
+  "kat": "PRESENT-80/official-zero-r31+public-nonzero-r7/scalar-batch"
+}

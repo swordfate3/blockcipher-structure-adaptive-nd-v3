@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import numpy as np
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 
 from cipher_lab.execution import Meter
 
@@ -15,7 +15,7 @@ from ..config import Optimizer, Recipe, Task
 from ..models import TorchRuntime
 from . import config, weights
 from .data import Floats, Labels
-from .model import PrefixSharedM, build, initial_sha256
+from .model import build, initial_sha256
 
 _OPT_CONFIG = Recipe(optimizer=Optimizer(lr_max=config.LR, lr_min=config.LR,
                                        betas=config.BETAS, eps=config.EPS,
@@ -35,10 +35,11 @@ def configure() -> dict[str, object]:
 
 
 class Runtime(TorchRuntime):
+    _slot_input = staticmethod(config.slot_input)
     _require_identity = staticmethod(weights.require_identity)
 
     def __init__(self, slot: str) -> None:
-        r, self._mask = config.slot_input(slot)
+        r, self._mask = self._slot_input(slot)
         super().__init__(_OPT_CONFIG, config.GPU_DEVICE, inference_only=True)
         self.slot = slot
         # For the S2 arm the Task required by the parent carries only the fixed
@@ -48,7 +49,7 @@ class Runtime(TorchRuntime):
         self._parameters = 0
         self._state = 'EMPTY'
 
-    def _fresh_cpu(self) -> PrefixSharedM:
+    def _fresh_cpu(self) -> nn.Module:
         model = build(config.INIT_SEED)
         self._initial = initial_sha256(model)
         self._parameters = sum(t.numel() for t in model.parameters())

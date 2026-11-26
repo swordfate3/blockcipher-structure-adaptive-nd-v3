@@ -51,6 +51,14 @@ _PYTHON_VERSION = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\Z", re.ASCII)
 _PUBLIC = frozenset({"recipe", "policy", "counts", "summary"})
 _REPORTS = frozenset({"report.md", "index.html", "source.json"})
 _MAX_FAILURE_EVIDENCE = 128 * 1024  # encoded bytes of one owner-selected summary field
+# Exact wire fields of Meter.snapshot(), not arbitrary owner-defined counts.
+_METER_UNITS = ("real_blocks", "null_words", "optimizer_updates", "forward_rows")
+_METER_CLOCKS = ("wall_elapsed_seconds", "cpu_elapsed_seconds")
+_METER_KEYS = frozenset((*_METER_CLOCKS, "rss_bytes", *(
+    f"{status}_{unit}" for status in ("attempted", "completed") for unit in _METER_UNITS
+)))
+_MAX_METER_INT = (1 << 63) - 1
+_MAX_METER_SECONDS = 1 << 32  # generous bound; not a recipe or stop-policy threshold
 
 
 class ArtifactError(ValueError):
@@ -149,6 +157,31 @@ def _public(value: Mapping[str, object], *, terminal: bool = False) -> dict[str,
     if terminal and (not isinstance(status, str) or status not in _TERMINAL):
         raise ArtifactError("INVALID_STATE")
     return result
+
+
+def _failure_meter_counts(supplier: Callable[[], object]) -> dict[str, object] | None:
+    """Read a bounded, exact Meter snapshot; invalid evidence must not block fallback."""
+    try:
+        value = supplier()
+        if (type(value) is not dict or len(value) != len(_METER_KEYS)
+                or any(type(key) is not str for key in value) or value.keys() != _METER_KEYS):
+            return None
+        for unit in _METER_UNITS:
+            done, tried = value[f"completed_{unit}"], value[f"attempted_{unit}"]
+            if type(done) is not int or type(tried) is not int or not (
+                0 <= done <= tried <= _MAX_METER_INT
+            ):
+                return None
+        for name in _METER_CLOCKS:
+            age = value[name]
+            if type(age) not in (int, float) or not 0 <= age <= _MAX_METER_SECONDS:
+                return None
+        rss = value["rss_bytes"]
+        if rss is not None and (type(rss) is not int or not 0 <= rss <= _MAX_METER_INT):
+            return None
+        return dict(value)
+    except Exception:
+        return None
 
 
 def _ref(value: object) -> str:
@@ -366,6 +399,9 @@ class RunStore:
     # Private owner opt-in for a single, already public snapshot field. No replay
     # of an uncommitted update, and no change to claim's interface or defaults.
     _failure_evidence_key: str | None = field(default=None, init=False)
+    # Only the retained owner may opt in, binding its read-only Meter.snapshot.
+    _failure_counts_supplier: Callable[[], object] | None = field(
+        default=None, init=False, repr=False, compare=False)
 
     def current_source_identity(self) -> dict[str, str]:
         """Fresh identity from the same caller-owned closure used by claim."""
@@ -540,6 +576,10 @@ class RunStore:
                 if len(_encode(evidence)) <= _MAX_FAILURE_EVIDENCE:
                     summary.update(evidence)
             failed = {**self._record, "status": "FAILED", "summary": summary}
+            if self._failure_counts_supplier is not None:
+                counts = _failure_meter_counts(self._failure_counts_supplier)
+                if counts is not None:
+                    failed["counts"] = counts
             self._atomic(self._data / "run.json", _encode(failed))
             self._record = failed
             self._frozen_sha = self._files[self._data / "run.json"]

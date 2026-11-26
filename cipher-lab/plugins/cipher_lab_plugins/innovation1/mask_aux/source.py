@@ -1,0 +1,27 @@
+"""Explicit source closure: existing shared dependencies plus this owner."""
+from __future__ import annotations
+
+from hashlib import sha256
+from pathlib import Path
+
+from cipher_lab.artifacts import ArtifactError, _source
+
+from ..prefix_bridge.source import source_identity as prefix_identity
+from ..source import no_reparse
+
+_OWNER = ('__init__', 'cli', 'config', 'data', 'kat', 'masking', 'model', 'report',
+          'runtime', 'source', 'training', 'weights')
+
+
+def source_identity() -> dict[str, str]:
+    result = prefix_identity()
+    try:
+        owner = Path(__file__).absolute().parent
+        for module in _OWNER:
+            filename = f'{module}.py'
+            name = f'cipher_lab_plugins/innovation1/mask_aux/{filename}'
+            result[name] = sha256(no_reparse(owner / filename).read_bytes()).hexdigest()
+        _source(result)
+    except (OSError, ValueError):
+        raise ArtifactError('SOURCE_UNAVAILABLE') from None
+    return dict(sorted(result.items()))

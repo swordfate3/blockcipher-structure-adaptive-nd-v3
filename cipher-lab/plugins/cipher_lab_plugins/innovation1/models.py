@@ -80,6 +80,12 @@ class TorchRuntime:
     def _loss(self, logits: Tensor, y: Tensor) -> Tensor:
         return nn.functional.binary_cross_entropy_with_logits(logits, y, reduction='mean')
 
+    def _training_loss(self, slot: str, x: Any, logits: Tensor, y: Tensor,
+                       resources: Any) -> tuple[Tensor, Tensor | float]:
+        """Return backward objective and the loss reported to the caller."""
+        loss = self._loss(logits, y)
+        return loss, loss
+
     def update(self, slot: str, task: Task, x: Any, y: Any, lr: float,
                resources: Any) -> float:
         model, optimizer = self.models[slot], self.optimizers[slot]
@@ -93,7 +99,7 @@ class TorchRuntime:
             if logits.shape != y.shape or not bool(torch.isfinite(logits).all()):
                 raise ValueError('FORWARD_INVALID')
             resources.complete('forward_rows', int(y.shape[0]))
-            loss = self._loss(logits, y)
+            loss, reported = self._training_loss(slot, x, logits, y, resources)
             if not bool(torch.isfinite(loss)):
                 raise ValueError('LOSS_INVALID')
             resources.check()
@@ -104,7 +110,7 @@ class TorchRuntime:
             optimizer.step()
             # Synchronize so asynchronous numerical/device failures cannot be completed.
             torch.cuda.synchronize(self.device)
-            return float(loss.detach().cpu())
+            return reported if isinstance(reported, float) else float(reported.detach().cpu())
         finally:
             optimizer.zero_grad(set_to_none=True)
 

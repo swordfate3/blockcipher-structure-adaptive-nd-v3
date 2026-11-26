@@ -48,7 +48,7 @@ class PrefixSharedM(nn.Module):
                                       for k in _SPEC.suffix_kernels])
         self.readout = SharedReadout(_SPEC)
 
-    def forward(self, bits: Tensor) -> Tensor:
+    def features(self, bits: Tensor) -> Tensor:
         if (not isinstance(bits, Tensor) or bits.layout != torch.strided
                 or bits.shape[1:] != (4, 6, 64) or bits.ndim != 4 or not bits.shape[0]
                 or bits.dtype != torch.float32 or bits.device != self.public.device
@@ -60,7 +60,10 @@ class PrefixSharedM(nn.Module):
                     for i in route.indices.tolist()]
         mixed = route.weights[0] * features[0] + route.weights[1] * features[1]
         hidden = cast(Tensor, self.suffix(mixed.reshape(-1, _SPEC.channels, 64)))
-        logits = cast(Tensor, self.readout(hidden.reshape(-1, 4, _SPEC.channels, 64)))
+        return hidden.reshape(-1, 4, _SPEC.channels, 64)
+
+    def forward(self, bits: Tensor) -> Tensor:
+        logits = cast(Tensor, self.readout(self.features(bits)))
         if logits.shape != (bits.shape[0], 1) or not bool(torch.isfinite(logits).all()):
             raise ValueError('MODEL_LOGITS')
         return logits

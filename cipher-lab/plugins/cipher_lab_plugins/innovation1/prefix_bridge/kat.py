@@ -18,9 +18,13 @@ _PUBLIC_POINT = 0x0123456789ABCDEF
 
 
 def check(meter: Meter, scalar: Callable[[int, Key, int], int],
-          prefixes: Callable[[Words, Key, tuple[int, ...]], Words]) -> None:
+          prefixes: Callable[[Words, Key, tuple[int, ...]], Words], *,
+          rounds: tuple[int, ...] = ROUNDS) -> None:
     """Charge one request per arm and vector; stop at the first failure."""
-    for r in (31, *ROUNDS):
+    if (type(rounds) is not tuple or any(type(r) is not int for r in rounds)
+            or rounds not in (ROUNDS, (7,))):
+        raise ValueError('INVALID_ROUNDS')
+    for r in (31, *rounds):
         point, key = (0, (0, 0, 0)) if r == 31 else (_PUBLIC_POINT, _PUBLIC_KEY)
         meter.reserve('real_blocks', 1)
         expected = scalar(point, key, r)
@@ -42,11 +46,11 @@ def check(meter: Meter, scalar: Callable[[int, Key, int], int],
     meter.check()
 
 
-def production(meter: Meter) -> None:
+def production(meter: Meter, *, rounds: tuple[int, ...] = ROUNDS) -> None:
     from cipher_lab.ciphers import present, present_prefix
 
     def scalar(point: int, key: Key, rounds: int) -> int:
         result, = present.encrypt_many((point,), key, rounds)
         return result
 
-    check(meter, scalar, present_prefix.encrypt_prefixes)
+    check(meter, scalar, present_prefix.encrypt_prefixes, rounds=rounds)

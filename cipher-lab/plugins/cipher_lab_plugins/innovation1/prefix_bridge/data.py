@@ -63,12 +63,15 @@ class _Split:
     states: Words
     labels: Labels
     digest: str
+    rounds: tuple[int, ...] = config.ROUNDS
 
     def view(self, slot: str) -> BatchPanel:
         r, mask = config.slot_input(slot)
+        if self.rounds == (7,) and slot != 'r7-cipher':
+            raise ValueError('INVALID_SLOT')
         if r is None:
             return BatchPanel(self.states[..., 0], None, self.labels)
-        final = self.states[..., config.ROUNDS.index(r)]
+        final = self.states[..., self.rounds.index(r)]
         return BatchPanel(self.states[..., 0] if mask == 63 else None, final, self.labels)
 
 
@@ -104,7 +107,10 @@ class Panels:
 
 
 def make_panels(meter: Meter, draw: Draw, encrypt_prefixes: Encrypt, *,
-                sample: Sample = _sample) -> Panels:
+                sample: Sample = _sample, rounds: tuple[int, ...] = config.ROUNDS) -> Panels:
+    if (type(rounds) is not tuple or any(type(r) is not int for r in rounds)
+            or rounds not in (config.ROUNDS, (7,))):
+        raise ValueError('INVALID_ROUNDS')
     meter.check()
     try:
         key_int = draw(80)
@@ -141,18 +147,18 @@ def make_panels(meter: Meter, draw: Draw, encrypt_prefixes: Encrypt, *,
         earlier_pairs.update(pairs)
         del pairs
         flat = raw.reshape(-1)
-        states = np.empty((flat.size, len(config.ROUNDS)), dtype=np.uint64)
+        states = np.empty((flat.size, len(rounds)), dtype=np.uint64)
         for start in range(0, len(flat), _MAX_POINTS):
             points = flat[start:start + _MAX_POINTS].copy()
             n = len(points)
-            charged = n * len(config.ROUNDS)
+            charged = n * len(rounds)
             meter.reserve('real_blocks', charged)
             try:
-                result = encrypt_prefixes(points, key, config.ROUNDS)
+                result = encrypt_prefixes(points, key, rounds)
             except Exception:
                 raise ValueError('PREFIX_ORACLE_FAILED') from None
             if (type(result) is not np.ndarray or result.dtype != np.uint64
-                    or result.shape != (n, len(config.ROUNDS)) or not result.flags.c_contiguous
+                    or result.shape != (n, len(rounds)) or not result.flags.c_contiguous
                     or np.shares_memory(points, result) or points.shape != (n,)
                     or points.dtype != np.uint64
                     or not np.array_equal(points, flat[start:start + n])):
@@ -160,11 +166,12 @@ def make_panels(meter: Meter, draw: Draw, encrypt_prefixes: Encrypt, *,
             states[start:start + n] = result
             meter.complete('real_blocks', charged)
         meter.check()
-        digest = sha256(f'{config.METHOD}/{split}/{rows}/'.encode('ascii'))
+        domain = config.METHOD if rounds == config.ROUNDS else f'{config.METHOD}/r7-cipher-only'
+        digest = sha256(f'{domain}/{split}/{rows}/'.encode('ascii'))
         digest.update(labels.tobytes())
         digest.update(states.astype('<u8', copy=False).tobytes())
         states.flags.writeable = labels.flags.writeable = False
-        return _Split(states.reshape((*shape, len(config.ROUNDS))), labels, digest.hexdigest())
+        return _Split(states.reshape((*shape, len(rounds))), labels, digest.hexdigest(), rounds)
 
     return Panels(generate)
 
