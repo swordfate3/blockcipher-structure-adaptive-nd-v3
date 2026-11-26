@@ -1,0 +1,90 @@
+{
+  "amp": false,
+  "batch_size": 128,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "channels": 96,
+  "checkpoint_bytes": 16777216,
+  "cipher": "PRESENT-80",
+  "clip": 1.0,
+  "count_caps": {
+    "forward_rows": 1261568,
+    "null_words": 0,
+    "optimizer_updates": 7680,
+    "real_blocks": 1769477
+  },
+  "cpu_seconds": 14400,
+  "cross_split_pairs": "disjoint-unordered-S2-pairs/no-retry",
+  "data_seed": 20261125,
+  "dev_rows": 8192,
+  "difference": 13631488,
+  "difference_at_round": 2,
+  "dtype": "FP32",
+  "early_stop": {
+    "min_delta": 1e-05,
+    "patience": 8,
+    "warmup_epochs": 10
+  },
+  "eps": 1e-08,
+  "fits": 1,
+  "fresh": true,
+  "gate": "public-PRESENT-80-whitened-S2-roundtrip-total-7-reference",
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "head_hidden": 64,
+  "init_seed": 31,
+  "input": "C7-only/canonical-left-right-xor",
+  "kat_real_blocks": 5,
+  "label_columns": 1,
+  "lr": 0.001,
+  "mask": 56,
+  "max_epochs": 30,
+  "method": "innovation1-present-s2-window-v1",
+  "min_epochs": 18,
+  "norm_groups": 8,
+  "optimizer": "Adam",
+  "order_seed": 20261126,
+  "output_bytes": 536870912,
+  "pairs_per_group": 4,
+  "parameters": 1095285,
+  "per_trajectory": {
+    "full_forward_outputs": 2,
+    "inverse_outputs": 1
+  },
+  "primary": "correct-groups/TEST-groups",
+  "public_features": 13,
+  "reference_accuracy": 0.5,
+  "retry_count": 0,
+  "rounds": [
+    2,
+    7
+  ],
+  "router_hidden": 16,
+  "router_top_k": 2,
+  "rss_bytes": 8589934592,
+  "s2_boundary": "PRESENT-80/r2/with-pLayer/with-K3-final-whitening",
+  "sampling": "balanced-per-split/S2-positive-xor/S2-negative-independent/both-invert-then-full-forward",
+  "secret_key_draw_bits": 80,
+  "secret_key_draws": 1,
+  "selection": "group-DEV-BCE/earliest-min",
+  "slots": [
+    "r7-cipher"
+  ],
+  "stem_inputs": 54,
+  "suffix_kernels": [
+    3,
+    5,
+    7,
+    9,
+    11
+  ],
+  "test_rows": 32768,
+  "tf32": false,
+  "total_rounds": 7,
+  "train_rows": 32768,
+  "trajectories": 589824,
+  "wall_seconds": 3600,
+  "weight_decay": 0.0
+}

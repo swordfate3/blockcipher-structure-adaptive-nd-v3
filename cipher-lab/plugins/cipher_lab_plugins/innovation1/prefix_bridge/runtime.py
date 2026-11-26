@@ -35,6 +35,8 @@ def configure() -> dict[str, object]:
 
 
 class Runtime(TorchRuntime):
+    _require_identity = staticmethod(weights.require_identity)
+
     def __init__(self, slot: str) -> None:
         r, self._mask = config.slot_input(slot)
         super().__init__(_OPT_CONFIG, config.GPU_DEVICE, inference_only=True)
@@ -104,7 +106,7 @@ class Runtime(TorchRuntime):
     def dump_bound(self, metadata: dict[str, Any]) -> bytes:
         if self._state != 'TRAINING':
             raise ValueError('INVALID_RUNTIME_STATE')
-        weights.require_identity(self.slot, metadata)
+        self._require_identity(self.slot, metadata)
         raw = encode(metadata, self.models[self.slot].state_dict())
         if not 0 < len(raw) <= config.CHECKPOINT_BYTES:
             raise ValueError('CHECKPOINT_SIZE')
@@ -115,7 +117,7 @@ class Runtime(TorchRuntime):
             raise ValueError('INVALID_RUNTIME_STATE')
         if type(raw) is not bytes or not 0 < len(raw) <= config.CHECKPOINT_BYTES:
             raise ValueError('CHECKPOINT_SIZE')
-        weights.require_identity(self.slot, metadata)
+        self._require_identity(self.slot, metadata)
         model = self._fresh_cpu()
         fixed = tuple(name for name, _ in model.named_buffers())
         state = weights.decode(raw, metadata, model.state_dict(), fixed)
@@ -140,9 +142,12 @@ class Runtime(TorchRuntime):
 class FitRuntime:
     """Bind one public arm, epoch identity and CPU restore to the shared fit seam."""
 
+    _runtime_type: type[Runtime] = Runtime
+    _identity = staticmethod(weights.identity)
+
     def __init__(self, slot: str, arm: dict[str, object], train: bool, *,
                  source: dict[str, str], run_id: str) -> None:
-        self._runtime = Runtime(slot)
+        self._runtime = self._runtime_type(slot)
         self._slot, self._arm, self._source, self._run_id = slot, arm, source, run_id
         if train:
             self._runtime.start()
@@ -158,8 +163,8 @@ class FitRuntime:
     def _metadata(self, point: object) -> dict[str, Any]:
         if not isinstance(point, dict):
             raise ValueError('MISSING_DEV_SELECTION')
-        return weights.identity(self._slot, self._source, self._run_id,
-                                point['epoch'], point['bce'])
+        return self._identity(self._slot, self._source, self._run_id,
+                              point['epoch'], point['bce'])
 
     def dump(self) -> bytes:
         curve = self._arm.get('dev')

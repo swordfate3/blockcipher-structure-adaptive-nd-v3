@@ -40,6 +40,7 @@ _PREFIX = 'cipher_lab.ciphers.present_prefix'
 _CIPHERS = {
     'present': ('encrypt_many',),
     'present_prefix': ('encrypt_prefixes', '_encrypt_into', '_round_keys', '_p_layer_table'),
+    'present_s2': ('invert_second_output', '_invert_into'),
     'simon': ('encrypt_many', 'encrypt_batch', '_round_words'),
     'simon32': ('encrypt_scalar', 'encrypt_batch'),
     'simeck': ('encrypt_many',),
@@ -144,7 +145,7 @@ def bridge_prefix_with_stub(
 @pytest.fixture
 def bridge_guard_probe(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], tuple[object, ...]]:
     """Cache real *dispatch wrappers* with harmless call targets before the guard."""
-    from cipher_lab.ciphers import present
+    from cipher_lab.ciphers import present, present_s2
 
     calls: list[str] = []
 
@@ -185,6 +186,8 @@ def bridge_guard_probe(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], tupl
         (present, 'encrypt_many', 'public_cipher'),
         (prefix, 'encrypt_prefixes', 'public_prefix'),
         (prefix, '_encrypt_into', 'private_loop'),
+        (present_s2, 'invert_second_output', 'public_inverse'),
+        (present_s2, '_invert_into', 'private_inverse'),
     ):
         stub = stub_for(alias)
         monkeypatch.setattr(owner, name, stub)
