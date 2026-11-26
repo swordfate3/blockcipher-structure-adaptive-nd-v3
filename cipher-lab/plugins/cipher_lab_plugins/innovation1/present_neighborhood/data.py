@@ -12,7 +12,7 @@ from ..config import canonical
 from ..four_single.config import PANEL_OVERHEAD
 from ..four_single.replay import ReplayPools
 from ..single_train.data import PairBatch
-from .config import SLOTS, TASK, NeighborhoodRecipe
+from .config import TASK, NeighborhoodRecipe
 
 
 class _PresentReader(ReplayPools):
@@ -27,6 +27,7 @@ class _PresentReader(ReplayPools):
 class NeighborhoodPools:
     def __init__(self, recipe: NeighborhoodRecipe, check: Callable[[], None]) -> None:
         self._reader = _PresentReader(recipe.archive_reader_recipe(), check)
+        self._slots = recipe.slots
         self._test_identity = recipe.test_sha256, recipe.test_digest
         self._dev: PairBatch | None = None
         self._provenance: dict[str, Any] = {}
@@ -54,8 +55,8 @@ class NeighborhoodPools:
         return self._reader.train(TASK, cycle)
 
     def load_test(self, reloads: dict[str, Any]) -> PairBatch:
-        if (set(reloads) != set(SLOTS) or self._dev is None or self.test_input is not None
-                or any(reloads[s].get('ref') != f'model/{s}.pt' for s in SLOTS)):
+        if (set(reloads) != set(self._slots) or self._dev is None or self.test_input is not None
+                or any(reloads[s].get('ref') != f'model/{s}.pt' for s in self._slots)):
             raise ValueError('TEST_ORDER')
         self._reader.release_train()
         self._dev = None
@@ -71,7 +72,7 @@ def encode_test(batch: PairBatch, recipe: NeighborhoodRecipe, source: dict[str, 
              recipe.archive_reader_recipe().namespace)
             or reused_input.get('sha256') != recipe.test_sha256
             or reused_input.get('digest') != batch.digest
-            or set(weights) != set(logits) or set(weights) != set(SLOTS)
+            or set(weights) != set(logits) or set(weights) != set(recipe.slots)
             or any(z.shape != batch.labels.shape or z.dtype != np.float64
                    or not np.isfinite(z).all() for z in logits.values())):
         raise ValueError('TEST_PANEL_IDENTITY')
@@ -80,12 +81,12 @@ def encode_test(batch: PairBatch, recipe: NeighborhoodRecipe, source: dict[str, 
                 encoding='packed-msb0-single-pair-v1', digest=batch.digest,
                 namespace=batch.namespace, reused_input=reused_input, best=weights)
     stream = io.BytesIO()
-    # Exactly five numeric members, including both new arrays of predictions.
+    # Exactly three shared arrays and one new array of predictions per slot.
     arrays: dict[str, Any] = dict(metadata=np.frombuffer(canonical(meta).encode('ascii'),
                                  dtype=np.uint8), ciphertext=batch.ciphertext, labels=batch.labels,
                                  **logits)
     np.savez(stream, **arrays)
     raw = stream.getvalue()
-    if len(raw) > batch.groups * 33 + PANEL_OVERHEAD:
+    if len(raw) > batch.groups * recipe.panel_row_bytes + PANEL_OVERHEAD:
         raise ValueError('PANEL_SIZE')
     return raw

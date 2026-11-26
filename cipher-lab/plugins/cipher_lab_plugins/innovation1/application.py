@@ -17,7 +17,7 @@ from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
 from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
-from .present_neighborhood.config import NeighborhoodRecipe
+from .present_neighborhood.config import NeighborhoodRecipe, PresentCardRecipe
 from .present_neighborhood.config import make_policy as make_neighborhood_policy
 from .present_neighborhood.config import official as official_neighborhood
 from .present_neighborhood.config import validate_root as validate_neighborhood_root
@@ -136,7 +136,10 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             validate_serial_root(store._root)
     elif isinstance(recipe, NeighborhoodRecipe):
         official_neighborhood(recipe, run_id)
-        validate_neighborhood_root(store._root)
+        if isinstance(recipe, PresentCardRecipe):
+            validate_neighborhood_root(store._root, recipe=recipe)
+        else:
+            validate_neighborhood_root(store._root)
         if gpu_uuid.casefold() != NEIGHBORHOOD_GPU_UUID.casefold():
             raise ValueError('NEIGHBORHOOD_GPU_UUID')
     elif isinstance(recipe, CardRecipe):

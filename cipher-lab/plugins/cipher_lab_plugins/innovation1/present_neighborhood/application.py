@@ -1,4 +1,4 @@
-"""Assemble PRESENT-specific adapters, then run the existing paired loop."""
+"""Assemble PRESENT-specific adapters, then run the existing training loop."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -13,7 +13,7 @@ from ..resources import Resources, ResourceStop
 from ..single_train.config import BACKEND, SingleRecipe
 from ..single_train.data import PairBatch
 from ..single_train.training import SavedTest, train_pair
-from .config import ROW_BYTES, SLOTS, TASK, NeighborhoodRecipe, estimate, official
+from .config import ROW_BYTES, TASK, NeighborhoodRecipe, estimate, official
 from .data import NeighborhoodPools, encode_test
 from .runtime import NeighborhoodRuntime
 
@@ -36,11 +36,13 @@ def execute(recipe: NeighborhoodRecipe, store: RunStore, resources: Resources, *
         assemble = _assemble
     elif backend != 'artificial' or assemble is None:
         raise ValueError('BACKEND_MISMATCH')
+    slots = recipe.slots
     summary: dict[str, Any] = dict(method=recipe.method, backend_identity=backend,
         synthetic=backend != BACKEND, scientific_validation=False, launch=launch,
-        updates={s: dict(attempted=0, completed=0) for s in SLOTS}, paired_completed=0,
+        updates={s: dict(attempted=0, completed=0) for s in slots},
         best={}, curves=[], pending=[], batch_refs=[], persisted_reloads={}, reload_routes={},
         location=dict(phase='assembly'))
+    summary['completed_batches' if len(slots) == 1 else 'paired_completed'] = 0
     status = 'FAILED'
     result: dict[str, Any] | None = None
     try:
@@ -62,7 +64,9 @@ def execute(recipe: NeighborhoodRecipe, store: RunStore, resources: Resources, *
 
         def test_result(batch: PairBatch, scores: dict[str, dict[str, float]],
                         logits: dict[str, Any]) -> dict[str, Any]:
-            a, b = (scores[slot] for slot in SLOTS)
+            if len(slots) == 1:
+                return dict(test_input=pools.test_input)
+            a, b = (scores[slot] for slot in slots)
             return dict(test_input=pools.test_input, paired_test=dict(rows=batch.groups,
                 direction='B-minus-A', delta_acc_pp=100 * (b['accuracy'] - a['accuracy']),
                 delta_bce=b['bce'] - a['bce']))
@@ -72,7 +76,7 @@ def execute(recipe: NeighborhoodRecipe, store: RunStore, resources: Resources, *
                 raise ValueError('NEIGHBORHOOD_RECIPE')
             return estimate(recipe)
 
-        result = train_pair(recipe, pools, runtime, store, resources, summary, backend, slots=SLOTS,
+        result = train_pair(recipe, pools, runtime, store, resources, summary, backend, slots=slots,
                    task=TASK, panel_bytes=panel_bytes, checkpoint_identity=runtime.identity,
                    test_result=test_result,
                    saved_test=SavedTest(pools.load_test, runtime.routes, totals, ROW_BYTES))

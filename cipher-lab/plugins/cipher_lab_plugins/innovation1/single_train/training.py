@@ -1,4 +1,4 @@
-"""One two-arm loop with a disk-only two-best barrier before TEST."""
+"""One loop with a disk-only current best checkpoint barrier before TEST."""
 from __future__ import annotations
 
 import math
@@ -32,7 +32,7 @@ TestResult = Callable[[PairBatch, dict[str, dict[str, float]], dict[str, Any]], 
 
 @dataclass(frozen=True)
 class SavedTest:
-    """Opt in to verified archive TEST, route observations and terminal-only comparisons."""
+    """Opt in to verified archive TEST and terminal-only results."""
 
     open_panel: Callable[[dict[str, Any]], PairBatch]
     observe_routes: Callable[[str], dict[str, float]]
@@ -42,11 +42,16 @@ class SavedTest:
 
 def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStore,
                resources: Resources, summary: dict[str, Any], backend: str, *,
-               slots: tuple[str, str], panel_bytes: PanelEncoder,
+               slots: tuple[str] | tuple[str, str], panel_bytes: PanelEncoder,
                checkpoint_identity: CheckpointIdentity, test_result: TestResult,
                early_stopping: Settings | None = None, cosine_epochs: int | None = None,
                saved_test: SavedTest | None = None, task: Task = TASK) -> dict[str, Any] | None:
     """Compute and snapshot only; application owns the single terminal transition."""
+    if (type(slots) is not tuple or len(slots) not in (1, 2) or len(slots) != len(set(slots))
+            or (len(slots) == 1 and (saved_test is None or early_stopping is not None
+                                    or cosine_epochs is not None))):
+        raise ValueError('TRAIN_SLOTS')
+    completed_key = 'completed_batches' if len(slots) == 1 else 'paired_completed'
     tr = recipe.training
     stopper = (None if early_stopping is None else
                EarlyStopping(slots, early_stopping, epoch_ceiling=tr.epochs))
@@ -75,7 +80,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             # Bounded evidence copied by the store on a storage seal. Registered
             # ledgers are already in artifacts; never duplicate their full rows here.
             progress: dict[str, Any] = {key: summary[key] for key in (
-                'location', 'updates', 'paired_completed', 'pending', 'best', 'persisted_reloads',
+                'location', 'updates', completed_key, 'pending', 'best', 'persisted_reloads',
                 'reload_routes', 'training_termination') if key in summary}
             progress['last_dev'] = summary['curves'][-1] if summary['curves'] else None
             value = dict(summary, progress=progress)
@@ -185,11 +190,11 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                 summary['updates'][slot]['completed'] += 1
                 row['updates_completed'].append(slot)
                 if len(row['updates_completed']) == len(slots):
-                    summary['paired_completed'] += 1
+                    summary[completed_key] += 1
                 if math.isfinite(loss):
                     row['loss'][slot] = loss
                 if cycle == 0 and slot == slots[0]:
-                    snapshot()  # publish the first update before starting the second arm
+                    snapshot()  # publish the first update immediately
                 check()
                 if not math.isfinite(loss) or tensor_digest(x, y) != digest:
                     raise ValueError('UPDATE_INVALID')
@@ -284,7 +289,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             for kind in ('attempted', 'completed')
             for unit in ('real_blocks', 'optimizer_updates', 'forward_rows', 'null_words'))
             or ((stopper is not None or saved_test is not None)
-                and (summary['paired_completed'] != totals['cycles']
+                and (summary[completed_key] != totals['cycles']
                      or any(summary['updates'][slot][kind] != totals['updates_each']
                             for slot in slots for kind in ('attempted', 'completed'))))):
         raise ValueError('COUNT_MISMATCH')

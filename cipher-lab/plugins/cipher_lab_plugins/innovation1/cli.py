@@ -18,10 +18,10 @@ from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
+from .present_neighborhood.config import CARD_METHOD as PRESENT_CARD_METHOD
 from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
 from .present_neighborhood.config import METHOD as NEIGHBORHOOD_METHOD
-from .present_neighborhood.config import SLOTS as NEIGHBORHOOD_SLOTS
-from .present_neighborhood.config import NeighborhoodRecipe
+from .present_neighborhood.config import NeighborhoodRecipe, PresentCardRecipe
 from .present_neighborhood.config import estimate as estimate_neighborhood
 from .present_neighborhood.config import official as official_neighborhood
 from .present_neighborhood.config import validate_root as validate_neighborhood_root
@@ -240,7 +240,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
                                     INDEPENDENT_METHOD, VOLUME_METHOD):
                         from .four_single.report import render
-                    elif method == NEIGHBORHOOD_METHOD:
+                    elif method in (NEIGHBORHOOD_METHOD, PRESENT_CARD_METHOD):
                         from .present_neighborhood.report import render
                     elif method == CARD_METHOD:
                         from .skinny_card.report import render
@@ -332,7 +332,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             pool_source = recipe.skinny_source
         elif isinstance(recipe, NeighborhoodRecipe):
             official_neighborhood(recipe, args.id)
-            validate_neighborhood_root(args.root)
+            if isinstance(recipe, PresentCardRecipe):
+                validate_neighborhood_root(args.root, recipe=recipe)
+            else:
+                validate_neighborhood_root(args.root)
             if args.gpu_uuid.casefold() != NEIGHBORHOOD_GPU_UUID.casefold():
                 raise ValueError('NEIGHBORHOOD_GPU_UUID')
             pool_source = recipe.skinny_source
@@ -397,7 +400,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                                needs_models=needs_models, source_supplier=source_supplier,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
                                else recipe.stage_slots if isinstance(recipe, SerialRecipe)
-                               else NEIGHBORHOOD_SLOTS if isinstance(recipe, NeighborhoodRecipe)
+                               else recipe.slots if isinstance(recipe, NeighborhoodRecipe)
                                else CARD_SLOTS if isinstance(recipe, CardRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)

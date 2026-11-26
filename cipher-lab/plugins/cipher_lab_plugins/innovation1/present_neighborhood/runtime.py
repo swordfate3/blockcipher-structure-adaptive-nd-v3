@@ -1,4 +1,4 @@
-"""Two independent FP32 runtimes and exact slot/pool/geometry checkpoint binding."""
+"""Independent FP32 slots with exact recipe, pool and geometry checkpoint binding."""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -18,10 +18,10 @@ from ..single_train.weights import bound_identity
 from .config import (
     NEIGHBORHOOD,
     NIBBLE_BUFFER,
-    SLOTS,
-    TABLE_SHA256,
+    PRESENT_CARD,
     TASK,
     NeighborhoodRecipe,
+    PresentCardRecipe,
     official,
 )
 from .model import build
@@ -37,7 +37,7 @@ class NeighborhoodRuntime(TorchRuntime):
         self.public = torch.tensor(public_features(TASK.cipher), device=self.device,
                                    dtype=torch.float32)
         self.tables: dict[str, dict[str, str]] = {}
-        for slot, expected_table in zip(SLOTS, TABLE_SHA256, strict=True):
+        for slot, expected_table in zip(recipe.slots, recipe.table_hashes, strict=True):
             check()
             model = self._build(slot)
             tables = geometry(model)
@@ -53,7 +53,7 @@ class NeighborhoodRuntime(TorchRuntime):
 
     def metadata(self) -> dict[str, Any]:
         value = super().metadata()
-        for slot in SLOTS:
+        for slot in self.contract.slots:
             value[slot]['geometry'] = self.tables[slot]
         return value
 
@@ -68,19 +68,21 @@ class NeighborhoodRuntime(TorchRuntime):
     def identity(self, recipe: SingleRecipe, source: dict[str, str], backend: str,
                  slot: str, epoch: int, score: float) -> dict[str, Any]:
         contract = self.contract
-        if (type(recipe) is not NeighborhoodRecipe or recipe != contract or backend != self.backend
+        if (type(recipe) is not type(contract) or recipe != contract or backend != self.backend
                 or canonical(recipe.to_dict()) != canonical(contract.to_dict())):
             raise ValueError('CHECKPOINT_IDENTITY')
         if backend == BACKEND:
             official(contract, contract.run_id)
-        meta = bound_identity(recipe, source, backend, slot, epoch, score, slots=SLOTS,
-            fixed=NEIGHBORHOOD, schema=1, method=contract.method, run_id=contract.run_id)
+        fixed = PRESENT_CARD if isinstance(contract, PresentCardRecipe) else NEIGHBORHOOD
+        meta = bound_identity(recipe, source, backend, slot, epoch, score, slots=contract.slots,
+            fixed=fixed, schema=1, method=contract.method, run_id=contract.run_id)
         return dict(meta, geometry=self.tables[slot], pools=self._pools())
 
     def load_best(self, slot: str, raw: bytes, recipe: SingleRecipe, source: dict[str, str],
                   epoch: int, score: float, check: Callable[[], None]) -> None:
-        if (slot not in SLOTS or self.optimizers
-                or set(self.models) != set(SLOTS[:SLOTS.index(slot)])):
+        slots = self.contract.slots
+        if (slot not in slots or self.optimizers
+                or set(self.models) != set(slots[:slots.index(slot)])):
             raise ValueError('RELOAD_NOT_RELEASED')
         expected = self.identity(recipe, source, self.backend, slot, epoch, score)
         model = self._build(slot)

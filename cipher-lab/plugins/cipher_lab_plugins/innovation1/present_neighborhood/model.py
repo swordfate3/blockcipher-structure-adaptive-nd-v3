@@ -12,8 +12,8 @@ from cipher_lab.models.shared_m.spec import STEM_NAMES
 
 from ..four_single.models import SinglePairM
 from ..four_single.models import build as build_pair
-from .config import ROUTE, SLOTS, NeighborhoodRecipe
-from .layout import remap
+from .config import ROUTE, SLOTS, NeighborhoodRecipe, PresentCardRecipe
+from .layout import remap, verified_card
 
 
 class NeighborhoodM(SinglePairM):
@@ -26,13 +26,15 @@ class NeighborhoodM(SinglePairM):
 
 
 def build(recipe: NeighborhoodRecipe, slot: str) -> SinglePairM:
-    if slot not in SLOTS:
+    if slot not in recipe.slots:
         raise ValueError('MODEL_SLOT')
     model = build_pair(recipe, NeighborhoodM)
     model.shared.router.requires_grad_(False)
     indices = cast(GeometryStem, model.shared.stems['nibble']).indices
-    structure = remap(tuple(tuple(row) for row in indices.tolist()))
-    if slot == SLOTS[1]:
+    default = tuple(tuple(row) for row in indices.tolist())
+    structure = (verified_card(recipe.p_layer, recipe.gather_rule, model_default=default)
+                 if isinstance(recipe, PresentCardRecipe) else remap(default))
+    if isinstance(recipe, PresentCardRecipe) or slot == SLOTS[1]:
         # Keep the persistent buffer registered at the same path and do not
         # permute the input, output or the word stem's neighborhoods.
         indices.copy_(torch.tensor(structure, dtype=torch.long, device=indices.device))
