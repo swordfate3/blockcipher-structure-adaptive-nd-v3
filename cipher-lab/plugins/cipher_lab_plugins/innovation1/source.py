@@ -57,6 +57,8 @@ def source_identity() -> dict[str, str]:
             'single_train': ('__init__', 'config', 'data', 'training', 'weights'),
             'serial_bc': ('__init__', 'config', 'data', 'models', 'training'),
             'single_pair': ('__init__', 'models'),
+            'present_neighborhood': ('__init__', 'config', 'layout', 'model', 'runtime',
+                                     'data', 'application', 'report'),
             'skinny_card': ('__init__', 'config', 'data', 'runtime', 'application', 'report'),
         }
         paths = [owner.parent / '__init__.py']

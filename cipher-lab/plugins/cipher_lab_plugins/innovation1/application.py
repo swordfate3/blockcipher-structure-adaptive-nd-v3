@@ -16,6 +16,11 @@ from .four_single.config import FourSingleRecipe, ReplayRecipe, validate_replay_
 from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LayoutRecipe, official
+from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
+from .present_neighborhood.config import NeighborhoodRecipe
+from .present_neighborhood.config import make_policy as make_neighborhood_policy
+from .present_neighborhood.config import official as official_neighborhood
+from .present_neighborhood.config import validate_root as validate_neighborhood_root
 from .resources import Resources, ResourceStop
 from .serial_bc.config import (
     DEADLINE_ENV,
@@ -41,6 +46,8 @@ def make_resources(recipe: Recipe | LayoutRecipe | FourSingleRecipe) -> Resource
     clocks = Clocks()
     policy = (make_card_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
               if isinstance(recipe, CardRecipe)
+              else make_neighborhood_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
+              if isinstance(recipe, NeighborhoodRecipe)
               else make_serial_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
               if isinstance(recipe, SerialRecipe)
               else make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
@@ -127,6 +134,11 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             validate_serial_root(store._root, expected=INDEPENDENT_ROOT)
         else:
             validate_serial_root(store._root)
+    elif isinstance(recipe, NeighborhoodRecipe):
+        official_neighborhood(recipe, run_id)
+        validate_neighborhood_root(store._root)
+        if gpu_uuid.casefold() != NEIGHBORHOOD_GPU_UUID.casefold():
+            raise ValueError('NEIGHBORHOOD_GPU_UUID')
     elif isinstance(recipe, CardRecipe):
         official_card(recipe, run_id)
         validate_card_root(store._root)
@@ -143,7 +155,7 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     # request is the stable saved request identity; a later storage seal keeps policy
     # even when the reduced failure summary drops launch.
     policy = dict(vars(recipe.resources), request=dict(launch))
-    if isinstance(recipe, (SerialRecipe, CardRecipe)):
+    if isinstance(recipe, (SerialRecipe, CardRecipe, NeighborhoodRecipe)):
         policy['deadline_utc'] = res.meter._policy.deadline_utc
     summary = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
                    scientific_validation=False, launch=launch, location=dict(phase='device-setup'))
@@ -161,6 +173,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             from .layout_probe.application import _execute
         elif isinstance(recipe, SerialRecipe):
             from .serial_bc.training import execute as execute_serial
+        elif isinstance(recipe, NeighborhoodRecipe):
+            from .present_neighborhood.application import execute as execute_neighborhood
         elif isinstance(recipe, CardRecipe):
             from .skinny_card.application import execute as execute_card
         elif isinstance(recipe, FourSingleRecipe):
@@ -187,6 +201,8 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             _execute(recipe, store, res, BACKEND, launch=launch)
         elif isinstance(recipe, SerialRecipe):
             execute_serial(recipe, store, res, launch=launch)
+        elif isinstance(recipe, NeighborhoodRecipe):
+            execute_neighborhood(recipe, store, res, launch=launch)
         elif isinstance(recipe, CardRecipe):
             execute_card(recipe, store, res, launch=launch)
         elif isinstance(recipe, FourSingleRecipe):

@@ -12,7 +12,7 @@ import numpy as np
 from cipher_lab.artifacts import ArtifactError, RunStore
 from cipher_lab.training.early_stopping import EarlyStopping, Settings
 
-from ..config import canonical
+from ..config import Task, canonical
 from ..contracts import MAX_CHECKPOINT
 from ..resources import Resources, ResourceStop
 from ..scoring import bce, mse, predict, tensor_digest
@@ -45,7 +45,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                slots: tuple[str, str], panel_bytes: PanelEncoder,
                checkpoint_identity: CheckpointIdentity, test_result: TestResult,
                early_stopping: Settings | None = None, cosine_epochs: int | None = None,
-               saved_test: SavedTest | None = None) -> dict[str, Any] | None:
+               saved_test: SavedTest | None = None, task: Task = TASK) -> dict[str, Any] | None:
     """Compute and snapshot only; application owns the single terminal transition."""
     tr = recipe.training
     stopper = (None if early_stopping is None else
@@ -103,7 +103,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
             digest = tensor_digest(x, y)
             for slot in slots:
                 loc['slot'] = slot
-                chunks[slot].append(predict(runtime, slot, TASK, x, y, resources))
+                chunks[slot].append(predict(runtime, slot, task, x, y, resources))
                 if digest != tensor_digest(x, y):
                     raise ValueError('BATCH_MUTATED')
         logits = {slot: np.concatenate(chunks[slot]) for slot in slots}
@@ -118,7 +118,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
         check()
         raw = panel_bytes(panel, recipe, source, backend)
         snapshot()  # seal from the collected counts if the dataset write fails
-        ref = store.write_dataset(f'{panel.split}-SKINNY', raw)
+        ref = store.write_dataset(f'{panel.split}-{task.cipher}', raw)
         check()
         summary[f'{panel.split}_panel'] = dict(ref=ref, sha256=sha256(raw).hexdigest(),
                                               digest=panel.digest)
@@ -180,7 +180,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                 summary['location']['slot'] = slot
                 resources.reserve('optimizer_updates', 1)
                 summary['updates'][slot]['attempted'] += 1
-                loss = runtime.update(slot, TASK, x, y, lr, resources)
+                loss = runtime.update(slot, task, x, y, lr, resources)
                 resources.complete('optimizer_updates', 1)
                 summary['updates'][slot]['completed'] += 1
                 row['updates_completed'].append(slot)
@@ -236,6 +236,9 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
                 if reason == 'EARLY_STOPPING':
                     counted_recipe = replace(recipe, training=replace(tr, epochs=epoch))
                 break
+    if stopper is None and saved_test is not None:
+        summary['training_termination'] = dict(reason='EPOCH_CEILING', completed_epochs=tr.epochs)
+        snapshot()
     summary['location'] = dict(phase='persisted-best-reload')
     check_source()
     if set(best) != set(slots):
@@ -267,7 +270,7 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     raw = panel_bytes(test, recipe, source, backend, logits=logits,
                       weights=summary['persisted_reloads'])
     snapshot()  # include both scoring passes, not TEST results
-    ref = store.write_dataset('test-SKINNY', raw)
+    ref = store.write_dataset(f'test-{task.cipher}', raw)
     check()
     panel_info = dict(ref=ref, sha256=sha256(raw).hexdigest(), digest=test.digest)
     if saved_test is None:
@@ -280,9 +283,10 @@ def train_pair(recipe: SingleRecipe, provider: Any, runtime: Any, store: RunStor
     if (any(counts[f'{kind}_{unit}'] != totals[unit]
             for kind in ('attempted', 'completed')
             for unit in ('real_blocks', 'optimizer_updates', 'forward_rows', 'null_words'))
-            or (stopper is not None and (summary['paired_completed'] != totals['cycles']
-                or any(summary['updates'][slot][kind] != totals['updates_each']
-                       for slot in slots for kind in ('attempted', 'completed'))))):
+            or ((stopper is not None or saved_test is not None)
+                and (summary['paired_completed'] != totals['cycles']
+                     or any(summary['updates'][slot][kind] != totals['updates_each']
+                            for slot in slots for kind in ('attempted', 'completed'))))):
         raise ValueError('COUNT_MISMATCH')
     if saved_test is None:
         return None

@@ -18,6 +18,13 @@ from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
+from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
+from .present_neighborhood.config import METHOD as NEIGHBORHOOD_METHOD
+from .present_neighborhood.config import SLOTS as NEIGHBORHOOD_SLOTS
+from .present_neighborhood.config import NeighborhoodRecipe
+from .present_neighborhood.config import estimate as estimate_neighborhood
+from .present_neighborhood.config import official as official_neighborhood
+from .present_neighborhood.config import validate_root as validate_neighborhood_root
 from .serial_bc.config import (
     DEV_OBSERVATION_BYTES,
     INDEPENDENT_METHOD,
@@ -233,6 +240,8 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
                                     INDEPENDENT_METHOD, VOLUME_METHOD):
                         from .four_single.report import render
+                    elif method == NEIGHBORHOOD_METHOD:
+                        from .present_neighborhood.report import render
                     elif method == CARD_METHOD:
                         from .skinny_card.report import render
                     elif method == Recipe().method:
@@ -294,6 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == 'check':
             print(json.dumps(dict(recipe=recipe.to_dict(), estimate=(
                 estimate_serial(recipe) if isinstance(recipe, SerialRecipe)
+                else estimate_neighborhood(recipe) if isinstance(recipe, NeighborhoodRecipe)
                 else estimate_card(recipe) if isinstance(recipe, CardRecipe)
                 else estimate_four_single(recipe) if isinstance(recipe, FourSingleRecipe)
                 else estimate_pair(recipe) if isinstance(recipe, LayoutRecipe)
@@ -319,6 +329,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 validate_serial_root(args.root, expected=INDEPENDENT_ROOT)
             else:
                 validate_serial_root(args.root)
+            pool_source = recipe.skinny_source
+        elif isinstance(recipe, NeighborhoodRecipe):
+            official_neighborhood(recipe, args.id)
+            validate_neighborhood_root(args.root)
+            if args.gpu_uuid.casefold() != NEIGHBORHOOD_GPU_UUID.casefold():
+                raise ValueError('NEIGHBORHOOD_GPU_UUID')
             pool_source = recipe.skinny_source
         elif isinstance(recipe, CardRecipe):
             official_card(recipe, args.id)
@@ -355,7 +371,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         # Start the inherited wall budget before touching the output/source owner.
         inherited_resources = (make_resources(recipe)
-                               if isinstance(recipe, (SerialRecipe, CardRecipe)) else None)
+                               if isinstance(recipe, (SerialRecipe, CardRecipe, NeighborhoodRecipe))
+                               else None)
         root = no_reparse(args.root)
         needs_models = not isinstance(recipe, VolumeRecipe)
         for kind in (('data', 'models', 'result') if needs_models else ('data', 'result')):
@@ -374,11 +391,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return identity
 
         source_supplier = (deadline_claim_source
-                           if isinstance(recipe, (VolumeRecipe, CardRecipe)) else source_identity)
+                           if isinstance(recipe, (VolumeRecipe, CardRecipe, NeighborhoodRecipe))
+                           else source_identity)
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=needs_models, source_supplier=source_supplier,
                                model_slots=LAYOUT_SLOTS if isinstance(recipe, LayoutRecipe)
                                else recipe.stage_slots if isinstance(recipe, SerialRecipe)
+                               else NEIGHBORHOOD_SLOTS if isinstance(recipe, NeighborhoodRecipe)
                                else CARD_SLOTS if isinstance(recipe, CardRecipe)
                                else (FOUR_SINGLE_SLOT,) if isinstance(recipe, FourSingleRecipe)
                                else SLOTS)
