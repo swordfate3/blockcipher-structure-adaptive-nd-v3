@@ -42,6 +42,7 @@ class FitSettings:
     dev_every_steps: int | None = None  # existing Trial only; otherwise once per epoch
     record_train_bce: bool = True       # existing adapters return None from backward
     early_stopping: Settings | None = None
+    allow_partial_batch: bool = False
 
     def __post_init__(self) -> None:
         values: tuple[int, ...] = (self.epochs, self.batch_size, self.checkpoint_bytes)
@@ -49,6 +50,9 @@ class FitSettings:
             values += (self.dev_every_steps,)
         if any(type(n) is not int or n <= 0 for n in values):
             raise ValueError('invalid fit settings')
+        if (type(self.allow_partial_batch) is not bool
+                or (self.allow_partial_batch and self.dev_every_steps is not None)):
+            raise ValueError('partial batches require epoch DEV')
         stop = self.early_stopping
         if stop is not None and (self.dev_every_steps is not None
                                  or self.epochs < stop.warmup_epochs):
@@ -124,7 +128,7 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
     """
     batch = settings.batch_size
     rows = len(train)
-    if not rows or rows % batch or not len(dev):
+    if not rows or (rows % batch and not settings.allow_partial_batch) or not len(dev):
         raise ValueError('invalid fit panel size')
     best: Best | None = None
     best_bce = math.inf
@@ -166,7 +170,7 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
                 engine.update()
                 meter.complete('optimizer_updates', 1)
             every = settings.dev_every_steps
-            if (step % every != 0 if every is not None else start + batch != rows):
+            if (step % every != 0 if every is not None else start + batch < rows):
                 continue
             phase('DEV')
             assert_source(store)
@@ -195,9 +199,10 @@ def fit(train: BatchPanel, dev: BatchPanel, engine: Engine, order: Callable[[int
             termination = None
             if stopper is not None:
                 termination = stopper.observe(epoch + 1, {slot: bce})
+            if stopper is not None or settings.allow_partial_batch:
                 arm['epochs_completed'] = epoch + 1
-                if termination is not None:
-                    arm['stop_reason'] = termination
+            if termination is not None:
+                arm['stop_reason'] = termination
             counts = meter.snapshot()
             store.write_snapshot({'counts': counts, 'summary': summary})
             event = {**point, 'new_best': improved}

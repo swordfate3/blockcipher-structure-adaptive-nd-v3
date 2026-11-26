@@ -36,6 +36,7 @@ def configure() -> dict[str, object]:
 
 class Runtime(TorchRuntime):
     _slot_input = staticmethod(config.slot_input)
+    _input_shape = (4, 6, 64)
     _require_identity = staticmethod(weights.require_identity)
 
     def __init__(self, slot: str) -> None:
@@ -66,7 +67,7 @@ class Runtime(TorchRuntime):
         return torch.from_numpy(value).to(device=self.device, dtype=torch.float32)
 
     def _validate(self, x: Floats) -> None:
-        if x.dtype != np.float32 or x.ndim != 4 or x.shape[1:] != (4, 6, 64) or not len(x):
+        if x.dtype != np.float32 or x.ndim != 4 or x.shape[1:] != self._input_shape or not len(x):
             raise ValueError('INPUT_SHAPE')
         if ((self._mask == 7 and np.any(x[:, :, 3:]))
                 or (self._mask == 56 and np.any(x[:, :, :3]))):

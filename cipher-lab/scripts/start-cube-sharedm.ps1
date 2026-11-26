@@ -12,7 +12,8 @@ param(
                  'direct-block-simon32-split8.json',
                  'innovation1-present-prefix2-bridge.json',
                  'innovation1-present-s2-window.json',
-                 'innovation1-present-mask-aux.json')]
+                 'innovation1-present-mask-aux.json',
+                 'innovation1-present-single-pair-mask-10m.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -27,7 +28,9 @@ $split8 = $ConfigName -ieq 'direct-block-simon32-split8.json'
 $prefixBridge = $ConfigName -ieq 'innovation1-present-prefix2-bridge.json'
 $s2Window = $ConfigName -ieq 'innovation1-present-s2-window.json'
 $maskAux = $ConfigName -ieq 'innovation1-present-mask-aux.json'
+$singlePairMask = $ConfigName -ieq 'innovation1-present-single-pair-mask-10m.json'
 if (($prefixBridge -or $s2Window) -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
+if ($singlePairMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($maskAux -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $reuse = ($ConfigName -ieq 'direct-block-cube-sharedm-simon7-50epoch.json' -or
           $ConfigName -ieq 'direct-block-cube-lstm-simon7.json' -or
@@ -85,6 +88,7 @@ if ($prefixBridge) { $wallSeconds = 14400 }
 if ($prefixBridge) { $plugin = 'cipher_lab_plugins.innovation1.prefix_bridge.cli' }
 if ($s2Window) { $wallSeconds = 3600; $plugin = 'cipher_lab_plugins.innovation1.s2_window.cli' }
 if ($maskAux) { $wallSeconds = 3600; $plugin = 'cipher_lab_plugins.innovation1.mask_aux.cli' }
+if ($singlePairMask) { $wallSeconds = 43200; $plugin = 'cipher_lab_plugins.innovation1.mask_aux_single.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',

@@ -59,6 +59,14 @@ _METER_KEYS = frozenset((*_METER_CLOCKS, "rss_bytes", *(
 )))
 _MAX_METER_INT = (1 << 63) - 1
 _MAX_METER_SECONDS = 1 << 32  # generous bound; not a recipe or stop-policy threshold
+_PAIR_FIT_FAILURE_KEY = "pair_fit_work"
+_PAIR_FIT_FAILURE_SLOTS = frozenset({"r7-pair-baseline", "r7-pair-mask-aux"})
+_PAIR_FIT_UNITS = ("train_class_rows", "masked_forward_rows", "dev_class_rows",
+                   "optimizer_updates")
+_PAIR_FIT_CLOCKS = ("wall_seconds", "cpu_seconds")
+_PAIR_FIT_FIELDS = frozenset((*_PAIR_FIT_UNITS, *_PAIR_FIT_CLOCKS, "epochs_completed",
+                              *(f"attempted_{unit}" for unit in _PAIR_FIT_UNITS)))
+_MAX_PAIR_FIT_FAILURE_BYTES = 2048
 
 
 class ArtifactError(ValueError):
@@ -181,6 +189,39 @@ def _failure_meter_counts(supplier: Callable[[], object]) -> dict[str, object] |
             return None
         return dict(value)
     except Exception:
+        return None
+
+
+def _failure_pair_fit(supplier: Callable[[], object]) -> dict[str, object] | None:
+    """Read only this owner's fixed, bounded public fit counters and elapsed times."""
+    try:
+        value = supplier()
+        if (type(value) is not dict or not 0 < len(value) <= len(_PAIR_FIT_FAILURE_SLOTS)
+                or any(type(slot) is not str for slot in value)
+                or not value.keys() <= _PAIR_FIT_FAILURE_SLOTS):
+            return None
+        result: dict[str, object] = {}
+        for slot, arm in value.items():
+            if (type(arm) is not dict or len(arm) != len(_PAIR_FIT_FIELDS)
+                    or any(type(key) is not str for key in arm) or arm.keys() != _PAIR_FIT_FIELDS):
+                return None
+            for unit in _PAIR_FIT_UNITS:
+                done, tried = arm[unit], arm[f"attempted_{unit}"]
+                if type(done) is not int or type(tried) is not int or not (
+                    0 <= done <= tried <= _MAX_METER_INT
+                ):
+                    return None
+            epochs = arm["epochs_completed"]
+            if type(epochs) is not int or not 0 <= epochs <= 30:
+                return None
+            for key in _PAIR_FIT_CLOCKS:
+                age = arm[key]
+                if type(age) not in (int, float) or not 0 <= age <= _MAX_METER_SECONDS:
+                    return None
+            result[slot] = dict(arm)
+        evidence: dict[str, object] = {_PAIR_FIT_FAILURE_KEY: result}
+        return evidence if len(_encode(evidence)) <= _MAX_PAIR_FIT_FAILURE_BYTES else None
+    except (Exception, KeyboardInterrupt):
         return None
 
 
@@ -402,6 +443,9 @@ class RunStore:
     # Only the retained owner may opt in, binding its read-only Meter.snapshot.
     _failure_counts_supplier: Callable[[], object] | None = field(
         default=None, init=False, repr=False, compare=False)
+    # Dedicated opt-in for the two pair fit slots; never receives a whole summary.
+    _failure_pair_fit_supplier: Callable[[], object] | None = field(
+        default=None, init=False, repr=False, compare=False)
 
     def current_source_identity(self) -> dict[str, str]:
         """Fresh identity from the same caller-owned closure used by claim."""
@@ -580,7 +624,21 @@ class RunStore:
                 counts = _failure_meter_counts(self._failure_counts_supplier)
                 if counts is not None:
                     failed["counts"] = counts
-            self._atomic(self._data / "run.json", _encode(failed))
+            content = _encode(failed)
+            if (self._failure_pair_fit_supplier is not None
+                    and self._model_slots == _PAIR_FIT_FAILURE_SLOTS
+                    and _PAIR_FIT_FAILURE_KEY not in summary):
+                pair_evidence = _failure_pair_fit(self._failure_pair_fit_supplier)
+                if pair_evidence is not None:
+                    enriched = {**failed, "summary": {**summary, **pair_evidence}}
+                    try:
+                        extra = _encode(enriched)
+                        self._space(len(extra))  # omit optional evidence rather than spend a retry
+                    except (OSError, ArtifactError):
+                        pass
+                    else:
+                        failed, content = enriched, extra
+            self._atomic(self._data / "run.json", content)
             self._record = failed
             self._frozen_sha = self._files[self._data / "run.json"]
         except (OSError, ArtifactError):
