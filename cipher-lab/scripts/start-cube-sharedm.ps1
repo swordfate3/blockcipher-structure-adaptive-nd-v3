@@ -19,7 +19,8 @@ param(
                  'innovation1-present-card-mask-positions.json',
                  'innovation1-present-card-swap.json',
                  'innovation1-present-card-swap-mask.json',
-                 'innovation1-present-card-dual-train.json')]
+                 'innovation1-present-card-dual-train.json',
+                 'innovation1-present-card-p-layer-fusion.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -47,6 +48,8 @@ $cardSwapMask = $ConfigName -ieq 'innovation1-present-card-swap-mask.json'
 if ($cardSwapMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $cardDualTrain = $ConfigName -ieq 'innovation1-present-card-dual-train.json'
 if ($cardDualTrain -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
+$cardPLayerFusion = $ConfigName -ieq 'innovation1-present-card-p-layer-fusion.json'
+if ($cardPLayerFusion -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if (($prefixBridge -or $s2Window) -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($singlePairMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($maskAux -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
@@ -113,6 +116,7 @@ if ($cardPositions) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovat
 if ($cardSwap) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_swap.cli' }
 if ($cardSwapMask) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_swap_mask.cli' }
 if ($cardDualTrain) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_dual_train.cli' }
+if ($cardPLayerFusion) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_p_layer_fusion.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',
