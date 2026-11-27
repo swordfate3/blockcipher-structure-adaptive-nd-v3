@@ -16,7 +16,8 @@ param(
                  'innovation1-present-single-pair-mask-10m.json',
                  'innovation1-present-card-fresh-1m.json',
                  'innovation1-present-card-mask-1m.json',
-                 'innovation1-present-card-mask-positions.json')]
+                 'innovation1-present-card-mask-positions.json',
+                 'innovation1-present-card-swap.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -38,6 +39,8 @@ if ($cardFresh -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVAL
 if ($cardMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $cardPositions = $ConfigName -ieq 'innovation1-present-card-mask-positions.json'
 if ($cardPositions -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
+$cardSwap = $ConfigName -ieq 'innovation1-present-card-swap.json'
+if ($cardSwap -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if (($prefixBridge -or $s2Window) -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($singlePairMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($maskAux -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
@@ -101,6 +104,7 @@ if ($singlePairMask) { $wallSeconds = 43200; $plugin = 'cipher_lab_plugins.innov
 if ($cardFresh) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_fresh.cli' }
 if ($cardMask) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_mask.cli' }
 if ($cardPositions) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_positions.cli' }
+if ($cardSwap) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_swap.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',

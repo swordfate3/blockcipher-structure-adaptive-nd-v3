@@ -59,7 +59,7 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
         'innovation1-present-s2-window.json', 'innovation1-present-mask-aux.json',
         'innovation1-present-single-pair-mask-10m.json',
         'innovation1-present-card-fresh-1m.json', 'innovation1-present-card-mask-1m.json',
-        'innovation1-present-card-mask-positions.json'}
+        'innovation1-present-card-mask-positions.json', 'innovation1-present-card-swap.json'}
     for path in Path('configs').glob('innovation1-*.json'):
         if path.name == 'innovation1-present-prefix2-bridge.json':
             from cipher_lab_plugins.innovation1.prefix_bridge.cli import main as bridge_main
@@ -89,6 +89,10 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
             from cipher_lab_plugins.innovation1.present_card_positions.cli import main as positions
 
             assert positions(['check', '--config', str(path)]) == 0
+        elif path.name == 'innovation1-present-card-swap.json':
+            from cipher_lab_plugins.innovation1.present_card_swap.cli import main as swap_main
+
+            assert swap_main(['check', '--config', str(path)]) == 0
         else:
             load_config(path)
     value = recipe.to_dict()
