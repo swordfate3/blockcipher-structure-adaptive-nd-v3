@@ -28,10 +28,12 @@ FIXED_BUFFERS = frozenset({'skinny_column', *(f'shared.stems.{s}.indices' for s 
 class SinglePairM(nn.Module):
     skinny_column: Tensor
 
-    def __init__(self, shared: nn.Module) -> None:
+    def __init__(self, shared: nn.Module, *, column_table: Tensor | None = None) -> None:
         super().__init__()
         self.shared = cast(SharedM, shared)
-        self.register_buffer('skinny_column', nibble_indices('column'))
+        if column_table is None:
+            column_table = nibble_indices('column')
+        self.register_buffer('skinny_column', column_table)
 
     def _column(self, raw: Tensor, channel: Tensor) -> Tensor:
         return self._gather(raw, channel, self.skinny_column)

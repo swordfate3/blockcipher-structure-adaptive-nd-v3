@@ -8,7 +8,7 @@ from ..config import canonical
 from ..serial_bc.config import INDEPENDENT_METHOD, VOLUME_METHOD
 from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
-from .interleave_config import METHOD as INTERLEAVE_METHOD
+from .interleave_config import INTERLEAVE_METHODS
 
 
 def _volume_text(saved: dict[str, Any]) -> str:
@@ -61,7 +61,7 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                 f'<h1>SKINNY TRAIN 池大小对照</h1><pre>{escape(text)}</pre></html>')
         return _report_files(saved, text, html)
     independent = method == INDEPENDENT_METHOD
-    interleave = method == INTERLEAVE_METHOD
+    interleave = method in INTERLEAVE_METHODS
     title = '创新1 · 单算法独立 B/C' if independent else '创新1 · 四任务单对共享 M'
     best = summary.get('best', {})
     tests = summary.get('test', {})

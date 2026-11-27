@@ -16,10 +16,15 @@ from ..present_neighborhood.config import GPU_UUID as GPU_UUID
 from ..present_neighborhood.layout import DEFAULT_SHA256, STRUCTURE_SHA256, verified_card
 from ..serial_bc.config import SERIAL_B, SerialRecipe, validate_root
 from .config import FOUR_SINGLE, SLOT, ReplayRecipe, estimate
+from .structure_cards import CARDS, COLUMN_SHA256, verified_tables
 
 METHOD = 'innovation1-four-task-card-1m-v1'
 RUN_ID = 'innovation1-four-task-card-1m-20261127-01'
 ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-01'
+STRUCTURE_METHOD = 'innovation1-four-task-card-1m-v2'
+STRUCTURE_ID = 'innovation1-four-task-card-1m-20261127-02'
+STRUCTURE_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-02'
+INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD})
 PRESENT_BUFFER = 'present_structure'
 NIBBLE_BUFFERS = dict(SIMECK='shared.stems.nibble.indices', PRESENT=PRESENT_BUFFER,
                       SIMON='shared.stems.nibble.indices', SKINNY='skinny_column')
@@ -34,6 +39,10 @@ class InterleaveRecipe(ReplayRecipe):
     resources: Resources = replace(FOUR_SINGLE.resources, wall_seconds=7200)
     early_stopping: Settings = Settings(warmup_epochs=10, patience=8, min_delta=1e-5)
     cosine_epochs: int = 30
+
+    @property
+    def output_root(self) -> str:
+        return ROOT
 
     def subset_recipe(self) -> SerialRecipe:
         return replace(SERIAL_B, training=self.training, archive=self.archive,
@@ -51,7 +60,7 @@ class InterleaveRecipe(ReplayRecipe):
                     archive_namespace=original.namespace, test_namespace=original.namespace,
                     archive_train_rows=original.training.batches_per_epoch
                     * original.training.batch_groups, archive_dev_rows=original.training.dev_groups)
-        value.update(output_root=ROOT, gpu_uuid=GPU_UUID, deadline_env=DEADLINE_ENV,
+        value.update(output_root=self.output_root, gpu_uuid=GPU_UUID, deadline_env=DEADLINE_ENV,
                      slots=[SLOT], routing=dict(mode='public-card', features=13, top_k=2),
                      geometry=dict(nibble_buffers=dict(NIBBLE_BUFFERS), shape=[64, 9],
                                    encoding='msb0-int64-le-row-major',
@@ -63,19 +72,42 @@ class InterleaveRecipe(ReplayRecipe):
         return value
 
 
+@dataclass(frozen=True)
+class StructureInterleaveRecipe(InterleaveRecipe):
+    method: str = STRUCTURE_METHOD
+    namespace: str = 'innovation1-four-task-card-1m-v2-20261127'
+    run_id: str = STRUCTURE_ID
+
+    @property
+    def output_root(self) -> str:
+        return STRUCTURE_ROOT
+
+    def to_dict(self) -> dict[str, Any]:
+        value = super().to_dict()
+        value['structure_card'] = {cipher: card.to_dict() for cipher, card in CARDS.items()}
+        value['geometry']['sha256'][NIBBLE_BUFFERS['SKINNY']] = COLUMN_SHA256
+        return value
+
+
 INTERLEAVE = InterleaveRecipe()
+STRUCTURE_INTERLEAVE = StructureInterleaveRecipe()
 
 
 def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
-    if (run_id != RUN_ID or type(recipe) is not InterleaveRecipe or recipe != INTERLEAVE
-            or canonical(recipe.to_dict()) != canonical(INTERLEAVE.to_dict())):
+    expected = STRUCTURE_INTERLEAVE if type(recipe) is StructureInterleaveRecipe else INTERLEAVE
+    if (run_id != expected.run_id or type(recipe) is not type(expected) or recipe != expected
+            or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')
-    verified_card(PRESENT_CARD.p_layer, PRESENT_CARD.gather_rule)
-    return INTERLEAVE
+    if expected is STRUCTURE_INTERLEAVE:
+        verified_tables()
+    else:
+        verified_card(PRESENT_CARD.p_layer, PRESENT_CARD.gather_rule)
+    return expected
 
 
-def validate_launch(root: PurePath, gpu_uuid: str) -> None:
-    validate_root(root, expected=ROOT)
+def validate_launch(root: PurePath, gpu_uuid: str, *,
+                    recipe: InterleaveRecipe = INTERLEAVE) -> None:
+    validate_root(root, expected=recipe.output_root)
     if gpu_uuid.casefold() != GPU_UUID.casefold():
         raise ValueError('INTERLEAVE_GPU_UUID')
 

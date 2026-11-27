@@ -126,18 +126,23 @@ def test_public_lookup_is_buffered_and_branch_local(monkeypatch: pytest.MonkeyPa
     assert models.geometry(model) == saved
 
 
-@pytest.mark.parametrize('case', ['early', 'test-missing', 'seal-cutoff'])
-def test_four_task_owner(case: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(('case', 'v2'), [
+    ('early', False), ('test-missing', False), ('seal-cutoff', False),
+    ('early', True), ('test-missing', True), ('seal-cutoff', True),
+])
+def test_four_task_owner(case: str, v2: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                          capsys: pytest.CaptureFixture[str]) -> None:
     from cipher_lab_plugins.innovation1.four_single import interleave_runtime as runtime
     from cipher_lab_plugins.innovation1.four_single.interleave_config import (
         GPU_UUID,
         INTERLEAVE,
+        STRUCTURE_INTERLEAVE,
         make_policy,
     )
 
     original, _, _ = _archive(tmp_path / 'archive', case)
-    recipe = replace(INTERLEAVE, archive=original.archive, skinny_source=original.skinny_source,
+    base = STRUCTURE_INTERLEAVE if v2 else INTERLEAVE
+    recipe = replace(base, archive=original.archive, skinny_source=original.skinny_source,
                      training=replace(original.training, epochs=30))
     now = datetime(2026, 11, 27, tzinfo=UTC)
     tick = [0.]
@@ -236,11 +241,12 @@ def test_four_task_owner(case: str, tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(training, 'assemble', forbidden)
     monkeypatch.setattr(training, 'official', lambda rec, _: rec)
     monkeypatch.setattr(application, 'official_four_single', lambda rec, _: rec)
-    monkeypatch.setattr(application, 'validate_interleave_launch', lambda *_: None)
+    monkeypatch.setattr(application, 'validate_interleave_launch', lambda *_, **__: None)
     monkeypatch.setattr(application, 'prepare_device', lambda *_: None)
     application.execute(recipe, store, resources, gpu_uuid=GPU_UUID, run_id=recipe.run_id)
     saved = json.loads(record.read_bytes())
     s = saved['summary']
+    assert saved['recipe']['structure_card'] == recipe.to_dict()['structure_card']
     assert s['progress']['completed_dev_epochs'] == 18 and s['counts_scope'] == 'PRE_OWNER_SEAL'
     assert s['training_termination'] == dict(reason='EARLY_STOPPING', completed_epochs=18)
     assert s['best'] == s['persisted_reload'] and s['best']['epoch'] == 1

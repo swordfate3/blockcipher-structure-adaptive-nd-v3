@@ -11,9 +11,15 @@ from cipher_lab.representations.tasks import public_features
 from ..present_neighborhood.config import PRESENT_CARD
 from ..present_neighborhood.layout import verified_card
 from ..serial_bc.data import SerialPools
-from .interleave_config import PRESENT_BUFFER, InterleaveRecipe
+from .interleave_config import (
+    NIBBLE_BUFFERS,
+    PRESENT_BUFFER,
+    InterleaveRecipe,
+    StructureInterleaveRecipe,
+)
 from .models import SinglePairM, build
 from .runtime import Runtime
+from .structure_cards import verified_tables
 
 
 class InterleaveM(SinglePairM):
@@ -36,8 +42,29 @@ class InterleaveM(SinglePairM):
         return super()._nibble(public)
 
 
+class StructureCardM(SinglePairM):
+    extra_fixed_buffers = frozenset({PRESENT_BUFFER})
+
+    def __init__(self, shared: nn.Module) -> None:
+        tables = verified_tables()
+        super().__init__(shared, column_table=torch.tensor(tables['SKINNY'], dtype=torch.int64))
+        # The two linear layouts have identical pinned tables and share one buffer.
+        self.shared.stems['nibble'].register_buffer(
+            'indices', torch.tensor(tables['SIMECK'], dtype=torch.int64))
+        self.register_buffer(PRESENT_BUFFER, torch.tensor(tables['PRESENT'], dtype=torch.int64))
+
+    def _nibble(self, public: Tensor) -> Callable[[Tensor, Tensor], Tensor] | None:
+        for cipher, name in NIBBLE_BUFFERS.items():
+            if torch.equal(public, public.new_tensor(public_features(cipher))):
+                table = self.get_buffer(name)
+                return lambda raw, channel: self._gather(raw, channel, table)
+        return None
+
+
 class InterleaveRuntime(Runtime):
     def _build(self) -> SinglePairM:
+        if isinstance(self.contract, StructureInterleaveRecipe):
+            return build(self.contract, StructureCardM)
         return build(self.contract, InterleaveM)
 
 

@@ -155,7 +155,7 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
         if isinstance(recipe, InterleaveRecipe):
-            validate_interleave_launch(store._root, gpu_uuid)
+            validate_interleave_launch(store._root, gpu_uuid, recipe=recipe)
         elif isinstance(recipe, ReplayRecipe):
             validate_replay_root(store._root)
     else:
