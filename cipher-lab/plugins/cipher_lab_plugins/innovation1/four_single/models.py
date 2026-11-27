@@ -1,6 +1,7 @@
 """Single-pair readout and a card-qualified, nonmutating gather override."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from hashlib import sha256
 from typing import cast
 
@@ -33,11 +34,18 @@ class SinglePairM(nn.Module):
         self.register_buffer('skinny_column', nibble_indices('column'))
 
     def _column(self, raw: Tensor, channel: Tensor) -> Tensor:
-        # Same trained GeometryStem parameters, but never assign to its row buffer.
+        return self._gather(raw, channel, self.skinny_column)
+
+    def _gather(self, raw: Tensor, channel: Tensor, table: Tensor) -> Tensor:
+        # Use the shared stem with a task's fixed indices without rewriting the stem buffer.
         stem = cast(GeometryStem, self.shared.stems['nibble'])
-        base = stem.network[0](gather_neighborhood(raw, self.skinny_column))
-        added = stem.relation_projection(gather_relation(channel, self.skinny_column))
+        base = stem.network[0](gather_neighborhood(raw, table))
+        added = stem.relation_projection(gather_relation(channel, table))
         return cast(Tensor, stem.network[1:](base + added)).reshape(-1, 4, stem.channels, 64)
+
+    def _nibble(self, public: Tensor) -> Callable[[Tensor, Tensor], Tensor] | None:
+        skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
+        return self._column if skinny else None
 
     def _route(self, public: Tensor) -> Route:
         return cast(Route, self.shared.router(public))
@@ -50,9 +58,8 @@ class SinglePairM(nn.Module):
                 or weight.dtype != torch.float32):
             raise ValueError('MODEL_FP32_DEVICE')
         validate_public(public)
-        skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
         logits = cast(Tensor, shared_logits(self.shared, slots, public, rounds=rounds,
-                                           nibble=self._column if skinny else None,
+                                           nibble=self._nibble(public),
                                            route_for=self._route))
         if logits.shape != (bits.shape[0], 1) or not bool(torch.isfinite(logits).all()):
             raise ValueError('SINGLE_PAIR_LOGITS')
@@ -74,9 +81,14 @@ def build(recipe: FourSingleRecipe, cls: type[SinglePairM] = SinglePairM) -> Sin
     return model
 
 
+def _fixed_names(model: SinglePairM) -> frozenset[str]:
+    extra: frozenset[str] = getattr(type(model), 'extra_fixed_buffers', frozenset())
+    return FIXED_BUFFERS | extra
+
+
 def geometry(model: SinglePairM) -> dict[str, str]:
     buffers = dict(model.named_buffers())
-    if set(buffers) != FIXED_BUFFERS:
+    if set(buffers) != _fixed_names(model):
         raise ValueError('MODEL_BUFFERS')
     return {name: sha256(value.detach().cpu().numpy().astype('<i8').tobytes()).hexdigest()
             for name, value in buffers.items()}
@@ -85,5 +97,5 @@ def geometry(model: SinglePairM) -> dict[str, str]:
 def load_state(model: SinglePairM, raw: bytes, expected: dict[str, object]) -> None:
     if expected.get('geometry') != geometry(model):
         raise ValueError('CHECKPOINT_INVALID')
-    state = decode_state(raw, lambda: expected, model.state_dict(), FIXED_BUFFERS)
+    state = decode_state(raw, lambda: expected, model.state_dict(), _fixed_names(model))
     model.load_state_dict(state, strict=True)

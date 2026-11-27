@@ -8,6 +8,7 @@ from ..config import canonical
 from ..serial_bc.config import INDEPENDENT_METHOD, VOLUME_METHOD
 from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
+from .interleave_config import METHOD as INTERLEAVE_METHOD
 
 
 def _volume_text(saved: dict[str, Any]) -> str:
@@ -60,6 +61,7 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                 f'<h1>SKINNY TRAIN 池大小对照</h1><pre>{escape(text)}</pre></html>')
         return _report_files(saved, text, html)
     independent = method == INDEPENDENT_METHOD
+    interleave = method == INTERLEAVE_METHOD
     title = '创新1 · 单算法独立 B/C' if independent else '创新1 · 四任务单对共享 M'
     best = summary.get('best', {})
     tests = summary.get('test', {})
@@ -79,7 +81,7 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
     flow = ('先核验 SKINNY 旧池，再固定并保存其他三池 → READY → 四任务轮换更新一个 M → '
             '四项 DEV BCE 等权选模（并列取早） → 磁盘严格重载 → 四项独立 TEST')
     termination, route_table = '', ''
-    if method == REPLAY_METHOD:
+    if method == REPLAY_METHOD or interleave:
         flow = ('只读校验旧 TRAIN/DEV（含 SKINNY 原归档链） → 四任务轮换更新一个新 M → '
                 '宏 DEV BCE 早停及选模（并列取早） → 磁盘严格重载 → '
                 '验证并复用原四份固定 TEST 的密文与标签，以新 M 重新评分。'
@@ -88,11 +90,26 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
         termination = (f'终态原因：{summary.get("reason", "未保存")}。'
                        f'停训原因：{stop.get("reason", "未保存")}；'
                        f'停训轮：{stop.get("completed_epochs", "未保存")}。')
+        if interleave:
+            flow = ('复用每项历史 TRAIN 90 万对与 DEV 10 万对子集 → 四密码按批轮换更新同一 M → '
+                    '四项 DEV BCE 等权选模和早停 → 磁盘严格重载同一 M → 核验并评分四份旧 TEST。'
+                    '结果来自已有 TEST，是一次探索性评估。实际取数表记录在各轮和重载路由中。')
+            progress = summary.get('progress', {})
+            dev_epochs = progress.get('completed_dev_epochs', '未知')
+            updates = saved['counts'].get('completed_optimizer_updates', '未知')
+            termination += f'完整 DEV 轮数：{dev_epochs}。已保存更新：{updates}。'
+            if summary.get('counts_scope') == 'PRE_OWNER_SEAL':
+                termination += '计数在终态写盘前采样。最终预算校验还需要命令和原生退出证据。'
+            else:
+                termination += '这些进度与计数仅反映已提交记录，为实绩下界。'
         routes = summary.get('persisted_reload', {}).get('routes', {})
         if routes:
             route_table = '## 磁盘重载后的路由权重\n\n|任务|选中分支及权重|\n|---|---|\n'
             for name, weights in routes.items():
                 entries = ', '.join(f'{stem}: {weight:.6g}' for stem, weight in weights.items())
+                if interleave:
+                    lookup = summary['persisted_reload'].get('nibble_lookup', {}).get(name)
+                    entries += f'（小块表 {lookup}）' if lookup else '（未选小块）'
                 route_table += f'|{name}|{entries}|\n'
             route_table += '\n'
     if method == SERIAL_METHOD or independent:

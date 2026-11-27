@@ -32,6 +32,7 @@ from .config import (
     official,
 )
 from .data import Pools, encode_panel
+from .interleave_config import InterleaveRecipe
 from .replay import ReplayPools, TestSourceError
 from .runtime import Runtime
 
@@ -72,6 +73,14 @@ def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime,
     bindings: dict[str, Any] = summary['pools']
     updates: dict[str, dict[str, int]] = summary['updates']
     test_results: dict[str, Any] = summary['test']
+    interleave = isinstance(recipe, InterleaveRecipe)
+
+    def route_observation() -> dict[str, Any]:
+        routes = runtime.routes()
+        observation: dict[str, Any] = {'routes': routes}
+        if isinstance(recipe, InterleaveRecipe):
+            observation['nibble_lookup'] = recipe.nibble_lookup(routes)
+        return observation
     tracker = (EarlyStopping((SLOT,), recipe.early_stopping, epoch_ceiling=tr.epochs)
                if isinstance(recipe, ReplayRecipe) else None)
     cosine_epochs = recipe.cosine_epochs if isinstance(recipe, ReplayRecipe) else None
@@ -216,14 +225,17 @@ def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime,
             scores[task.cipher], dev_logits = score(task, dev[task.cipher], runtime,
                                                    tr.eval_batch_groups, res, at_row)
             del dev_logits
-        routes = runtime.routes()  # public router only; zero additional model forward rows
+        observation = route_observation()  # public router only; no data forward rows
         value = math.fsum(v['bce'] for v in scores.values()) / len(tasks)
-        summary['curves'].append(dict(epoch=epoch, dev=scores, routes=routes, macro_dev_bce=value,
-                     train_bce={k: v / tr.batches_per_epoch for k, v in losses.items()}))
+        summary['curves'].append(dict(epoch=epoch, dev=scores, macro_dev_bce=value,
+                     train_bce={k: v / tr.batches_per_epoch for k, v in losses.items()},
+                     **observation))
         consumed = epoch * tr.batches_per_epoch * len(tasks)
         audit(real_blocks=totals['fresh_pool_real_blocks'], null_words=0,
               optimizer_updates=consumed,
               forward_rows=consumed * tr.batch_groups + epoch * len(tasks) * tr.dev_groups)
+        if interleave:
+            summary['progress'] = {'completed_dev_epochs': epoch}
         snapshot()
         if not best or value < best['macro_dev_bce']:
             summary['location'] = dict(phase='best-save', epoch=epoch)
@@ -232,7 +244,7 @@ def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime,
             res.check()
             ref = store.write_model(SLOT, raw, replace=bool(best))
             best.update(ref=ref, sha256=sha256(raw).hexdigest(), epoch=epoch,
-                        macro_dev_bce=value, routes=routes)
+                        macro_dev_bce=value, **observation)
             del raw
             snapshot()
         completed_epochs = epoch
@@ -255,8 +267,10 @@ def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime,
     runtime.restore(SLOT, raw, identity(best['epoch'], best['macro_dev_bce']))
     del raw
     check_source()
-    summary['persisted_reload'] = dict(best)
-    summary['persisted_reload']['routes'] = runtime.routes()
+    reloaded = route_observation()
+    if interleave and any(best.get(k) != v for k, v in reloaded.items()):
+        raise ValueError('RELOADED_ROUTE_IDENTITY')
+    summary['persisted_reload'] = {**best, **reloaded}
     snapshot()
     replay_tests: dict[str, tuple[PairBatch, dict[str, Any]]] = {}
     if isinstance(pools, ReplayPools):
@@ -316,22 +330,34 @@ def execute(recipe: FourSingleRecipe, store: RunStore, res: Resources, *,
         scientific_validation=False, launch=launch, location=dict(phase='assembly'),
         pools={}, pool_status='NOT_READY', updates={t.cipher: dict(attempted=0, completed=0)
         for t in recipe.tasks}, pending=[], batch_refs=[], curves=[], best={}, test={})
+    interleave = isinstance(recipe, InterleaveRecipe)
+    if interleave:
+        summary['progress'] = {'completed_dev_epochs': 0}
     status = 'FAILED'
     try:
         if estimate(recipe)['artifact_peak_bound_bytes'] > recipe.resources.artifact_bytes:
             raise ValueError('ARTIFACT_BOUND')
-        store._failure_evidence_key = 'pending'
+        store._failure_evidence_key = 'progress' if interleave else 'pending'
         store.write_snapshot(dict(summary=summary, counts=res.snapshot()))
         res.check()
         pools: Pools | ReplayPools
+        runtime: Runtime
         if isinstance(recipe, ReplayRecipe):
-            pools = ReplayPools(recipe, res.check)
+            if isinstance(recipe, InterleaveRecipe):
+                from .interleave_runtime import InterleaveRuntime, assemble_pools
+
+                pools = assemble_pools(recipe, res.check)
+                runtime = InterleaveRuntime(recipe, res.check)
+            else:
+                pools = ReplayPools(recipe, res.check)
+                runtime = Runtime(recipe, res.check)
             summary['test_protocol'] = dict(source=pools.source_record, prior_test_reuse=True,
                                             paired_comparison=False, fresh_confirmation=False)
-            runtime = Runtime(recipe, res.check)
         else:
             pools, runtime = assemble(recipe, res)
         _fit(recipe, pools, runtime, store, res, summary)
+        if interleave:
+            res.check()
         summary['reason'] = 'COMPLETE'
         status = 'SUCCEEDED'
     except ArtifactError:
@@ -345,6 +371,8 @@ def execute(recipe: FourSingleRecipe, store: RunStore, res: Resources, *,
         summary['reason'] = 'INTERRUPTED' if isinstance(error, KeyboardInterrupt) else error.reason
     except Exception:
         summary['reason'] = 'EXECUTION_FAILED'
+    if interleave:
+        summary['counts_scope'] = 'PRE_OWNER_SEAL'
     try:
         store.finalize(dict(status=status, summary=summary, counts=res.snapshot()))
     except ArtifactError:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import io
 from collections.abc import Callable, Mapping
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Any
 
 import numpy as np
@@ -15,6 +15,7 @@ from ..layout_probe.config import FIXED_BCE, LayoutRecipe
 from ..layout_probe.reuse import PoolSourceError, ReusedPoolProvider
 from ..single_train.data import FixedPairPool, PairBatch, Provider
 from .config import PANEL_OVERHEAD, FourSingleRecipe, ReplayRecipe
+from .interleave_config import InterleaveRecipe
 
 
 def skinny_pool_recipe(recipe: FourSingleRecipe) -> LayoutRecipe:
@@ -82,7 +83,17 @@ def encode_panel(batch: PairBatch, task: Task, recipe: FourSingleRecipe, source:
                   test=tr.test_groups)
     scored = batch.split == 'test'
     replay = isinstance(recipe, ReplayRecipe)
-    if (batch.index != 0 or batch.namespace != recipe.namespace or task not in recipe.tasks
+    namespace = recipe.namespace
+    if isinstance(recipe, InterleaveRecipe):
+        namespace = recipe.subset_recipe().archive_reader_recipe().namespace
+        archive = asdict(recipe.archive) | {
+            'record_ref': f'data/{recipe.archive.run_id}/run.json'}
+        identity = dict(origin='reused', ref=f'dataset/test-{task.cipher}.npz',
+                        groups=batch.groups, digest=batch.digest, namespace=namespace,
+                        source_record=archive)
+        if reused_input is None or any(reused_input.get(k) != v for k, v in identity.items()):
+            raise ValueError('PANEL_IDENTITY')
+    if (batch.index != 0 or batch.namespace != namespace or task not in recipe.tasks
             or batch.groups != counts[batch.split] or (scored != (logits is not None))
             or scored != (best is not None) or replay != (reused_input is not None)
             or (replay and not scored)

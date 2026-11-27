@@ -15,6 +15,9 @@ from .config import GPU_UUID, Recipe, require_official, validate_run_id
 from .four_single.config import FourSingleRecipe, ReplayRecipe, validate_replay_root
 from .four_single.config import make_policy as make_four_single_policy
 from .four_single.config import official as official_four_single
+from .four_single.interleave_config import InterleaveRecipe
+from .four_single.interleave_config import make_policy as make_interleave_policy
+from .four_single.interleave_config import validate_launch as validate_interleave_launch
 from .layout_probe.config import LayoutRecipe, official
 from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
 from .present_neighborhood.config import NeighborhoodRecipe, PresentCardRecipe
@@ -48,6 +51,8 @@ def make_resources(recipe: Recipe | LayoutRecipe | FourSingleRecipe) -> Resource
               if isinstance(recipe, CardRecipe)
               else make_neighborhood_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
               if isinstance(recipe, NeighborhoodRecipe)
+              else make_interleave_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
+              if isinstance(recipe, InterleaveRecipe)
               else make_serial_policy(recipe, clocks, os.environ.get(DEADLINE_ENV))
               if isinstance(recipe, SerialRecipe)
               else make_policy(recipe, clocks) if isinstance(recipe, LayoutRecipe)
@@ -149,7 +154,9 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
             raise ValueError('CARD_GPU_UUID')
     elif isinstance(recipe, FourSingleRecipe):
         official_four_single(recipe, run_id)
-        if isinstance(recipe, ReplayRecipe):
+        if isinstance(recipe, InterleaveRecipe):
+            validate_interleave_launch(store._root, gpu_uuid)
+        elif isinstance(recipe, ReplayRecipe):
             validate_replay_root(store._root)
     else:
         require_official(recipe)
@@ -158,7 +165,7 @@ def execute(recipe: Recipe | LayoutRecipe | FourSingleRecipe, store: RunStore, r
     # request is the stable saved request identity; a later storage seal keeps policy
     # even when the reduced failure summary drops launch.
     policy = dict(vars(recipe.resources), request=dict(launch))
-    if isinstance(recipe, (SerialRecipe, CardRecipe, NeighborhoodRecipe)):
+    if isinstance(recipe, (SerialRecipe, CardRecipe, NeighborhoodRecipe, InterleaveRecipe)):
         policy['deadline_utc'] = res.meter._policy.deadline_utc
     summary = dict(method=recipe.method, backend_identity=BACKEND, synthetic=False,
                    scientific_validation=False, launch=launch, location=dict(phase='device-setup'))

@@ -225,6 +225,7 @@ def require_official(recipe: Recipe) -> None:
 
 def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
     from .four_single.config import FOUR_SINGLE, FOUR_SINGLE_50
+    from .four_single.interleave_config import INTERLEAVE
     from .layout_probe.config import EARLY_STOP, FIXED_BCE, FIXED_MSE
     from .present_neighborhood.config import NEIGHBORHOOD, PRESENT_CARD
     from .serial_bc.config import INDEPENDENT_RECIPES, SERIAL_B, SERIAL_C, VOLUME_RECIPES
@@ -244,7 +245,7 @@ def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
         exact: tuple[Recipe | LayoutRecipe | FourSingleRecipe, ...] = (
             Recipe(), EARLY_STOP, FIXED_MSE, FIXED_BCE, FOUR_SINGLE, FOUR_SINGLE_50,
             SERIAL_B, SERIAL_C, *INDEPENDENT_RECIPES, *VOLUME_RECIPES, CARD, NEIGHBORHOOD,
-            PRESENT_CARD)
+            PRESENT_CARD, INTERLEAVE)
         for recipe in exact:
             if encoded == canonical(recipe.to_dict()):
                 return recipe

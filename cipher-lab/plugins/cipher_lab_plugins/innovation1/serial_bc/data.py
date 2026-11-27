@@ -37,7 +37,7 @@ def index_subset(panel: PairBatch, groups: int, seed: int,
 
 class SerialPools(ReplayPools):
     def __init__(self, recipe: SerialRecipe, check: Callable[[], None], *,
-                 archive: ReplayRecipe | None = None) -> None:
+                 archive: ReplayRecipe | None = None, defer_activate: bool = False) -> None:
         # The guarded fixture seam may scale reader geometry, but it cannot
         # detach the opened archive or SKINNY chain from the fit's recipe.
         reader = recipe.archive_reader_recipe()
@@ -46,6 +46,7 @@ class SerialPools(ReplayPools):
             raise ValueError('ARCHIVE_RECIPE_IDENTITY')
         super().__init__(reader if archive is None else archive, check)
         self.serial = recipe
+        self._defer_activate = defer_activate
         self._target = recipe.tasks[0] if isinstance(recipe, IndependentRecipe) else None
 
     def bind(self, visit: Callable[[str], None]) -> tuple[dict[str, PairBatch], dict[str, Any]]:
@@ -81,7 +82,8 @@ class SerialPools(ReplayPools):
             self._fixed[task.cipher] = FixedPairReplay(fixed, recipe.training, recipe.streams,
                                                      task, recipe.namespace, self._check)
             del train, valid, fixed
-        self.activate()
+        if not self._defer_activate:
+            self.activate()
         return dev, bindings
 
     def load_tests(self, visit: Callable[[str], None], *, only: Task | None = None

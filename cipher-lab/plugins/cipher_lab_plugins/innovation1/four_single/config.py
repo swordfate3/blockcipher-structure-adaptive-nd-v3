@@ -127,7 +127,12 @@ def validate_replay_root(root: PurePath) -> None:
 
 
 def official(recipe: FourSingleRecipe, run_id: str) -> FourSingleRecipe:
+    from .interleave_config import InterleaveRecipe
+    from .interleave_config import official as official_interleave
+
     validate_run_id(run_id)
+    if isinstance(recipe, InterleaveRecipe):
+        return official_interleave(recipe, run_id)
     if isinstance(recipe, ReplayRecipe):
         if (run_id != REPLAY_ID or type(recipe) is not ReplayRecipe or recipe != FOUR_SINGLE_50
                 or canonical(recipe.to_dict()) != canonical(FOUR_SINGLE_50.to_dict())):

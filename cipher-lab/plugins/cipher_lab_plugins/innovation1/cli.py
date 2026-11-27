@@ -17,6 +17,9 @@ from .four_single.config import REPLAY_METHOD, FourSingleRecipe, ReplayRecipe, v
 from .four_single.config import SLOT as FOUR_SINGLE_SLOT
 from .four_single.config import estimate as estimate_four_single
 from .four_single.config import official as official_four_single
+from .four_single.interleave_config import METHOD as INTERLEAVE_METHOD
+from .four_single.interleave_config import InterleaveRecipe
+from .four_single.interleave_config import validate_launch as validate_interleave_launch
 from .layout_probe.config import LAYOUT_NAMESPACES, LayoutRecipe, official
 from .present_neighborhood.config import CARD_METHOD as PRESENT_CARD_METHOD
 from .present_neighborhood.config import GPU_UUID as NEIGHBORHOOD_GPU_UUID
@@ -238,7 +241,7 @@ def _finish(store: RunStore, root: Path, run_id: str, *, resources: Resources,
                     if method in LAYOUT_NAMESPACES:
                         from .layout_probe.report import render
                     elif method in (FOUR_SINGLE_METHOD, REPLAY_METHOD, SERIAL_METHOD,
-                                    INDEPENDENT_METHOD, VOLUME_METHOD):
+                                    INDEPENDENT_METHOD, VOLUME_METHOD, INTERLEAVE_METHOD):
                         from .four_single.report import render
                     elif method in (NEIGHBORHOOD_METHOD, PRESENT_CARD_METHOD):
                         from .present_neighborhood.report import render
@@ -347,7 +350,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             pool_source = recipe.skinny_source
         elif isinstance(recipe, FourSingleRecipe):
             recipe = official_four_single(replace(recipe, run_id=args.id), args.id)
-            if isinstance(recipe, ReplayRecipe):
+            if isinstance(recipe, InterleaveRecipe):
+                validate_interleave_launch(args.root, args.gpu_uuid)
+            elif isinstance(recipe, ReplayRecipe):
                 validate_replay_root(args.root)
             pool_source = recipe.skinny_source
         else:
@@ -373,9 +378,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         # Start the inherited wall budget before touching the output/source owner.
-        inherited_resources = (make_resources(recipe)
-                               if isinstance(recipe, (SerialRecipe, CardRecipe, NeighborhoodRecipe))
-                               else None)
+        inherited = (SerialRecipe, CardRecipe, NeighborhoodRecipe, InterleaveRecipe)
+        inherited_resources = make_resources(recipe) if isinstance(recipe, inherited) else None
         root = no_reparse(args.root)
         needs_models = not isinstance(recipe, VolumeRecipe)
         for kind in (('data', 'models', 'result') if needs_models else ('data', 'result')):
@@ -393,8 +397,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 resources.check()
             return identity
 
-        source_supplier = (deadline_claim_source
-                           if isinstance(recipe, (VolumeRecipe, CardRecipe, NeighborhoodRecipe))
+        claim_checked = (VolumeRecipe, CardRecipe, NeighborhoodRecipe, InterleaveRecipe)
+        source_supplier = (deadline_claim_source if isinstance(recipe, claim_checked)
                            else source_identity)
         store = RunStore.claim(root, args.id, output_bytes=recipe.resources.artifact_bytes,
                                needs_models=needs_models, source_supplier=source_supplier,
