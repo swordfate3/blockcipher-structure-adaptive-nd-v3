@@ -14,7 +14,8 @@ param(
                  'innovation1-present-s2-window.json',
                  'innovation1-present-mask-aux.json',
                  'innovation1-present-single-pair-mask-10m.json',
-                 'innovation1-present-card-fresh-1m.json')]
+                 'innovation1-present-card-fresh-1m.json',
+                 'innovation1-present-card-mask-1m.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
     [string]$SourceRoot
 )
@@ -31,7 +32,9 @@ $s2Window = $ConfigName -ieq 'innovation1-present-s2-window.json'
 $maskAux = $ConfigName -ieq 'innovation1-present-mask-aux.json'
 $singlePairMask = $ConfigName -ieq 'innovation1-present-single-pair-mask-10m.json'
 $cardFresh = $ConfigName -ieq 'innovation1-present-card-fresh-1m.json'
+$cardMask = $ConfigName -ieq 'innovation1-present-card-mask-1m.json'
 if ($cardFresh -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
+if ($cardMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if (($prefixBridge -or $s2Window) -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($singlePairMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 if ($maskAux -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
@@ -93,6 +96,7 @@ if ($s2Window) { $wallSeconds = 3600; $plugin = 'cipher_lab_plugins.innovation1.
 if ($maskAux) { $wallSeconds = 3600; $plugin = 'cipher_lab_plugins.innovation1.mask_aux.cli' }
 if ($singlePairMask) { $wallSeconds = 43200; $plugin = 'cipher_lab_plugins.innovation1.mask_aux_single.cli' }
 if ($cardFresh) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_fresh.cli' }
+if ($cardMask) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_mask.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(
     "yyyy-MM-ddTHH:mm:ss.ffffff'Z'", [Globalization.CultureInfo]::InvariantCulture)
 $cliArgs = @('-B', '-m', 'cipher_lab', 'run', '--plugin',
