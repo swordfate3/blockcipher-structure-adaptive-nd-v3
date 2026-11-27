@@ -40,15 +40,23 @@ class Runtime(TorchRuntime):
     _require_identity = staticmethod(weights.require_identity)
 
     def __init__(self, slot: str) -> None:
-        r, self._mask = self._slot_input(slot)
+        self._task, self._mask = self._input_domain(slot)
         super().__init__(_OPT_CONFIG, config.GPU_DEVICE, inference_only=True)
         self.slot = slot
-        # For the S2 arm the Task required by the parent carries only the fixed
-        # S2 boundary (2), not a supplied final round. No Task enters the model.
-        self._task = Task('PRESENT', 2 if r is None else r, config.DIFFERENCE)
         self._initial = ''
         self._parameters = 0
         self._state = 'EMPTY'
+
+    def _input_domain(self, slot: str) -> tuple[Task, int | None]:
+        r, mask = self._slot_input(slot)
+        # For the S2-only arm the parent Task carries only the S2 boundary.
+        return Task('PRESENT', 2 if r is None else r, config.DIFFERENCE), mask
+
+    def _learning_rate(self, meter: Meter) -> float:
+        return config.LR
+
+    def _fixed_state(self, model: nn.Module) -> tuple[str, ...]:
+        return tuple(name for name, _ in model.named_buffers())
 
     def _fresh_cpu(self) -> nn.Module:
         model = build(config.INIT_SEED)
@@ -85,9 +93,10 @@ class Runtime(TorchRuntime):
             raise ValueError('INVALID_RUNTIME_STATE')
         if labels.dtype != np.uint8 or labels.shape != (len(inputs), 1) or not (labels <= 1).all():
             raise ValueError('INVALID_LABELS')
+        lr = self._learning_rate(meter)
         x, y = self._on_device(inputs), self._on_device(labels)
         with torch.autocast(device_type='cuda', enabled=False):
-            return super().update(self.slot, self._task, x, y, config.LR, meter)
+            return super().update(self.slot, self._task, x, y, lr, meter)
 
     def predict_inputs(self, inputs: Floats) -> Floats:
         self._validate(inputs)
@@ -121,7 +130,7 @@ class Runtime(TorchRuntime):
             raise ValueError('CHECKPOINT_SIZE')
         self._require_identity(self.slot, metadata)
         model = self._fresh_cpu()
-        fixed = tuple(name for name, _ in model.named_buffers())
+        fixed = self._fixed_state(model)
         state = weights.decode(raw, metadata, model.state_dict(), fixed)
         model.load_state_dict(state, strict=True)
         self.models[self.slot] = model.eval()

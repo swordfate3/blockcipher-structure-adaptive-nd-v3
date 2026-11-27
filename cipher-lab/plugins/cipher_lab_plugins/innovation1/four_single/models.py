@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import torch
 from torch import Tensor, nn
@@ -19,7 +19,9 @@ from ..layout_probe.models import require_fp32
 from ..models import construct
 from ..single_pair.models import computation_slots, shared_logits
 from ..single_train.weights import decode_state
-from .config import PARAMETERS, SLOT, FourSingleRecipe
+
+if TYPE_CHECKING:
+    from .config import FourSingleRecipe
 
 FIXED_BUFFERS = frozenset({'skinny_column', *(f'shared.stems.{s}.indices' for s in STEM_NAMES)})
 
@@ -39,6 +41,9 @@ class SinglePairM(nn.Module):
         added = stem.relation_projection(gather_relation(channel, self.skinny_column))
         return cast(Tensor, stem.network[1:](base + added)).reshape(-1, 4, stem.channels, 64)
 
+    def _route(self, public: Tensor) -> Route:
+        return cast(Route, self.shared.router(public))
+
     def forward(self, bits: Tensor, public: Tensor, *, rounds: int) -> Tensor:
         slots = computation_slots(bits)
         weight = next(self.shared.parameters())
@@ -49,19 +54,22 @@ class SinglePairM(nn.Module):
         validate_public(public)
         skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
         logits = cast(Tensor, shared_logits(self.shared, slots, public, rounds=rounds,
-                                           nibble=self._column if skinny else None))
+                                           nibble=self._column if skinny else None,
+                                           route_for=self._route))
         if logits.shape != (bits.shape[0], 1) or not bool(torch.isfinite(logits).all()):
             raise ValueError('SINGLE_PAIR_LOGITS')
         return logits
 
     @torch.inference_mode()
     def route_weights(self, public: Tensor) -> dict[str, float]:
-        route = cast(Route, self.shared.router(public))
+        route = self._route(public)
         return {STEM_NAMES[i]: float(w) for i, w in zip(route.indices.tolist(),
                                                        route.weights.tolist(), strict=True)}
 
 
 def build(recipe: FourSingleRecipe) -> SinglePairM:
+    from .config import PARAMETERS, SLOT
+
     require_fp32()
     with torch.device('cpu'):
         model = SinglePairM(construct(recipe.streams, SLOT))

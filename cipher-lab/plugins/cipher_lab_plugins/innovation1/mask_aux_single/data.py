@@ -4,13 +4,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
 from cipher_lab.execution import Meter, Stopped
 
-from ..prefix_bridge.data import Draw, Encrypt, Floats, Indices, Labels, Split, Words, _canonical
+from ..prefix_bridge.data import (
+    _SHIFTS,
+    Draw,
+    Encrypt,
+    Floats,
+    Indices,
+    Labels,
+    Split,
+    Words,
+    _canonical,
+)
 from ..prefix_bridge.kat import Key
 from . import config
 
@@ -19,6 +30,25 @@ PairKeys = NDArray[np.void]
 _PAIR_KEY = np.dtype([('lo', np.uint64), ('hi', np.uint64)])
 _CHUNK_PAIRS = 32_768
 _SPLIT_IDS = {'train': 0, 'dev': 1, 'test': 2}
+
+
+class _CardRecipe(Protocol):
+    @property
+    def TRAIN_ROWS(self) -> int: ...
+    @property
+    def DEV_ROWS(self) -> int: ...
+    @property
+    def TEST_ROWS(self) -> int: ...
+    @property
+    def METHOD(self) -> str: ...
+    @property
+    def SLOT(self) -> str: ...
+    @property
+    def DATA_SEED(self) -> int: ...
+    @property
+    def DIFFERENCE(self) -> int: ...
+    @property
+    def ROUNDS(self) -> tuple[int, ...]: ...
 
 
 def _sample(rng: np.random.Generator, rows: int) -> Words:
@@ -45,6 +75,7 @@ class BatchPanel:
     _words: Words
     _labels: Labels
     digest: str
+    _endpoints_only: bool = False
 
     def __len__(self) -> int:
         return len(self._labels)
@@ -53,15 +84,21 @@ class BatchPanel:
         if (indices.ndim != 1 or indices.dtype != np.intp or not indices.size
                 or indices.min() < 0 or indices.max() >= len(self)):
             raise ValueError('INVALID_PANEL_INDICES')
+        if self._endpoints_only:
+            x = ((self._words[indices, None, :, None] >> _SHIFTS) & 1).astype(np.float32)
+            return x, self._labels[indices]
         x = np.zeros((len(indices), 1, 6, 64), dtype=np.float32)
         x[:, 0, 3:] = _canonical(self._words[indices])
         return x, self._labels[indices]
 
 
 class Panels:
-    def __init__(self, generate: Callable[[Split, int], BatchPanel]) -> None:
-        self._splits = {'train': generate('train', config.TRAIN_ROWS),
-                        'dev': generate('dev', config.DEV_ROWS)}
+    def __init__(self, generate: Callable[[Split, int], BatchPanel], *,
+                 _card_recipe: _CardRecipe | None = None) -> None:
+        recipe = config if _card_recipe is None else _card_recipe
+        self._card_recipe = _card_recipe
+        self._splits = {'train': generate('train', recipe.TRAIN_ROWS),
+                        'dev': generate('dev', recipe.DEV_ROWS)}
         self._generate_test: Callable[[Split, int], BatchPanel] | None = generate
 
     @property
@@ -80,17 +117,20 @@ class Panels:
             raise ValueError('TEST_ALREADY_REQUESTED')
         # Drop the key and the lookup tables even on failure; no second request.
         self._generate_test = None
-        self._splits['test'] = generate('test', config.TEST_ROWS)
+        recipe = config if self._card_recipe is None else self._card_recipe
+        self._splits['test'] = generate('test', recipe.TEST_ROWS)
 
     def view(self, split: Split, slot: str) -> BatchPanel:
-        if slot != config.PANEL:
+        expected_slot = config.PANEL if self._card_recipe is None else self._card_recipe.SLOT
+        if slot != expected_slot:
             raise ValueError('INVALID_SLOT')
         if split == 'test' and split not in self._splits:
             raise ValueError('TEST_NOT_READY')
         return self._splits[split]
 
 
-def _points(rng: np.random.Generator, n: int, labels: Labels, sample: Sample) -> Words:
+def _points(rng: np.random.Generator, n: int, labels: Labels, sample: Sample,
+            difference: int) -> Words:
     try:
         raw = sample(rng, n)
         if type(raw) is not np.ndarray or raw.dtype != np.uint64 or raw.shape != (n, 2):
@@ -101,17 +141,18 @@ def _points(rng: np.random.Generator, n: int, labels: Labels, sample: Sample) ->
     except Exception:
         raise ValueError('PANEL_SAMPLING_FAILED') from None
     pos = labels[:, 0] == 1
-    pairs[pos, 1] = pairs[pos, 0] ^ np.uint64(config.DIFFERENCE)
+    pairs[pos, 1] = pairs[pos, 0] ^ np.uint64(difference)
     return pairs
 
 
-def _cipher(pairs: Words, key: Key, encrypt: Encrypt, meter: Meter) -> Words:
+def _cipher(pairs: Words, key: Key, encrypt: Encrypt, meter: Meter,
+            rounds: tuple[int, ...]) -> Words:
     flat = pairs.reshape(-1)
     points = flat.copy()
     n = len(points)
     meter.reserve('real_blocks', n)
     try:
-        out = encrypt(points, key, config.ROUNDS)
+        out = encrypt(points, key, rounds)
     except Stopped:
         raise
     except Exception:
@@ -124,7 +165,9 @@ def _cipher(pairs: Words, key: Key, encrypt: Encrypt, meter: Meter) -> Words:
     return out.reshape(-1, 2)
 
 
-def make_panels(meter: Meter, draw: Draw, encrypt: Encrypt, *, sample: Sample = _sample) -> Panels:
+def make_panels(meter: Meter, draw: Draw, encrypt: Encrypt, *, sample: Sample = _sample,
+                _card_recipe: _CardRecipe | None = None) -> Panels:
+    recipe = config if _card_recipe is None else _card_recipe
     meter.check()
     try:
         secret = draw(80)
@@ -141,7 +184,7 @@ def make_panels(meter: Meter, draw: Draw, encrypt: Encrypt, *, sample: Sample = 
 
     def generate(split: Split, rows: int) -> BatchPanel:
         meter.check()
-        seed = [config.DATA_SEED, _SPLIT_IDS[split]]
+        seed = [recipe.DATA_SEED, _SPLIT_IDS[split]]
         lrng, rng = (np.random.default_rng(np.random.SeedSequence([*seed, i])) for i in (0, 1))
         labels = (lrng.permutation(rows) < rows // 2).astype(np.uint8).reshape(rows, 1)
         words = np.empty((rows, 2), dtype=np.uint64)
@@ -150,16 +193,16 @@ def make_panels(meter: Meter, draw: Draw, encrypt: Encrypt, *, sample: Sample = 
         # enforce the public split invariant against malformed oracle output.
         key_rows = min(rows, _CHUNK_PAIRS) if split == 'test' else rows
         plain, c7 = np.empty(key_rows, _PAIR_KEY), np.empty(key_rows, _PAIR_KEY)
-        digest = sha256(f'{config.METHOD}/{split}/{rows}/N,2/<u8/MSB0/N,1/u8/'.encode('ascii'))
+        digest = sha256(f'{recipe.METHOD}/{split}/{rows}/N,2/<u8/MSB0/N,1/u8/'.encode('ascii'))
         digest.update(memoryview(labels))
         for start in range(0, rows, _CHUNK_PAIRS):
             meter.check()
             end = min(start + _CHUNK_PAIRS, rows)
             at = slice(0, end-start) if split == 'test' else slice(start, end)
-            pairs = _points(rng, end-start, labels[start:end], sample)
+            pairs = _points(rng, end-start, labels[start:end], sample, recipe.DIFFERENCE)
             _keys(pairs, plain[at])
             _require_disjoint(plain[at], earlier_plain)
-            result = _cipher(pairs, key, encrypt, meter)
+            result = _cipher(pairs, key, encrypt, meter, recipe.ROUNDS)
             _keys(result, c7[at])
             _require_disjoint(c7[at], earlier_c7)
             words[start:end] = result
@@ -172,14 +215,14 @@ def make_panels(meter: Meter, draw: Draw, encrypt: Encrypt, *, sample: Sample = 
                 earlier.append(keys)
         meter.check()
         words.flags.writeable = labels.flags.writeable = False
-        return BatchPanel(words, labels, digest.hexdigest())
+        return BatchPanel(words, labels, digest.hexdigest(), _card_recipe is not None)
 
-    return Panels(generate)
+    return Panels(generate, _card_recipe=_card_recipe)
 
 
-def production_panels(meter: Meter) -> Panels:
+def production_panels(meter: Meter, *, _card_recipe: _CardRecipe | None = None) -> Panels:
     from secrets import randbits
 
     from cipher_lab.ciphers.present_prefix import encrypt_prefixes
 
-    return make_panels(meter, randbits, encrypt_prefixes)
+    return make_panels(meter, randbits, encrypt_prefixes, _card_recipe=_card_recipe)

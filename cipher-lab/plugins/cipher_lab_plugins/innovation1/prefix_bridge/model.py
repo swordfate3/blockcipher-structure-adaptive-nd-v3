@@ -75,7 +75,7 @@ def build(seed: int) -> PrefixSharedM:
         return PrefixSharedM().float()
 
 
-def initial_sha256(model: PrefixSharedM) -> str:
+def initial_sha256(model: nn.Module) -> str:
     digest = sha256()
     for name, value in sorted(model.state_dict().items()):
         a = value.detach().cpu().numpy()

@@ -463,6 +463,81 @@
         "Public gate charges two official-vector blocks (scalar and prefix) and twelve same-vector path-consistency blocks (six reduced rounds with a fixed nonzero public key and point); the latter are not official known answers."
       ],
       "validation": "Source citations and KAT literal from the approved design/review; implementer checked equations statically and exercised validation/dispatch/accounting with artificial stubs only. No full cipher execution, real public-vector gate, production RSS, Windows or GPU verification by implementer."
+    },
+    {
+      "source_path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/present_neighborhood",
+      "source_commit": "ac7181115c131543592140a26b21c2e7b1964e2b",
+      "related_read_only_sources": [
+        {
+          "path": "cipher-lab/src/cipher_lab/present_public.py",
+          "sha256": "4599a76e5012582911a503b6127f8347204fae73fc014173c8cb2d4bba36652f",
+          "git_blob": "41f21e7d64f983ad57eb698fd54399a7d9b951e5",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/present_public.py",
+          "role": "byte-for-byte copy scoped to the card owner to preserve legacy source keysets"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/present_neighborhood/layout.py",
+          "sha256": "93cfdab879b7131be199413e6178701833570f41ee9765622d555022938546e4",
+          "git_blob": "bf316ec6aed4014232dbca57bc194c573c512df5",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/layout.py",
+          "role": "import-only adaptation to the owner-local public P-layer; all other bytes unchanged"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/present_neighborhood/model.py",
+          "sha256": "8fc69d6b0048e53acfd2196107d6cb690fe432cd2191d75043d5e041798dc40b",
+          "git_blob": "ecca63033c1b274608e8c49d8e52858e8e3c006f",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/model.py",
+          "role": "construction and protected fixed-route behavior adapted without the old recipe"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/present_neighborhood/config.py",
+          "sha256": "ef4e49d7b95057003c07647fd3971633fa9bbca2aee4ab2628bcb256277da20e",
+          "git_blob": "00fe142c28b83d741be3fd042d45916f15bfb9bd",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/config.py",
+          "role": "public route and gather contract only"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/four_single/models.py",
+          "sha256": "93a1bdd63eb0fcf5dc9e7675ee574e1e74e27c6563b18acbe6afebd3c3ab75ce",
+          "git_blob": "55c2a9c8e3cb8f7662bc687e252c18f727cff8cc",
+          "destination": "plugins/cipher_lab_plugins/innovation1/four_single/models.py",
+          "role": "protected _route and route_for wiring only; existing scoped constructor used directly"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/single_pair/models.py",
+          "sha256": "0f048cf1323c761aabe443e8b6dd61e3224c2321334573809f08ed4b34752213",
+          "git_blob": "0ca3873a4d77097845130f589eda3a2b521e44c5",
+          "destination": "plugins/cipher_lab_plugins/innovation1/single_pair/models.py",
+          "role": "protected route_for seam; resulting module byte-identical to reference"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/single_train/config.py",
+          "sha256": "95c3921e8978cbcb9166a1d99b008946f60098a6dc314c05052f2329e66ce697",
+          "git_blob": "bd9d6b22c5f34d4b069ac0d1375abc578063366e",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/config.py",
+          "role": "read-only cosine delegation reference"
+        },
+        {
+          "path": "cipher-lab/plugins/cipher_lab_plugins/innovation1/config.py",
+          "sha256": "0a706cccc0773d69830df6d151399034816fc3f0b8057dfd9eb3d27a620227b8",
+          "git_blob": "6676b20646a665fc875edb8aa82678cabf748917",
+          "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh/config.py",
+          "role": "existing isolated constructor settings and same cosine arithmetic order"
+        },
+        {
+          "path": "cipher-lab/configs/innovation1-present-card-30epoch.json",
+          "sha256": "41d610733d753b00acefce5246c0f6e24be2571f737fd9e1934cf952bed05cf9",
+          "git_blob": "8386180c6e7eafa39fdbca125913c2a57883c711",
+          "destination": "configs/innovation1-present-card-fresh-1m.json",
+          "role": "read-only model and optimizer reference; no archival recipe imported"
+        }
+      ],
+      "destination": "plugins/cipher_lab_plugins/innovation1/present_card_fresh",
+      "changes": [
+        "Use the public P-layer and exact verified 64×9 nibble table, original word stem, isolated init and fixed half-weight route. No old archive/config loader or historical weights.",
+        "Fresh pure C7 single-pair classification on existing bounded data/fit/Adam/strict checkpoint paths; the old recipe and old panel are not reused."
+      ],
+      "validation": "Byte/hash comparisons and guarded artificial tests only; no cipher, private entropy, numerical NN forward/backward, optimizer, GPU or actual RSS execution."
     }
   ]
 }
