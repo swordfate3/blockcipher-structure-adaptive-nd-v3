@@ -12,6 +12,7 @@ from cipher_lab.artifacts import RunStore
 from cipher_lab.execution import Meter
 from cipher_lab.training.early_stopping import Settings
 from cipher_lab_plugins.direct_block.fit import (
+    BatchPanel,
     Best,
     Engine,
     FitSettings,
@@ -79,10 +80,15 @@ def _require_auxiliary(arm: dict[str, object], rows: int, recipe: _PairedRecipe)
     raise ValueError('INVALID_AUXILIARY_TRAIN')
 
 
+# Return original and dual scores plus the labels in score-row order.
+_TestScorer = Callable[[Engine, BatchPanel, int, Meter], tuple[Score, Score, Labels]]
+
+
 def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         gate: Callable[[Meter], None], panels_for: Callable[[Meter], Panels],
         make: Callable[[str, dict[str, object], bool, int], _FitRuntime],
-        peaks: Callable[[], dict[str, int]], _recipe: _PairedRecipe | None = None) -> None:
+        peaks: Callable[[], dict[str, int]], _recipe: _PairedRecipe | None = None,
+        _test_scorer: _TestScorer | None = None) -> None:
     recipe = config if _recipe is None else _recipe
     if _recipe is not None:
         summary['method'] = _recipe.METHOD
@@ -128,7 +134,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
     settings = FitSettings(pure.EPOCHS, pure.BATCH_SIZE, pure.CHECKPOINT_BYTES,
                            early_stopping=Settings(pure.WARMUP, pure.PATIENCE, pure.MIN_DELTA))
     order = seeded_order(len(train), pure.ORDER_SEED)
-    initial: tuple[str, dict[str, str]] | None = None
+    initial: tuple[str, str, dict[str, str]] | None = None
     for slot in recipe.SLOTS:
         summary['active_slot'] = slot
         phase('FIT_START')
@@ -152,12 +158,14 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                 parameters = _recipe.PARAMETERS[slot]
                 arm.update(classifier_initial_sha256=classifier_sha, method=_recipe.METHOD,
                            objective=_recipe.OBJECTIVES[slot])
-            identity = (classifier_sha, dict(runtime.geometry))
+            same_full_model = _recipe is not None and _recipe.MAX_AUXILIARY_TARGETS == 0
+            identity_sha = full_sha if same_full_model else classifier_sha
+            identity = (identity_sha, classifier_sha, dict(runtime.geometry))
             if (runtime.parameters != parameters
                     or (initial is not None and identity != initial)):
                 raise ValueError('MODEL_INITIAL_IDENTITY')
             initial = identity
-            arm.update(initial_sha256=full_sha, geometry=identity[1], parameters=parameters)
+            arm.update(initial_sha256=full_sha, geometry=identity[2], parameters=parameters)
             chosen = fit(train, dev, runtime, order, slot, arm, summary, settings, meter, store,
                          phase=phase, batch_update=runtime.batch_update)
             n = arm.get('epochs_completed')
@@ -175,13 +183,14 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
             meter.check()
             finished = cast(float, meter.snapshot()['wall_elapsed_seconds'])
             arm['fit_elapsed_seconds'] = finished - started
-            if slot == _recipe.SLOTS[1]:
+            if _recipe.MAX_AUXILIARY_TARGETS and slot == _recipe.SLOTS[1]:
                 _require_auxiliary(arm, n * recipe.TRAIN_ROWS, _recipe)
 
     before = recipe.counts(tuple(epochs), test=False)
     diagnosed = recipe.counts(tuple(epochs), test=False, diagnostic=True)
     totals = recipe.counts(tuple(epochs))
     results: dict[str, Score] = {}
+    singles: dict[str, Score] = {}
     with ExitStack() as cleanup:
         restored: dict[str, _FitRuntime] = {}
         for slot in recipe.SLOTS:
@@ -233,6 +242,18 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
             phase('TEST_SCORE')
             assert_source(store)
             meter.check()
+            if _test_scorer is not None:
+                original, dual, labels = _test_scorer(engine, test, settings.batch_size, meter)
+                if labels.shape != y.shape or labels.dtype != y.dtype or (labels > 1).any():
+                    raise ValueError('INVALID_TEST_GROUPS')
+                if slot == recipe.SLOT:
+                    y[:] = labels
+                elif not np.array_equal(labels, y):
+                    raise ValueError('UNALIGNED_TEST_PAIRS')
+                if int(y.sum()) != len(y) // 2:
+                    raise ValueError('UNBALANCED_TEST')
+                singles[slot], results[slot] = original, dual
+                continue
             logits = np.empty(y.shape, dtype=np.float32)
             for at in batch_indices(len(test), settings.batch_size):
                 x, labels = test.batch(at)
@@ -254,4 +275,8 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
     terminal = {**summary, 'phase': 'COMPLETE', 'panel_hashes': final_hashes,
                 'test': _pair_scores(results), 'paired': {
                     recipe.CONTRAST: compare(results[recipe.SLOTS[1]], results[recipe.SLOT])}}
+    if singles:
+        terminal['test_single'] = _pair_scores(singles)
+        terminal['paired_dual_vs_single'] = {
+            slot: compare(results[slot], singles[slot]) for slot in recipe.SLOTS}
     store.finalize(dict(status='SUCCEEDED', counts=meter.snapshot(), summary=terminal))

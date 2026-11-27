@@ -1,0 +1,113 @@
+{
+  "method": "innovation1-present-card-dual-train-v1",
+  "model_reference": "ac7181115c131543592140a26b21c2e7b1964e2b",
+  "cipher": "PRESENT-80",
+  "rounds": [
+    7
+  ],
+  "slots": [
+    "swap-50",
+    "dual-train"
+  ],
+  "fits": 2,
+  "fresh": true,
+  "difference": 13631488,
+  "difference_at": "plaintext",
+  "unit": "pair",
+  "sampling": "balanced-per-split/positive-xor/negative-independent/both-encrypted",
+  "cross_split_pairs": "exact-disjoint-unordered-plaintext-and-C7/no-retry",
+  "train_rows": 500000,
+  "train_ciphertexts": 1000000,
+  "dev_rows": 32768,
+  "test_rows": 131072,
+  "label_columns": 1,
+  "secret_key_draw_bits": 80,
+  "secret_key_draws": 1,
+  "data_seed": 20261127,
+  "order_seed": 20261126,
+  "init_seed": 26111741,
+  "data_schedule": "SeedSequence([data_seed,split_id,stream])/train=0,dev=1,test=2/balanced-permutation=0,endpoints=1",
+  "order_schedule": "SeedSequence([order_seed,zero-based-epoch])",
+  "input": "C7-only/N,1,2,64/MSB0/internal-left-right-xor",
+  "readout": "single-pair/four-slot-reshape-only",
+  "parameters": {
+    "swap-50": 1087509,
+    "dual-train": 1087509
+  },
+  "nibble_sha256": "e3d8578406b90440c74f938c2cb110e12160b8a8342fae18ecb2a5dea0d4f4ae",
+  "word_geometry": "original",
+  "route": {
+    "nibble": 0.5,
+    "word": 0.5
+  },
+  "router_frozen": true,
+  "auxiliary": false,
+  "batch_size": 5000,
+  "steps_per_epoch": 100,
+  "dev_tail_rows": 2768,
+  "test_tail_rows": 1072,
+  "max_epochs": 30,
+  "min_epochs": 18,
+  "optimizer": "Adam",
+  "lr_max": 0.001,
+  "lr_min": 0.0001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "amsgrad": false,
+  "schedule": "per-arm-zero-based-fixed-cosine",
+  "schedule_steps": 3000,
+  "dtype": "FP32",
+  "probability_aggregation": "FP64-log-space/FP32-equivalent-logit",
+  "amp": false,
+  "tf32": false,
+  "selection": "dual-order-mean-probability-DEV-class-BCE/earliest-min",
+  "early_stop": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "test_admission": "single-panel-after-both-disk-restores-and-dev-diagnostics",
+  "gate": "PRESENT-80/official-zero-r31+public-nonzero-r7/scalar-batch",
+  "kat_real_blocks": 4,
+  "trajectories": 1327680,
+  "count_caps": {
+    "real_blocks": 1327684,
+    "null_words": 0,
+    "optimizer_updates": 6000,
+    "forward_rows": 49587520
+  },
+  "wall_seconds": 7200,
+  "cpu_seconds": 28800,
+  "rss_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "primary": "correct-pairs/TEST-pairs",
+  "reference_accuracy": 0.5,
+  "retry_count": 0,
+  "shared_panel": true,
+  "shared_initialization": true,
+  "shared_training_order": true,
+  "swap_seed": 20261128,
+  "train_swap_probability": {
+    "swap-50": 0.5,
+    "dual-train": null
+  },
+  "swap_schedule": "PCG64(SeedSequence([swap_seed,zero-based-update]))/per-row",
+  "dev_diagnostics": "both-restored-bests/original-and-swapped/unchanged-labels",
+  "test_order": "dual-order-mean-probability-primary/original-secondary",
+  "primary_contrast": [
+    "dual-train",
+    "swap-50"
+  ],
+  "objectives": {
+    "swap-50": "classification-bce",
+    "dual-train": "arithmetic-mean-probability-bce"
+  }
+}
