@@ -85,7 +85,7 @@ def encode_panel(batch: PairBatch, task: Task, recipe: FourSingleRecipe, source:
     replay = isinstance(recipe, ReplayRecipe)
     namespace = recipe.namespace
     if isinstance(recipe, InterleaveRecipe):
-        namespace = recipe.subset_recipe().archive_reader_recipe().namespace
+        namespace = recipe.archive_reader_recipe().namespace
         archive = asdict(recipe.archive) | {
             'record_ref': f'data/{recipe.archive.run_id}/run.json'}
         identity = dict(origin='reused', ref=f'dataset/test-{task.cipher}.npz',

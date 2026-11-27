@@ -14,10 +14,12 @@ from ..serial_bc.data import SerialPools
 from .interleave_config import (
     NIBBLE_BUFFERS,
     PRESENT_BUFFER,
+    FullStructureInterleaveRecipe,
     InterleaveRecipe,
     StructureInterleaveRecipe,
 )
 from .models import SinglePairM, build
+from .replay import ReplayPools
 from .runtime import Runtime
 from .structure_cards import verified_tables
 
@@ -68,5 +70,7 @@ class InterleaveRuntime(Runtime):
         return build(self.contract, InterleaveM)
 
 
-def assemble_pools(recipe: InterleaveRecipe, check: Callable[[], None]) -> SerialPools:
+def assemble_pools(recipe: InterleaveRecipe, check: Callable[[], None]) -> ReplayPools:
+    if isinstance(recipe, FullStructureInterleaveRecipe):
+        return ReplayPools(recipe.archive_reader_recipe(), check)
     return SerialPools(recipe.subset_recipe(), check, defer_activate=True)

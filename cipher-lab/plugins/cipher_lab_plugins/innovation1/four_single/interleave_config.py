@@ -15,7 +15,7 @@ from ..present_neighborhood.config import DEADLINE_ENV, PRESENT_CARD
 from ..present_neighborhood.config import GPU_UUID as GPU_UUID
 from ..present_neighborhood.layout import DEFAULT_SHA256, STRUCTURE_SHA256, verified_card
 from ..serial_bc.config import SERIAL_B, SerialRecipe, validate_root
-from .config import FOUR_SINGLE, SLOT, ReplayRecipe, estimate
+from .config import FOUR_SINGLE, NAMESPACE, SLOT, ReplayRecipe, estimate
 from .structure_cards import CARDS, COLUMN_SHA256, verified_tables
 
 METHOD = 'innovation1-four-task-card-1m-v1'
@@ -24,7 +24,10 @@ ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-01'
 STRUCTURE_METHOD = 'innovation1-four-task-card-1m-v2'
 STRUCTURE_ID = 'innovation1-four-task-card-1m-20261127-02'
 STRUCTURE_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-02'
-INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD})
+FULL_METHOD = 'innovation1-four-task-card-10m-v1'
+FULL_ID = 'innovation1-four-task-card-10m-20261127-01'
+FULL_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-10m-01'
+INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD, FULL_METHOD})
 PRESENT_BUFFER = 'present_structure'
 NIBBLE_BUFFERS = dict(SIMECK='shared.stems.nibble.indices', PRESENT=PRESENT_BUFFER,
                       SIMON='shared.stems.nibble.indices', SKINNY='skinny_column')
@@ -48,6 +51,9 @@ class InterleaveRecipe(ReplayRecipe):
         return replace(SERIAL_B, training=self.training, archive=self.archive,
                        skinny_source=self.skinny_source)
 
+    def archive_reader_recipe(self) -> ReplayRecipe:
+        return self.subset_recipe().archive_reader_recipe()
+
     def nibble_lookup(self, routes: dict[str, dict[str, float]]) -> dict[str, str | None]:
         return {t.cipher: NIBBLE_BUFFERS[t.cipher] if 'nibble' in routes[t.cipher] else None
                 for t in self.tasks}
@@ -55,7 +61,7 @@ class InterleaveRecipe(ReplayRecipe):
     def to_dict(self) -> dict[str, Any]:
         value = super().to_dict()
         data = self.subset_recipe().to_dict()['data']
-        original = self.subset_recipe().archive_reader_recipe()
+        original = self.archive_reader_recipe()
         data.update(subset_namespace=SERIAL_B.namespace, shuffle_namespace=SERIAL_B.namespace,
                     archive_namespace=original.namespace, test_namespace=original.namespace,
                     archive_train_rows=original.training.batches_per_epoch
@@ -89,16 +95,46 @@ class StructureInterleaveRecipe(InterleaveRecipe):
         return value
 
 
+@dataclass(frozen=True)
+class FullStructureInterleaveRecipe(StructureInterleaveRecipe):
+    method: str = FULL_METHOD
+    namespace: str = 'innovation1-four-task-card-10m-v1-20261127'
+    run_id: str = FULL_ID
+    training: Training = replace(FOUR_SINGLE.training, epochs=30)
+    resources: Resources = replace(FOUR_SINGLE.resources, wall_seconds=16 * 3600)
+
+    @property
+    def output_root(self) -> str:
+        return FULL_ROOT
+
+    def archive_reader_recipe(self) -> ReplayRecipe:
+        return replace(ReplayRecipe(), namespace=NAMESPACE, archive=self.archive,
+                       skinny_source=self.skinny_source, training=self.training)
+
+    def to_dict(self) -> dict[str, Any]:
+        value = super().to_dict()
+        data = value['data']
+        del data['subset_namespace']
+        data.update(protocol='reuse-original-90-10-full-v1', shuffle_namespace=NAMESPACE,
+                    skinny_shuffle_namespace=self.archive_reader_recipe().to_dict()['data'][
+                        'SKINNY']['shuffle_namespace'])
+        return value
+
+
 INTERLEAVE = InterleaveRecipe()
 STRUCTURE_INTERLEAVE = StructureInterleaveRecipe()
+FULL_INTERLEAVE = FullStructureInterleaveRecipe()
 
 
 def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
-    expected = STRUCTURE_INTERLEAVE if type(recipe) is StructureInterleaveRecipe else INTERLEAVE
+    if type(recipe) is FullStructureInterleaveRecipe:
+        expected: InterleaveRecipe = FULL_INTERLEAVE
+    else:
+        expected = STRUCTURE_INTERLEAVE if type(recipe) is StructureInterleaveRecipe else INTERLEAVE
     if (run_id != expected.run_id or type(recipe) is not type(expected) or recipe != expected
             or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')
-    if expected is STRUCTURE_INTERLEAVE:
+    if isinstance(expected, StructureInterleaveRecipe):
         verified_tables()
     else:
         verified_card(PRESENT_CARD.p_layer, PRESENT_CARD.gather_rule)
