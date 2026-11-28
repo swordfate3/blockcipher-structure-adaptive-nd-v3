@@ -19,6 +19,7 @@ param(
                  'innovation1-present-card-mask-positions.json',
                  'innovation1-present-card-swap.json',
                  'innovation1-present-card-swap-mask.json',
+                 'innovation1-present-card-per-pair-key.json',
                  'innovation1-present-card-dual-train.json',
                  'innovation1-present-card-p-layer-fusion.json')]
     [string]$ConfigName = 'direct-block-cube-sharedm-simon7.json',
@@ -46,6 +47,8 @@ $cardSwap = $ConfigName -ieq 'innovation1-present-card-swap.json'
 if ($cardSwap -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $cardSwapMask = $ConfigName -ieq 'innovation1-present-card-swap-mask.json'
 if ($cardSwapMask -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
+$cardPerPairKey = $ConfigName -ieq 'innovation1-present-card-per-pair-key.json'
+if ($cardPerPairKey -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $cardDualTrain = $ConfigName -ieq 'innovation1-present-card-dual-train.json'
 if ($cardDualTrain -and $PSBoundParameters.ContainsKey('SourceRoot')) { throw 'INVALID_SOURCE_ROOT' }
 $cardPLayerFusion = $ConfigName -ieq 'innovation1-present-card-p-layer-fusion.json'
@@ -115,6 +118,7 @@ if ($cardMask) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.
 if ($cardPositions) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_positions.cli' }
 if ($cardSwap) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_swap.cli' }
 if ($cardSwapMask) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_swap_mask.cli' }
+if ($cardPerPairKey) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_per_pair_key.cli' }
 if ($cardDualTrain) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_dual_train.cli' }
 if ($cardPLayerFusion) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.innovation1.present_card_p_layer_fusion.cli' }
 $deadline = [DateTime]::UtcNow.AddSeconds($wallSeconds).ToString(

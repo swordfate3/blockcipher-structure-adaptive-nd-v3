@@ -61,6 +61,7 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
         'innovation1-present-card-fresh-1m.json', 'innovation1-present-card-mask-1m.json',
         'innovation1-present-card-mask-positions.json', 'innovation1-present-card-swap.json',
         'innovation1-present-card-swap-mask.json', 'innovation1-present-card-dual-train.json',
+        'innovation1-present-card-per-pair-key.json',
         'innovation1-present-card-p-layer-fusion.json'}
     for path in Path('configs').glob('innovation1-*.json'):
         if path.name == 'innovation1-present-prefix2-bridge.json':
@@ -103,6 +104,12 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
             from cipher_lab_plugins.innovation1.present_card_dual_train.cli import main as dual
 
             assert dual(['check', '--config', str(path)]) == 0
+        elif path.name == 'innovation1-present-card-per-pair-key.json':
+            from cipher_lab_plugins.innovation1.present_card_per_pair_key.cli import (
+                main as per_pair,
+            )
+
+            assert per_pair(['check', '--config', str(path)]) == 0
         elif path.name == 'innovation1-present-card-p-layer-fusion.json':
             from cipher_lab_plugins.innovation1.present_card_p_layer_fusion.cli import (
                 main as fusion,

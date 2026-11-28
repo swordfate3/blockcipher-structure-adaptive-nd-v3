@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from contextlib import ExitStack
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 import numpy as np
 
@@ -32,8 +32,16 @@ from ..present_card_fresh import config as pure
 from . import config, diagnostics
 
 if TYPE_CHECKING:
-    from ..mask_aux_single.data import Panels
     from ..prefix_bridge.config import Counts
+
+
+class Panels(Protocol):
+    @property
+    def hashes(self) -> dict[str, str]: ...
+    def train(self, slot: str) -> BatchPanel: ...
+    def dev(self, slot: str) -> BatchPanel: ...
+    def test(self) -> None: ...
+    def view(self, split: Literal['test'], slot: str) -> BatchPanel: ...
 
 
 class _FitRuntime(Engine, Protocol):
@@ -88,7 +96,9 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         gate: Callable[[Meter], None], panels_for: Callable[[Meter], Panels],
         make: Callable[[str, dict[str, object], bool, int], _FitRuntime],
         peaks: Callable[[], dict[str, int]], _recipe: _PairedRecipe | None = None,
-        _test_scorer: _TestScorer | None = None) -> None:
+        _test_scorer: _TestScorer | None = None, separate_train: bool = False,
+        train_dev_hashes: frozenset[str] = frozenset({'train', 'dev'}),
+        gate_name: str = pure.KAT_NAME, gate_blocks: int = pure.KAT_BLOCKS) -> None:
     recipe = config if _recipe is None else _recipe
     if _recipe is not None:
         summary['method'] = _recipe.METHOD
@@ -115,25 +125,27 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
     _require_capacity(meter, recipe.CAPS)
     _counts(meter, real_blocks=0)
     gate(meter)
-    _counts(meter, real_blocks=pure.KAT_BLOCKS)
-    summary['kat'] = dict(status='PASSED', name=pure.KAT_NAME, real_blocks=pure.KAT_BLOCKS)
+    _counts(meter, real_blocks=gate_blocks)
+    summary['kat'] = dict(status='PASSED', name=gate_name, real_blocks=gate_blocks)
     snapshot()
 
     phase('TRAIN_DEV_DATA')
     assert_source(store)
     meter.check()
     panels = panels_for(meter)
-    train, dev = panels.train(recipe.SLOT), panels.dev(recipe.SLOT)
-    if (len(train), len(dev)) != (recipe.TRAIN_ROWS, recipe.DEV_ROWS):
+    dev = panels.dev(recipe.SLOT)
+    train_slots = recipe.SLOTS if separate_train else (recipe.SLOT,)
+    trains = {slot: panels.train(slot) for slot in train_slots}
+    if len(dev) != recipe.DEV_ROWS or any(len(p) != recipe.TRAIN_ROWS for p in trains.values()):
         raise ValueError('INVALID_PANEL_SIZE')
-    hashes = dict(_hashes(panels, {'train', 'dev'}))
+    hashes = dict(_hashes(panels, set(train_dev_hashes)))
     summary['panel_hashes'] = hashes
     _counts(meter, **recipe.counts((), test=False))
     snapshot()
 
     settings = FitSettings(pure.EPOCHS, pure.BATCH_SIZE, pure.CHECKPOINT_BYTES,
                            early_stopping=Settings(pure.WARMUP, pure.PATIENCE, pure.MIN_DELTA))
-    order = seeded_order(len(train), pure.ORDER_SEED)
+    order = seeded_order(recipe.TRAIN_ROWS, pure.ORDER_SEED)
     initial: tuple[str, str, dict[str, str]] | None = None
     for slot in recipe.SLOTS:
         summary['active_slot'] = slot
@@ -166,6 +178,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                 raise ValueError('MODEL_INITIAL_IDENTITY')
             initial = identity
             arm.update(initial_sha256=full_sha, geometry=identity[2], parameters=parameters)
+            train = trains[slot if separate_train else recipe.SLOT]
             chosen = fit(train, dev, runtime, order, slot, arm, summary, settings, meter, store,
                          phase=phase, batch_update=runtime.batch_update)
             n = arm.get('epochs_completed')
@@ -187,7 +200,8 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                 _require_auxiliary(arm, n * recipe.TRAIN_ROWS, _recipe)
 
     before = recipe.counts(tuple(epochs), test=False)
-    diagnosed = recipe.counts(tuple(epochs), test=False, diagnostic=True)
+    diagnosed = before if separate_train else recipe.counts(tuple(epochs), test=False,
+                                                           diagnostic=True)
     totals = recipe.counts(tuple(epochs))
     results: dict[str, Score] = {}
     singles: dict[str, Score] = {}
@@ -211,13 +225,15 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         dev_results: dict[str, object] = {}
         for slot, engine in restored.items():
             summary['active_slot'] = slot
-            phase('DEV_DIAGNOSTICS')
+            phase('BEST_ACTIVATE' if separate_train else 'DEV_DIAGNOSTICS')
             assert_source(store)
             meter.check()
             engine.activate()
-            dev_results[slot] = diagnostics.evaluate(engine, dev, settings.batch_size, meter)
+            if not separate_train:
+                dev_results[slot] = diagnostics.evaluate(engine, dev, settings.batch_size, meter)
         _counts(meter, **diagnosed)
-        summary['dev_diagnostics'] = dev_results
+        if not separate_train:
+            summary['dev_diagnostics'] = dev_results
         summary.pop('active_slot')
         snapshot()
 
@@ -228,7 +244,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         test = panels.view('test', recipe.SLOT)
         if len(test) != recipe.TEST_ROWS:
             raise ValueError('INVALID_PANEL_SIZE')
-        final_hashes = _hashes(panels, {'train', 'dev', 'test'})
+        final_hashes = _hashes(panels, {*train_dev_hashes, 'test'})
         if any(final_hashes[k] != value for k, value in hashes.items()):
             raise ValueError('PANEL_IDENTITY')
         _counts(meter, real_blocks=totals['real_blocks'],
