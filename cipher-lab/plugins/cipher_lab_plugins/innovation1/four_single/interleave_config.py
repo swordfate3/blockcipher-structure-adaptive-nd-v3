@@ -27,7 +27,10 @@ STRUCTURE_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-02'
 FULL_METHOD = 'innovation1-four-task-card-10m-v1'
 FULL_ID = 'innovation1-four-task-card-10m-20261127-01'
 FULL_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-10m-01'
-INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD, FULL_METHOD})
+NO_CARD_METHOD = 'innovation1-four-task-no-card-10m-v1'
+NO_CARD_ID = 'innovation1-four-task-no-card-10m-20261128-01'
+NO_CARD_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261128-four-task-no-card-10m-01'
+INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD, FULL_METHOD, NO_CARD_METHOD})
 PRESENT_BUFFER = 'present_structure'
 NIBBLE_BUFFERS = dict(SIMECK='shared.stems.nibble.indices', PRESENT=PRESENT_BUFFER,
                       SIMON='shared.stems.nibble.indices', SKINNY='skinny_column')
@@ -121,23 +124,57 @@ class FullStructureInterleaveRecipe(StructureInterleaveRecipe):
         return value
 
 
+@dataclass(frozen=True)
+class NoCardInterleaveRecipe(FullStructureInterleaveRecipe):
+    method: str = NO_CARD_METHOD
+    namespace: str = 'innovation1-four-task-no-card-10m-v1-20261128'
+    run_id: str = NO_CARD_ID
+
+    @property
+    def output_root(self) -> str:
+        return NO_CARD_ROOT
+
+    def nibble_lookup(self, routes: dict[str, dict[str, float]]) -> dict[str, str | None]:
+        return {task.cipher: NIBBLE_BUFFERS['SIMECK'] if 'nibble' in routes[task.cipher]
+                else None for task in self.tasks}
+
+    def to_dict(self) -> dict[str, Any]:
+        value = super().to_dict()
+        del value['structure_card']
+        value['model'].update(present_nibble='default-if-selected',
+                              skinny_nibble='default-if-selected')
+        value['routing'].update(mode='constant-no-card', constant=[.5] * 13)
+        value['geometry'].update(
+            nibble_buffers=dict.fromkeys(NIBBLE_BUFFERS, NIBBLE_BUFFERS['SIMECK']),
+            sha256={NIBBLE_BUFFERS['SIMECK']: DEFAULT_SHA256,
+                    'shared.stems.local.indices':
+                        '31dc94cc78168cbe158d6330a2c7d4b95af6a956637a75f6dba9e5e002dbadc3',
+                    'shared.stems.word.indices':
+                        '986953c34a7a4234a5cf7558d0f69e40a225ae46ffb21ff0a40ed7983d2c3e29'})
+        return value
+
+
 INTERLEAVE = InterleaveRecipe()
 STRUCTURE_INTERLEAVE = StructureInterleaveRecipe()
 FULL_INTERLEAVE = FullStructureInterleaveRecipe()
+NO_CARD_INTERLEAVE = NoCardInterleaveRecipe()
 
 
 def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
-    if type(recipe) is FullStructureInterleaveRecipe:
-        expected: InterleaveRecipe = FULL_INTERLEAVE
+    if type(recipe) is NoCardInterleaveRecipe:
+        expected: InterleaveRecipe = NO_CARD_INTERLEAVE
+    elif type(recipe) is FullStructureInterleaveRecipe:
+        expected = FULL_INTERLEAVE
     else:
         expected = STRUCTURE_INTERLEAVE if type(recipe) is StructureInterleaveRecipe else INTERLEAVE
     if (run_id != expected.run_id or type(recipe) is not type(expected) or recipe != expected
             or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')
-    if isinstance(expected, StructureInterleaveRecipe):
-        verified_tables()
-    else:
-        verified_card(PRESENT_CARD.p_layer, PRESENT_CARD.gather_rule)
+    if expected is not NO_CARD_INTERLEAVE:
+        if isinstance(expected, StructureInterleaveRecipe):
+            verified_tables()
+        else:
+            verified_card(PRESENT_CARD.p_layer, PRESENT_CARD.gather_rule)
     return expected
 
 

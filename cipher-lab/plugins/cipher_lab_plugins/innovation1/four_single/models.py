@@ -22,18 +22,21 @@ from ..single_pair.models import computation_slots, shared_logits
 from ..single_train.weights import decode_state
 from .config import PARAMETERS, SLOT, FourSingleRecipe
 
-FIXED_BUFFERS = frozenset({'skinny_column', *(f'shared.stems.{s}.indices' for s in STEM_NAMES)})
+DEFAULT_BUFFERS = frozenset(f'shared.stems.{s}.indices' for s in STEM_NAMES)
+FIXED_BUFFERS = DEFAULT_BUFFERS | {'skinny_column'}
 
 
 class SinglePairM(nn.Module):
     skinny_column: Tensor
+    use_skinny_column = True
 
     def __init__(self, shared: nn.Module, *, column_table: Tensor | None = None) -> None:
         super().__init__()
         self.shared = cast(SharedM, shared)
-        if column_table is None:
-            column_table = nibble_indices('column')
-        self.register_buffer('skinny_column', column_table)
+        if self.use_skinny_column:
+            if column_table is None:
+                column_table = nibble_indices('column')
+            self.register_buffer('skinny_column', column_table)
 
     def _column(self, raw: Tensor, channel: Tensor) -> Tensor:
         return self._gather(raw, channel, self.skinny_column)
@@ -47,7 +50,7 @@ class SinglePairM(nn.Module):
 
     def _nibble(self, public: Tensor) -> Callable[[Tensor, Tensor], Tensor] | None:
         skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
-        return self._column if skinny else None
+        return self._column if self.use_skinny_column and skinny else None
 
     def _route(self, public: Tensor) -> Route:
         return cast(Route, self.shared.router(public))
@@ -85,7 +88,8 @@ def build(recipe: FourSingleRecipe, cls: type[SinglePairM] = SinglePairM) -> Sin
 
 def _fixed_names(model: SinglePairM) -> frozenset[str]:
     extra: frozenset[str] = getattr(type(model), 'extra_fixed_buffers', frozenset())
-    return FIXED_BUFFERS | extra
+    use_column = getattr(type(model), 'use_skinny_column', True)
+    return (FIXED_BUFFERS if use_column else DEFAULT_BUFFERS) | extra
 
 
 def geometry(model: SinglePairM) -> dict[str, str]:

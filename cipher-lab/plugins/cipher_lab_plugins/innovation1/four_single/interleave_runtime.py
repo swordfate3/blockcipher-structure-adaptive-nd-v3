@@ -11,11 +11,13 @@ from cipher_lab.representations.tasks import public_features
 from ..present_neighborhood.config import PRESENT_CARD
 from ..present_neighborhood.layout import verified_card
 from ..serial_bc.data import SerialPools
+from ..serial_bc.models import NoCardM
 from .interleave_config import (
     NIBBLE_BUFFERS,
     PRESENT_BUFFER,
     FullStructureInterleaveRecipe,
     InterleaveRecipe,
+    NoCardInterleaveRecipe,
     StructureInterleaveRecipe,
 )
 from .models import SinglePairM, build
@@ -63,8 +65,14 @@ class StructureCardM(SinglePairM):
         return None
 
 
+class DefaultGeometryNoCardM(NoCardM):
+    use_skinny_column = False
+
+
 class InterleaveRuntime(Runtime):
     def _build(self) -> SinglePairM:
+        if isinstance(self.contract, NoCardInterleaveRecipe):
+            return build(self.contract, DefaultGeometryNoCardM)
         if isinstance(self.contract, StructureInterleaveRecipe):
             return build(self.contract, StructureCardM)
         return build(self.contract, InterleaveM)

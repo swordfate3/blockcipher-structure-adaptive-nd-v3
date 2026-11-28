@@ -8,7 +8,7 @@ from ..config import canonical
 from ..serial_bc.config import INDEPENDENT_METHOD, VOLUME_METHOD
 from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
-from .interleave_config import FULL_METHOD, INTERLEAVE_METHODS
+from .interleave_config import FULL_METHOD, INTERLEAVE_METHODS, NO_CARD_METHOD
 
 
 def _volume_text(saved: dict[str, Any]) -> str:
@@ -91,11 +91,14 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                        f'停训原因：{stop.get("reason", "未保存")}；'
                        f'停训轮：{stop.get("completed_epochs", "未保存")}。')
         if interleave:
-            pool = ('TRAIN 900 万对和 DEV 100 万对的全量池' if method == FULL_METHOD
+            pool = ('TRAIN 900 万对和 DEV 100 万对的全量池'
+                    if method in (FULL_METHOD, NO_CARD_METHOD)
                     else 'TRAIN 90 万对与 DEV 10 万对子集')
             flow = (f'复用每项历史 {pool} → 四密码按批轮换更新同一 M → '
                     '四项 DEV BCE 等权选模和早停 → 磁盘严格重载同一 M → 核验并评分四份旧 TEST。'
                     '结果来自已有 TEST，是一次探索性评估。实际取数表记录在各轮和重载路由中。')
+            if method == NO_CARD_METHOD:
+                flow = ('撤卡组统一使用常数路由输入和通用取数表。保留原公开输入表示。' + flow)
             progress = summary.get('progress', {})
             dev_epochs = progress.get('completed_dev_epochs', '未知')
             updates = saved['counts'].get('completed_optimizer_updates', '未知')
