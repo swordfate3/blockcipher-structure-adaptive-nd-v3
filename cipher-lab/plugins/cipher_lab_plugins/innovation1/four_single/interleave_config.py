@@ -162,15 +162,27 @@ class FeistelWordRecipe(FullStructureInterleaveRecipe):
         return value
 
 
+@dataclass(frozen=True)
+class FeistelWordRetryRecipe(FeistelWordRecipe):
+    run_id: str = 'innovation1-feistel-word-tables-10m-20261128-02'
+
+    @property
+    def output_root(self) -> str:
+        return WORD_ROOT.removesuffix('-01') + '-02'
+
+
 INTERLEAVE = InterleaveRecipe()
 STRUCTURE_INTERLEAVE = StructureInterleaveRecipe()
 FULL_INTERLEAVE = FullStructureInterleaveRecipe()
 WORD_INTERLEAVE = FeistelWordRecipe()
+WORD_RETRY = FeistelWordRetryRecipe()
 
 
 def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
-    if type(recipe) is FeistelWordRecipe:
-        expected: InterleaveRecipe = WORD_INTERLEAVE
+    if type(recipe) is FeistelWordRetryRecipe:
+        expected: InterleaveRecipe = WORD_RETRY
+    elif type(recipe) is FeistelWordRecipe:
+        expected = WORD_INTERLEAVE
     elif type(recipe) is FullStructureInterleaveRecipe:
         expected = FULL_INTERLEAVE
     else:
@@ -178,7 +190,7 @@ def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
     if (run_id != expected.run_id or type(recipe) is not type(expected) or recipe != expected
             or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')
-    if expected is WORD_INTERLEAVE:
+    if isinstance(expected, FeistelWordRecipe):
         verified_word_tables()
     if isinstance(expected, StructureInterleaveRecipe):
         verified_tables()

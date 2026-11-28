@@ -61,6 +61,7 @@ def test_strict_recipe_counts_and_original_lr(tmp_path: Path) -> None:
         'innovation1-present-card-30epoch.json', 'innovation1-four-task-card-1m.json',
         'innovation1-four-task-card-1m-v2.json', 'innovation1-four-task-card-10m.json',
         'innovation1-feistel-word-tables-10m.json',
+        'innovation1-feistel-word-tables-10m-retry.json',
         'innovation1-skinny-train-volume-small.json', 'innovation1-skinny-train-volume-large.json',
         *(f'innovation1-independent-{cipher}-{arm}-30epoch.json'
           for cipher in ('simeck', 'present', 'simon', 'skinny') for arm in ('b', 'c'))}

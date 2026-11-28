@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import traceback
 from collections.abc import Callable
 from hashlib import sha256
 from typing import Any
@@ -32,7 +33,7 @@ from .config import (
     official,
 )
 from .data import Pools, encode_panel
-from .interleave_config import FeistelWordRecipe, InterleaveRecipe
+from .interleave_config import FeistelWordRecipe, FeistelWordRetryRecipe, InterleaveRecipe
 from .replay import ReplayPools, TestSourceError
 from .runtime import Runtime
 
@@ -372,6 +373,12 @@ def execute(recipe: FourSingleRecipe, store: RunStore, res: Resources, *,
         status = 'STOPPED'
         summary['reason'] = 'INTERRUPTED' if isinstance(error, KeyboardInterrupt) else error.reason
     except Exception:
+        if isinstance(recipe, FeistelWordRetryRecipe):
+            # Diagnostics must not prevent the owner from sealing the failed run.
+            try:
+                traceback.print_exc()
+            except Exception:
+                pass
         summary['reason'] = 'EXECUTION_FAILED'
     if interleave:
         summary['counts_scope'] = 'PRE_OWNER_SEAL'

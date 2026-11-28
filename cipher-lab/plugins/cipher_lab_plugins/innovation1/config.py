@@ -230,6 +230,7 @@ def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
         INTERLEAVE,
         STRUCTURE_INTERLEAVE,
         WORD_INTERLEAVE,
+        WORD_RETRY,
     )
     from .four_single.interleave_config import official as official_interleave
     from .layout_probe.config import EARLY_STOP, FIXED_BCE, FIXED_MSE
@@ -251,9 +252,12 @@ def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
         exact: tuple[Recipe | LayoutRecipe | FourSingleRecipe, ...] = (
             Recipe(), EARLY_STOP, FIXED_MSE, FIXED_BCE, FOUR_SINGLE, FOUR_SINGLE_50,
             SERIAL_B, SERIAL_C, *INDEPENDENT_RECIPES, *VOLUME_RECIPES, CARD, NEIGHBORHOOD,
-            PRESENT_CARD, INTERLEAVE, STRUCTURE_INTERLEAVE, FULL_INTERLEAVE, WORD_INTERLEAVE)
+            PRESENT_CARD, INTERLEAVE, STRUCTURE_INTERLEAVE, FULL_INTERLEAVE, WORD_INTERLEAVE,
+            WORD_RETRY)
         for recipe in exact:
             if encoded == canonical(recipe.to_dict()):
+                if recipe is WORD_RETRY:
+                    return official_interleave(WORD_RETRY, WORD_RETRY.run_id)
                 if recipe is WORD_INTERLEAVE:
                     return official_interleave(WORD_INTERLEAVE, WORD_INTERLEAVE.run_id)
                 if recipe is FULL_INTERLEAVE:
