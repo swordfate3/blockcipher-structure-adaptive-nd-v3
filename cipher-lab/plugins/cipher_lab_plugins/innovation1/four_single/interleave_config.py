@@ -16,7 +16,15 @@ from ..present_neighborhood.config import GPU_UUID as GPU_UUID
 from ..present_neighborhood.layout import DEFAULT_SHA256, STRUCTURE_SHA256, verified_card
 from ..serial_bc.config import SERIAL_B, SerialRecipe, validate_root
 from .config import FOUR_SINGLE, NAMESPACE, SLOT, ReplayRecipe, estimate
-from .structure_cards import CARDS, COLUMN_SHA256, verified_tables
+from .structure_cards import (
+    CARDS,
+    COLUMN_SHA256,
+    WORD_HASHES,
+    WORD_ROTATIONS,
+    verified_tables,
+    verified_word_tables,
+    word_offsets,
+)
 
 METHOD = 'innovation1-four-task-card-1m-v1'
 RUN_ID = 'innovation1-four-task-card-1m-20261127-01'
@@ -27,7 +35,12 @@ STRUCTURE_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-1m-02'
 FULL_METHOD = 'innovation1-four-task-card-10m-v1'
 FULL_ID = 'innovation1-four-task-card-10m-20261127-01'
 FULL_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261127-four-task-card-10m-01'
-INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD, FULL_METHOD})
+WORD_METHOD = 'innovation1-feistel-word-tables-10m-v1'
+WORD_ID = 'innovation1-feistel-word-tables-10m-20261128-01'
+WORD_ROOT = r'G:\lxy\shared-m-cipher-nd-runs\20261128-feistel-word-tables-10m-01'
+INTERLEAVE_METHODS = frozenset({METHOD, STRUCTURE_METHOD, FULL_METHOD, WORD_METHOD})
+DEFAULT_WORD_BUFFER = 'shared.stems.word.indices'
+WORD_BUFFERS = {'SIMECK': 'simeck_word', 'SIMON': 'simon_word'}
 PRESENT_BUFFER = 'present_structure'
 NIBBLE_BUFFERS = dict(SIMECK='shared.stems.nibble.indices', PRESENT=PRESENT_BUFFER,
                       SIMON='shared.stems.nibble.indices', SKINNY='skinny_column')
@@ -121,19 +134,52 @@ class FullStructureInterleaveRecipe(StructureInterleaveRecipe):
         return value
 
 
+@dataclass(frozen=True)
+class FeistelWordRecipe(FullStructureInterleaveRecipe):
+    method: str = WORD_METHOD
+    namespace: str = 'innovation1-feistel-word-tables-10m-v1-20261128'
+    run_id: str = WORD_ID
+
+    @property
+    def output_root(self) -> str:
+        return WORD_ROOT
+
+    def word_lookup(self, routes: dict[str, dict[str, float]]) -> dict[str, str | None]:
+        return {t.cipher: WORD_BUFFERS.get(t.cipher, DEFAULT_WORD_BUFFER)
+                if 'word' in routes[t.cipher] else None for t in self.tasks}
+
+    def to_dict(self) -> dict[str, Any]:
+        value = super().to_dict()
+        value['model']['feistel_word'] = 'rotation-first-if-selected'
+        value['geometry']['word_buffers'] = {
+            t.cipher: WORD_BUFFERS.get(t.cipher, DEFAULT_WORD_BUFFER) for t in self.tasks}
+        for cipher, name in WORD_BUFFERS.items():
+            value['geometry']['sha256'][name] = WORD_HASHES[cipher]
+            value['structure_card'][cipher]['word'] = dict(
+                input_order='MSB0', word_bits=32, rotations=list(WORD_ROTATIONS[cipher]),
+                offsets=list(word_offsets(cipher)), center_slot=0, other_word_slot=8,
+                word_boundary='wrap')
+        return value
+
+
 INTERLEAVE = InterleaveRecipe()
 STRUCTURE_INTERLEAVE = StructureInterleaveRecipe()
 FULL_INTERLEAVE = FullStructureInterleaveRecipe()
+WORD_INTERLEAVE = FeistelWordRecipe()
 
 
 def official(recipe: InterleaveRecipe, run_id: str) -> InterleaveRecipe:
-    if type(recipe) is FullStructureInterleaveRecipe:
-        expected: InterleaveRecipe = FULL_INTERLEAVE
+    if type(recipe) is FeistelWordRecipe:
+        expected: InterleaveRecipe = WORD_INTERLEAVE
+    elif type(recipe) is FullStructureInterleaveRecipe:
+        expected = FULL_INTERLEAVE
     else:
         expected = STRUCTURE_INTERLEAVE if type(recipe) is StructureInterleaveRecipe else INTERLEAVE
     if (run_id != expected.run_id or type(recipe) is not type(expected) or recipe != expected
             or canonical(recipe.to_dict()) != canonical(expected.to_dict())):
         raise ValueError('CONFIG_EXACT')
+    if expected is WORD_INTERLEAVE:
+        verified_word_tables()
     if isinstance(expected, StructureInterleaveRecipe):
         verified_tables()
     else:

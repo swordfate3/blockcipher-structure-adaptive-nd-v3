@@ -225,7 +225,12 @@ def require_official(recipe: Recipe) -> None:
 
 def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
     from .four_single.config import FOUR_SINGLE, FOUR_SINGLE_50
-    from .four_single.interleave_config import FULL_INTERLEAVE, INTERLEAVE, STRUCTURE_INTERLEAVE
+    from .four_single.interleave_config import (
+        FULL_INTERLEAVE,
+        INTERLEAVE,
+        STRUCTURE_INTERLEAVE,
+        WORD_INTERLEAVE,
+    )
     from .four_single.interleave_config import official as official_interleave
     from .layout_probe.config import EARLY_STOP, FIXED_BCE, FIXED_MSE
     from .present_neighborhood.config import NEIGHBORHOOD, PRESENT_CARD
@@ -246,9 +251,11 @@ def load_config(path: str | Path) -> Recipe | LayoutRecipe | FourSingleRecipe:
         exact: tuple[Recipe | LayoutRecipe | FourSingleRecipe, ...] = (
             Recipe(), EARLY_STOP, FIXED_MSE, FIXED_BCE, FOUR_SINGLE, FOUR_SINGLE_50,
             SERIAL_B, SERIAL_C, *INDEPENDENT_RECIPES, *VOLUME_RECIPES, CARD, NEIGHBORHOOD,
-            PRESENT_CARD, INTERLEAVE, STRUCTURE_INTERLEAVE, FULL_INTERLEAVE)
+            PRESENT_CARD, INTERLEAVE, STRUCTURE_INTERLEAVE, FULL_INTERLEAVE, WORD_INTERLEAVE)
         for recipe in exact:
             if encoded == canonical(recipe.to_dict()):
+                if recipe is WORD_INTERLEAVE:
+                    return official_interleave(WORD_INTERLEAVE, WORD_INTERLEAVE.run_id)
                 if recipe is FULL_INTERLEAVE:
                     return official_interleave(FULL_INTERLEAVE, FULL_INTERLEAVE.run_id)
                 if recipe is STRUCTURE_INTERLEAVE:

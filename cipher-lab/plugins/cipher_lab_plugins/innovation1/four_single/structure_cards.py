@@ -52,6 +52,30 @@ CARDS: Mapping[str, StructureCard] = MappingProxyType({
 })
 
 
+WORD_ROTATIONS = MappingProxyType({'SIMECK': (0, 5, 1), 'SIMON': (1, 8, 2)})
+WORD_HASHES = MappingProxyType({
+    'SIMECK': '54854311695323325dbb161af7d859e1f476a7e834ffdfab1a60e9ead745d6c8',
+    'SIMON': '120aa72fac23a14c530dcc515971aa15b734aa7b2d65467ae7dfe0cdc1b445a3',
+})
+_WORD_FILL = (-8, -5, -2, -1, 0, 1, 2, 5)
+
+
+def word_offsets(cipher: str) -> tuple[int, ...]:
+    return tuple(dict.fromkeys((0, *WORD_ROTATIONS[cipher], *_WORD_FILL)))[:8]
+
+
+def verified_word_tables() -> dict[str, Table]:
+    tables = {}
+    for cipher, digest in WORD_HASHES.items():
+        offsets = word_offsets(cipher)
+        rows = tuple(tuple(32 * (i // 32) + (i + d) % 32 for d in offsets) + (i ^ 32,)
+                     for i in range(64))
+        if sha256(pack('<576q', *(j for row in rows for j in row))).hexdigest() != digest:
+            raise ValueError('STRUCTURE_CARD_WORD_TABLE')
+        tables[cipher] = rows
+    return tables
+
+
 def _compile(card: StructureCard) -> Table:
     rule = card.gather_rule
     # Require the exact values and types of this recipe's common gather rule.

@@ -17,13 +17,15 @@ def computation_slots(bits: Any) -> Any:
 
 def shared_logits(model: Any, slots: Any, public: Any, *, rounds: int,
                   nibble: Callable[[Any, Any], Any] | None = None,
-                  route_for: Callable[[Any], Any] | None = None) -> Any:
+                  route_for: Callable[[Any], Any] | None = None,
+                  word: Callable[[Any, Any], Any] | None = None) -> Any:
     represented = model.representation(slots, public, rounds=rounds)
     route = model.router(public) if route_for is None else route_for(public)
     # Restored modules and inputs are FP32. Stems and suffix use per-row GN.
     def stem(index: int) -> Any:
         name = STEM_NAMES[index]
-        operator = nibble if name == 'nibble' and nibble is not None else model.stems[name]
+        override = nibble if name == 'nibble' else word if name == 'word' else None
+        operator = model.stems[name] if override is None else override
         return operator(represented.canonical, represented.channel)
 
     a, b = (stem(index) for index in route.indices.tolist())

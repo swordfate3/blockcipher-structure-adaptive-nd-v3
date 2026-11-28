@@ -32,7 +32,7 @@ from .config import (
     official,
 )
 from .data import Pools, encode_panel
-from .interleave_config import InterleaveRecipe
+from .interleave_config import FeistelWordRecipe, InterleaveRecipe
 from .replay import ReplayPools, TestSourceError
 from .runtime import Runtime
 
@@ -80,6 +80,8 @@ def _fit(recipe: FourSingleRecipe, pools: Pools | ReplayPools, runtime: Runtime,
         observation: dict[str, Any] = {'routes': routes}
         if isinstance(recipe, InterleaveRecipe):
             observation['nibble_lookup'] = recipe.nibble_lookup(routes)
+        if isinstance(recipe, FeistelWordRecipe):
+            observation['word_lookup'] = recipe.word_lookup(routes)
         return observation
     tracker = (EarlyStopping((SLOT,), recipe.early_stopping, epoch_ceiling=tr.epochs)
                if isinstance(recipe, ReplayRecipe) else None)

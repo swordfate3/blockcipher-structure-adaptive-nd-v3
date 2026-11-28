@@ -8,7 +8,7 @@ from ..config import canonical
 from ..serial_bc.config import INDEPENDENT_METHOD, VOLUME_METHOD
 from ..serial_bc.config import METHOD as SERIAL_METHOD
 from .config import REPLAY_METHOD
-from .interleave_config import FULL_METHOD, INTERLEAVE_METHODS
+from .interleave_config import FULL_METHOD, INTERLEAVE_METHODS, WORD_METHOD
 
 
 def _volume_text(saved: dict[str, Any]) -> str:
@@ -91,7 +91,7 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                        f'停训原因：{stop.get("reason", "未保存")}；'
                        f'停训轮：{stop.get("completed_epochs", "未保存")}。')
         if interleave:
-            pool = ('TRAIN 900 万对和 DEV 100 万对的全量池' if method == FULL_METHOD
+            pool = ('TRAIN 900 万对和 DEV 100 万对的全量池' if method in (FULL_METHOD, WORD_METHOD)
                     else 'TRAIN 90 万对与 DEV 10 万对子集')
             flow = (f'复用每项历史 {pool} → 四密码按批轮换更新同一 M → '
                     '四项 DEV BCE 等权选模和早停 → 磁盘严格重载同一 M → 核验并评分四份旧 TEST。'
@@ -112,6 +112,9 @@ def render(saved: dict[str, Any]) -> dict[str, bytes]:
                 if interleave:
                     lookup = summary['persisted_reload'].get('nibble_lookup', {}).get(name)
                     entries += f'（小块表 {lookup}）' if lookup else '（未选小块）'
+                if method == WORD_METHOD:
+                    word = summary['persisted_reload'].get('word_lookup', {}).get(name)
+                    entries += f'（字表 {word}）' if word else '（未选字）'
                 route_table += f'|{name}|{entries}|\n'
             route_table += '\n'
     if method == SERIAL_METHOD or independent:

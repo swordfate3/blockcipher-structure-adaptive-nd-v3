@@ -38,9 +38,10 @@ class SinglePairM(nn.Module):
     def _column(self, raw: Tensor, channel: Tensor) -> Tensor:
         return self._gather(raw, channel, self.skinny_column)
 
-    def _gather(self, raw: Tensor, channel: Tensor, table: Tensor) -> Tensor:
+    def _gather(self, raw: Tensor, channel: Tensor, table: Tensor, *,
+                stem_name: str = 'nibble') -> Tensor:
         # Use the shared stem with a task's fixed indices without rewriting the stem buffer.
-        stem = cast(GeometryStem, self.shared.stems['nibble'])
+        stem = cast(GeometryStem, self.shared.stems[stem_name])
         base = stem.network[0](gather_neighborhood(raw, table))
         added = stem.relation_projection(gather_relation(channel, table))
         return cast(Tensor, stem.network[1:](base + added)).reshape(-1, 4, stem.channels, 64)
@@ -48,6 +49,9 @@ class SinglePairM(nn.Module):
     def _nibble(self, public: Tensor) -> Callable[[Tensor, Tensor], Tensor] | None:
         skinny = torch.equal(public, public.new_tensor(public_features('SKINNY')))
         return self._column if skinny else None
+
+    def _word(self, public: Tensor) -> Callable[[Tensor, Tensor], Tensor] | None:
+        return None
 
     def _route(self, public: Tensor) -> Route:
         return cast(Route, self.shared.router(public))
@@ -60,9 +64,11 @@ class SinglePairM(nn.Module):
                 or weight.dtype != torch.float32):
             raise ValueError('MODEL_FP32_DEVICE')
         validate_public(public)
+        word = self._word(public)
+        overrides = {} if word is None else {'word': word}
         logits = cast(Tensor, shared_logits(self.shared, slots, public, rounds=rounds,
                                            nibble=self._nibble(public),
-                                           route_for=self._route))
+                                           route_for=self._route, **overrides))
         if logits.shape != (bits.shape[0], 1) or not bool(torch.isfinite(logits).all()):
             raise ValueError('SINGLE_PAIR_LOGITS')
         return logits
