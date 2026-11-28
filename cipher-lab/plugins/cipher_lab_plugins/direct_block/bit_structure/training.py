@@ -1,7 +1,7 @@
 """Six fits and one all-or-nothing final TEST record."""
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from time import perf_counter
 from typing import Protocol, cast
 
@@ -30,11 +30,13 @@ class PanelSource(Protocol):
     def label(self, repeat: int, split: str, /) -> NDArray[np.uint8]: ...
 
 
-def _check_counts(meter: Meter, *, epochs: Sequence[int], testing: bool) -> None:
+def _check_counts(meter: Meter, initial: Mapping[str, object], *,
+                  epochs: Sequence[int], testing: bool) -> None:
     expected = config.counts(epochs, test=testing)
+    expected['real_blocks'] -= config.KAT_BLOCKS
     counts = meter.snapshot()
-    if any(counts[f'{status}_{key}'] != value for key, value in expected.items()
-           for status in ('attempted', 'completed')):
+    if any(counts[f'{status}_{key}'] != cast(int, initial[f'{status}_{key}']) + cast(int, value)
+           for key, value in expected.items() for status in ('attempted', 'completed')):
         raise ValueError('experiment accounting mismatch')
 
 
@@ -42,6 +44,38 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         gate: Callable[[Meter], None], make_panels: Callable[[Meter], PanelSource],
         make: Callable[[str, dict[str, object], int], Engine],
         peaks: Callable[[], dict[str, int]] | None = None) -> None:
+    summary['phase'] = 'KAT'
+    assert_source(store)
+    gate(meter)
+    gate_counts = meter.snapshot()
+    if any(gate_counts[f'{status}_real_blocks'] != config.KAT_BLOCKS
+           for status in ('attempted', 'completed')):
+        raise ValueError('invalid public check block count')
+    summary['public_kat'] = 'PASSED'
+    store.write_snapshot({'counts': gate_counts, 'summary': summary})
+    summary['phase'] = 'PANELS'
+    panels = make_panels(meter)
+    initial = meter.snapshot()
+    if any(initial[f'{status}_{key}'] != (config.KAT_BLOCKS if key == 'real_blocks' else 0)
+           for status in ('attempted', 'completed') for key in config.CAPS):
+        raise ValueError('experiment accounting mismatch')
+    result = run_round(meter, store, summary, panels=panels, make=make)
+    if peaks is not None:
+        summary['gpu_peaks'] = peaks()
+    assert_source(store)
+    meter.check()
+    finished = {**summary, **result, 'phase': 'COMPLETE'}
+    store.finalize({'status': 'SUCCEEDED', 'counts': meter.snapshot(), 'summary': finished})
+    summary.update(finished)
+
+
+def run_round(meter: Meter, store: RunStore, summary: dict[str, object], *,
+              panels: PanelSource, make: Callable[[str, dict[str, object], int], Engine],
+              prefix: str = '', parameters: Mapping[str, int] | None = None) -> dict[str, object]:
+    """Fit and score one round, using the caller's meter and progress summary."""
+    initial_counts = meter.snapshot()
+    expected_params = config.PARAMS if parameters is None else parameters
+
     def phase(name: str) -> None:
         summary['phase'] = name
 
@@ -54,17 +88,6 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         labels = panels.label(repeat, split)
         return data.Panel(points, labels), labels, data.panel_digest(points, labels)
 
-    phase('KAT')
-    assert_source(store)
-    gate(meter)
-    gate_counts = meter.snapshot()
-    if any(gate_counts[f'{status}_real_blocks'] != config.KAT_BLOCKS
-           for status in ('attempted', 'completed')):
-        raise ValueError('invalid public check block count')
-    summary['public_kat'] = 'PASSED'
-    store.write_snapshot({'counts': gate_counts, 'summary': summary})
-    phase('PANELS')
-    panels = make_panels(meter)
     stopping = Settings(config.WARMUP, config.PATIENCE, config.MIN_DELTA)
     settings = FitSettings(config.EPOCHS, config.BATCH, config.CHECKPOINT_BYTES,
                            early_stopping=stopping)
@@ -89,14 +112,14 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         for name in config.ARMS:
             phase('MODEL')
             meter.check()
-            slot = f'{panel_id}-{name}'
+            slot = f'{prefix}{panel_id}-{name}'
             summary['active_slot'] = slot
             arm: dict[str, object] = {'init_seed': seed}
             arms[slot] = arm
             engine = make(slot, arm, seed)
             initial = arm.get('initial_sha256')
-            correct_initial = arms.get(f'{panel_id}-correct', {}).get('initial_sha256')
-            if (arm.get('parameters') != config.PARAMS[name] or not isinstance(initial, str)
+            correct_initial = arms.get(f'{prefix}{panel_id}-correct', {}).get('initial_sha256')
+            if (arm.get('parameters') != expected_params[name] or not isinstance(initial, str)
                     or len(initial) != 64 or any(c not in '0123456789abcdef' for c in initial)
                     or (name == 'shuffled' and initial != correct_initial)
                     or any(engine is other for other, _ in pending.values())):
@@ -111,9 +134,9 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
                 raise ValueError('incomplete fit')
             pending[slot] = engine, best
             epochs.append(completed)
-    if tuple(pending) != config.SLOTS:
+    if tuple(pending) != tuple(prefix + slot for slot in config.SLOTS):
         raise ValueError('unexpected checkpoint slots')
-    _check_counts(meter, epochs=epochs, testing=False)
+    _check_counts(meter, initial_counts, epochs=epochs, testing=False)
     for slot, (engine, best) in pending.items():
         summary['active_slot'] = slot
         reload_best(engine, best, arms[slot], summary, settings.checkpoint_bytes, meter, store,
@@ -130,7 +153,7 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         scores = {}
         vectors = {}
         for name in config.ARMS:
-            engine, _ = pending[f'{panel_id}-{name}']
+            engine, _ = pending[f'{prefix}{panel_id}-{name}']
             logits = np.concatenate([predict_batch(engine, *test.batch(at), meter)
                                      for at in batch_indices(len(test), config.BATCH)])
             scores[name], vectors[name] = metrics.score(logits, labels)
@@ -145,15 +168,12 @@ def run(meter: Meter, store: RunStore, summary: dict[str, object], *,
         advances.append(all(cast(float, result['bce']) < 0 for result in comparisons.values())
                         and correct_bce < cast(float, baseline['bce']))
         tests[panel_id] = {'arms': scores, 'constant': baseline, 'comparisons': comparisons}
-    if peaks is not None:
-        summary['gpu_peaks'] = peaks()
     assert_source(store)
     meter.check()
-    _check_counts(meter, epochs=epochs, testing=True)
+    _check_counts(meter, initial_counts, epochs=epochs, testing=True)
     for panel_id, digest in test_hashes.items():
         hashes[panel_id]['test'] = digest
-    finished = {**summary, 'phase': 'COMPLETE', 'test': tests,
-                'confirmation_candidate': all(advances), 'epochs_completed': sum(epochs),
-                'dev_evaluations': sum(epochs), 'train_presentations': sum(epochs) * config.TRAIN}
-    store.finalize({'status': 'SUCCEEDED', 'counts': meter.snapshot(), 'summary': finished})
-    summary.update(finished)
+    total_epochs = sum(epochs)
+    return {'arms': arms, 'panel_hashes': hashes, 'test': tests,
+            'confirmation_candidate': all(advances), 'epochs_completed': total_epochs,
+            'dev_evaluations': total_epochs, 'train_presentations': total_epochs * config.TRAIN}

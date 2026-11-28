@@ -1,0 +1,187 @@
+{
+  "method": "direct-block-simon32-bit-frontier-v1",
+  "cipher": "SIMON32/64",
+  "rounds": [
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "plaintext_bits": 32,
+  "target_column_msb0": 0,
+  "label": "absolute-cipher-bit",
+  "slots": [
+    "c4-r1-mlp",
+    "c4-r1-correct",
+    "c4-r1-shuffled",
+    "c4-r2-mlp",
+    "c4-r2-correct",
+    "c4-r2-shuffled",
+    "c5-r1-mlp",
+    "c5-r1-correct",
+    "c5-r1-shuffled",
+    "c5-r2-mlp",
+    "c5-r2-correct",
+    "c5-r2-shuffled",
+    "c6-r1-mlp",
+    "c6-r1-correct",
+    "c6-r1-shuffled",
+    "c6-r2-mlp",
+    "c6-r2-correct",
+    "c6-r2-shuffled",
+    "c7-r1-mlp",
+    "c7-r1-correct",
+    "c7-r1-shuffled",
+    "c7-r2-mlp",
+    "c7-r2-correct",
+    "c7-r2-shuffled",
+    "c8-r1-mlp",
+    "c8-r1-correct",
+    "c8-r1-shuffled",
+    "c8-r2-mlp",
+    "c8-r2-correct",
+    "c8-r2-shuffled"
+  ],
+  "fits": 30,
+  "repeats": 2,
+  "params": {
+    "4": {
+      "correct": 28528,
+      "shuffled": 28528,
+      "mlp": 28535
+    },
+    "5": {
+      "correct": 35965,
+      "shuffled": 35965,
+      "mlp": 35945
+    },
+    "6": {
+      "correct": 43476,
+      "shuffled": 43476,
+      "mlp": 43485
+    },
+    "7": {
+      "correct": 50987,
+      "shuffled": 50987,
+      "mlp": 51025
+    },
+    "8": {
+      "correct": 58498,
+      "shuffled": 58498,
+      "mlp": 58435
+    }
+  },
+  "train_rows": 65536,
+  "dev_rows": 8192,
+  "test_rows": 32768,
+  "batch_size": 256,
+  "plaintext_sampling": "unique-uint32/paired-train-dev-across-rounds/fresh-test-per-round",
+  "data_seed": 20261128,
+  "init_seeds": [
+    71,
+    73
+  ],
+  "order_seed": 20261129,
+  "epoch_order": "SeedSequence([order_seed,zero-based-repeat,zero-based-epoch])",
+  "key_policy": "two-distinct-synthetic-keys/reused-across-rounds/data-only",
+  "shared_panel_within_repeat": true,
+  "structured_initialization_shared": true,
+  "dense_layers": [
+    [
+      32,
+      128,
+      187,
+      1
+    ],
+    [
+      32,
+      128,
+      244,
+      1
+    ],
+    [
+      32,
+      128,
+      302,
+      1
+    ],
+    [
+      32,
+      128,
+      360,
+      1
+    ],
+    [
+      32,
+      128,
+      417,
+      1
+    ]
+  ],
+  "node_width": 37,
+  "node_counts": [
+    20,
+    34,
+    50,
+    66,
+    82
+  ],
+  "support_count": [
+    24,
+    30,
+    32,
+    32,
+    32
+  ],
+  "shuffled_leaf_sha256": null,
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "dtype": "FP32",
+  "tf32": false,
+  "amp": false,
+  "max_epochs": 30,
+  "min_epochs": 18,
+  "early_stop": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "selection": "single-bit-DEV-BCE/earliest-min",
+  "test_admission": "per-round-after-all-six-strict-disk-restores",
+  "primary_contrast": [
+    "correct",
+    "shuffled"
+  ],
+  "primary_metric": "TEST BCE",
+  "constant_baseline": "TRAIN Jeffreys probability and majority/tie-zero",
+  "kat_real_blocks": 2,
+  "count_caps": {
+    "real_blocks": 1064962,
+    "null_words": 0,
+    "optimizer_updates": 230400,
+    "forward_rows": 67338240
+  },
+  "wall_seconds": 7200,
+  "cpu_seconds": 28800,
+  "rss_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "retry_count": 0,
+  "shuffle": "within-word-leaf-rotation/round-specific-sha256-order",
+  "stop": {
+    "accuracy_min": 0.49,
+    "accuracy_max": 0.51,
+    "max_constant_bce_improvement": 0.005,
+    "requires_both_panels": true
+  }
+}

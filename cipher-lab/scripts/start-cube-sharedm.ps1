@@ -11,6 +11,7 @@ param(
                  'direct-block-lstm-direct64-r1r3.json',
                  'direct-block-simon32-split8.json',
                  'direct-block-simon32-bit-structure.json',
+                 'direct-block-simon32-bit-frontier.json',
                  'innovation1-present-prefix2-bridge.json',
                  'innovation1-present-s2-window.json',
                  'innovation1-present-mask-aux.json',
@@ -35,6 +36,7 @@ $python = 'C:\Python313\python.exe'
 $config = Join-Path (Join-Path $lab 'configs') $ConfigName
 $split8 = $ConfigName -ieq 'direct-block-simon32-split8.json'
 $bitStructure = $ConfigName -ieq 'direct-block-simon32-bit-structure.json'
+$bitFrontier = $ConfigName -ieq 'direct-block-simon32-bit-frontier.json'
 $prefixBridge = $ConfigName -ieq 'innovation1-present-prefix2-bridge.json'
 $s2Window = $ConfigName -ieq 'innovation1-present-s2-window.json'
 $maskAux = $ConfigName -ieq 'innovation1-present-mask-aux.json'
@@ -111,6 +113,7 @@ $plugin = 'cipher_lab_plugins.direct_block.cube_compare.cli'
 if ($split8) { $wallSeconds = 10800 }
 if ($split8) { $plugin = 'cipher_lab_plugins.direct_block.split8.cli' }
 if ($bitStructure) { $wallSeconds = 5400; $plugin = 'cipher_lab_plugins.direct_block.bit_structure.cli' }
+if ($bitFrontier) { $wallSeconds = 7200; $plugin = 'cipher_lab_plugins.direct_block.bit_frontier.cli' }
 if ($prefixBridge) { $wallSeconds = 14400 }
 if ($prefixBridge) { $plugin = 'cipher_lab_plugins.innovation1.prefix_bridge.cli' }
 if ($s2Window) { $wallSeconds = 3600; $plugin = 'cipher_lab_plugins.innovation1.s2_window.cli' }
