@@ -1,0 +1,102 @@
+{
+  "method": "direct-block-simon32-full32-frontier-v1",
+  "cipher": "SIMON32/64",
+  "rounds": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "slots": [
+    "c3-r1-correct",
+    "c3-r1-shuffled",
+    "c3-r2-correct",
+    "c3-r2-shuffled",
+    "c4-r1-correct",
+    "c4-r1-shuffled",
+    "c4-r2-correct",
+    "c4-r2-shuffled",
+    "c5-r1-correct",
+    "c5-r1-shuffled",
+    "c5-r2-correct",
+    "c5-r2-shuffled",
+    "c6-r1-correct",
+    "c6-r1-shuffled",
+    "c6-r2-correct",
+    "c6-r2-shuffled"
+  ],
+  "arms": [
+    "correct",
+    "shuffled"
+  ],
+  "repeats": 2,
+  "fits": 16,
+  "plaintext_bits": 32,
+  "output_bits": 32,
+  "label": "full-absolute-ciphertext/MSB0",
+  "node_width": 37,
+  "parameters": {
+    "3": 22645,
+    "4": 30156,
+    "5": 37667,
+    "6": 45178
+  },
+  "shuffle": "simon32-full32-frontier-shuffle-v1/within-word-digest-order-next",
+  "train_rows": 65536,
+  "dev_rows": 8192,
+  "test_rows": 65536,
+  "batch_size": 256,
+  "order_seed": 20261129,
+  "init_seeds": [
+    71,
+    73
+  ],
+  "epoch_order": "SeedSequence([order_seed,zero-based-repeat,zero-based-epoch])",
+  "plaintext_sampling": "OS-entropy/uniform-without-replacement/unique-uint32/shared-train-dev-across-rounds/fresh-test-per-round",
+  "key_policy": "two-distinct-synthetic-keys/reused-across-rounds/data-only",
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "dtype": "FP32",
+  "tf32": false,
+  "amp": false,
+  "epochs": 30,
+  "selection": "full-32-bit-DEV-BCE/earliest-min",
+  "test_admission": "per-round-after-all-four-strict-disk-restores",
+  "primary_metric": "correct-bits/(32*TEST-rows)",
+  "ci": {
+    "method": "Hoeffding-Bonferroni",
+    "alpha": 0.05,
+    "family": 16,
+    "radius": 0.00702118864356449,
+    "unit": "plaintext"
+  },
+  "stop": {
+    "positive_control_correct_lower_gt": 0.51,
+    "accuracy_lo": 0.49,
+    "accuracy_hi": 0.51,
+    "minimum_stop_round": 4,
+    "requires_both_arms_and_panels": true
+  },
+  "kat_real_blocks": 2,
+  "count_caps": {
+    "real_blocks": 1114114,
+    "null_words": 0,
+    "optimizer_updates": 122880,
+    "forward_rows": 36438016
+  },
+  "wall_seconds": 7200,
+  "cpu_seconds": 28800,
+  "rss_bytes": 8589934592,
+  "output_bytes": 536870912,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "retry_count": 0
+}
