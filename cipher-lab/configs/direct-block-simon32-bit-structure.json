@@ -1,0 +1,94 @@
+{
+  "method": "direct-block-simon32-bit-structure-v1",
+  "cipher": "SIMON32/64",
+  "rounds": 3,
+  "plaintext_bits": 32,
+  "target_column_msb0": 0,
+  "label": "absolute-cipher-bit",
+  "slots": [
+    "r1-mlp",
+    "r1-correct",
+    "r1-shuffled",
+    "r2-mlp",
+    "r2-correct",
+    "r2-shuffled"
+  ],
+  "fits": 6,
+  "repeats": 2,
+  "params": {
+    "mlp": 21255,
+    "correct": 21239,
+    "shuffled": 21239
+  },
+  "train_rows": 65536,
+  "dev_rows": 8192,
+  "test_rows": 32768,
+  "batch_size": 256,
+  "plaintext_sampling": "unique-uint32-without-replacement/across-all-six-splits",
+  "data_seed": 20261128,
+  "init_seeds": [
+    71,
+    73
+  ],
+  "order_seed": 20261129,
+  "epoch_order": "SeedSequence([order_seed,zero-based-repeat,zero-based-epoch])",
+  "key_policy": "one-distinct-synthetic-key-per-repeat/data-only",
+  "shared_panel_within_repeat": true,
+  "structured_initialization_shared": true,
+  "dense_layers": [
+    32,
+    128,
+    131,
+    1
+  ],
+  "node_width": 37,
+  "node_counts": [
+    6,
+    3,
+    1
+  ],
+  "support_count": 16,
+  "shuffled_leaf_sha256": "db685b4b3dbafcbcf33b92ed6a7a1840d692afbfd2456c0cb74381856e10b3eb",
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "betas": [
+    0.9,
+    0.999
+  ],
+  "eps": 1e-08,
+  "clip": 1.0,
+  "weight_decay": 0.0,
+  "dtype": "FP32",
+  "tf32": false,
+  "amp": false,
+  "max_epochs": 30,
+  "min_epochs": 18,
+  "early_stop": {
+    "warmup_epochs": 10,
+    "patience": 8,
+    "min_delta": 1e-05
+  },
+  "selection": "single-bit-DEV-BCE/earliest-min",
+  "test_admission": "after-all-six-strict-disk-restores",
+  "primary_contrast": [
+    "correct",
+    "shuffled"
+  ],
+  "primary_metric": "TEST BCE",
+  "constant_baseline": "TRAIN Jeffreys probability and majority/tie-zero",
+  "kat_real_blocks": 2,
+  "count_caps": {
+    "real_blocks": 212994,
+    "null_words": 0,
+    "optimizer_updates": 46080,
+    "forward_rows": 13467648
+  },
+  "wall_seconds": 5400,
+  "cpu_seconds": 21600,
+  "rss_bytes": 8589934592,
+  "output_bytes": 268435456,
+  "checkpoint_bytes": 16777216,
+  "gpu_device": "cuda:0",
+  "gpu_uuid": "GPU-f80e8056-5b1a-a0c7-9b34-fb86b20206d5",
+  "retry_count": 0
+}
